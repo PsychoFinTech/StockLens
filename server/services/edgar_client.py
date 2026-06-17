@@ -3,20 +3,22 @@ import io
 import json
 import math
 import difflib
+import os
+import time
+import urllib.request
+import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 
 # Force stdout/stderr to UTF-8 to handle characters gracefully on Windows
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-# Set identity as required by SEC EDGAR APIs
-from edgar import *
-import pandas as pd
-import numpy as np
-
-set_identity("Stocklens Research Agent stocklens-admin@gmail.com")
+USER_AGENT = "Stocklens Research Agent stocklens-admin@gmail.com"
 
 def clean_val(v):
     """Clean pandas/numpy types for proper JSON serialization."""
+    import pandas as pd
+    import numpy as np
     if pd.isna(v):
         return None
     if hasattr(v, 'strftime'):
@@ -34,126 +36,341 @@ def clean_val(v):
             pass
     return v
 
-def handle_financials(symbol):
-    company = Company(symbol)
-    financials = company.get_financials()
+def get_cik(symbol):
+    symbol = symbol.upper()
+    cache_file = os.path.join(os.path.dirname(__file__), "ticker_to_cik.json")
     
-    statements = {
-        "income_statement": financials.income_statement(),
-        "balance_sheet": financials.balance_sheet(),
-        "cashflow_statement": financials.cashflow_statement()
-    }
+    # Try reading from cache first
+    ticker_map = {}
+    if os.path.exists(cache_file):
+        try:
+            if time.time() - os.path.getmtime(cache_file) < 86400:
+                with open(cache_file, "r", encoding="utf-8") as f:
+                    ticker_map = json.load(f)
+        except Exception:
+            pass
+            
+    if not ticker_map:
+        try:
+            req = urllib.request.Request(
+                "https://www.sec.gov/files/company_tickers.json",
+                headers={"User-Agent": USER_AGENT}
+            )
+            with urllib.request.urlopen(req, timeout=5) as response:
+                raw_data = json.loads(response.read().decode("utf-8"))
+                for item in raw_data.values():
+                    ticker_map[item["ticker"].upper()] = str(item["cik_str"]).zfill(10)
+            # Write to cache
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(ticker_map, f)
+        except Exception:
+            # Fallbacks for popular stock tickers
+            fallbacks = {
+                "AAPL": "0000320193",
+                "MSFT": "0000789019",
+                "GOOGL": "0001652044",
+                "GOOG": "0001652044",
+                "AMZN": "0001018724",
+                "NVDA": "0001045810",
+                "META": "0001326801",
+                "TSLA": "0001318605",
+                "JPM": "0000019617",
+            }
+            return fallbacks.get(symbol)
+            
+    return ticker_map.get(symbol)
+
+def fetch_facts_from_sec(cik):
+    req = urllib.request.Request(
+        f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json",
+        headers={"User-Agent": USER_AGENT}
+    )
+    with urllib.request.urlopen(req, timeout=10) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+def parse_sec_statement(facts, concepts_list):
+    us_gaap = facts.get("facts", {}).get("us-gaap", {})
     
-    output = {}
-    for name, stmt in statements.items():
-        if stmt is None:
-            output[name] = {"periods": [], "rows": []}
-            continue
-            
-        df = stmt.to_dataframe()
-        if df is None or df.empty:
-            output[name] = {"periods": [], "rows": []}
-            continue
-            
-        # Identify period columns: starts with digit
-        periods = [col for col in df.columns if col and col[0].isdigit()]
+    # Determine years and periods using NetIncomeLoss or Revenues
+    net_income_data = us_gaap.get("NetIncomeLoss", {}).get("units", {}).get("USD", [])
+    if not net_income_data:
+        net_income_data = us_gaap.get("Revenues", {}).get("units", {}).get("USD", [])
         
-        rows = []
-        for _, row in df.iterrows():
-            concept = clean_val(row.get('concept', ''))
-            label = clean_val(row.get('label', ''))
-            standard_concept = clean_val(row.get('standard_concept', ''))
-            values = [clean_val(row.get(col)) for col in periods]
+    annual_points = [p for p in net_income_data if p.get("form") == "10-K" and p.get("fp") == "FY"]
+    
+    year_to_period = {}
+    for p in annual_points:
+        fy = p.get("fy")
+        end_date = p.get("end")
+        if fy and end_date:
+            year_to_period[int(fy)] = f"{end_date} (FY)"
             
+    # Sort years descending, take latest 3
+    sorted_years = sorted(list(year_to_period.keys()), reverse=True)[:3]
+    periods = [year_to_period[y] for y in sorted_years]
+    
+    rows = []
+    for concept_name, custom_label, std_concept in concepts_list:
+        concept_data = us_gaap.get(concept_name, {})
+        if not concept_data:
+            continue
+            
+        units = concept_data.get("units", {})
+        unit_key = "USD" if "USD" in units else list(units.keys())[0] if units else None
+        if not unit_key:
+            continue
+            
+        points = units.get(unit_key, [])
+        points_by_year = {}
+        for p in points:
+            if p.get("form") == "10-K" and p.get("fp") == "FY":
+                points_by_year[int(p.get("fy"))] = p.get("val")
+                
+        # Fill values for sorted_years
+        values = []
+        has_any_val = False
+        for y in sorted_years:
+            val = points_by_year.get(y)
+            values.append(val)
+            if val is not None:
+                has_any_val = True
+                
+        if has_any_val:
             rows.append({
-                "concept": concept,
-                "label": label,
-                "standard_concept": standard_concept,
+                "concept": f"us-gaap_{concept_name}",
+                "label": custom_label,
+                "standard_concept": std_concept,
                 "values": values
             })
             
-        output[name] = {
-            "periods": periods,
-            "rows": rows
-        }
+    return {
+        "periods": periods,
+        "rows": rows
+    }
+
+def handle_financials(symbol):
+    cik = get_ciks_or_fallback(symbol)
+    if not cik:
+        raise ValueError(f"Could not resolve CIK for ticker: {symbol}")
         
+    facts = fetch_facts_from_sec(cik)
+    
+    INCOME_CONCEPTS = [
+        ("RevenueFromContractWithCustomerExcludingAssessedTax", "Net sales", "Revenue"),
+        ("SalesRevenueNet", "Net sales", "Revenue"),
+        ("Revenues", "Net sales", "Revenue"),
+        ("CostOfGoodsAndServicesSold", "Cost of sales", "CostOfGoodsAndServicesSold"),
+        ("CostOfGoodsSold", "Cost of sales", "CostOfGoodsAndServicesSold"),
+        ("GrossProfit", "Gross margin", "GrossProfit"),
+        ("ResearchAndDevelopmentExpense", "Research and development", "ResearchAndDevelopmentExpenses"),
+        ("SellingGeneralAndAdministrativeExpense", "Selling, general and administrative", "SellingGeneralAndAdminExpenses"),
+        ("OperatingExpenses", "Total operating expenses", "TotalOperatingExpenses"),
+        ("OperatingIncomeLoss", "Operating income", "OperatingIncomeLoss"),
+        ("NonoperatingIncomeExpense", "Other income/(expense), net", "NonoperatingIncomeExpense"),
+        ("IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest", "Income before provision for income taxes", "PretaxIncomeLoss"),
+        ("IncomeTaxExpenseBenefit", "Provision for income taxes", "IncomeTaxes"),
+        ("NetIncomeLoss", "Net income", "NetIncome"),
+        ("EarningsPerShareBasic", "Basic (in dollars per share)", None),
+        ("EarningsPerShareDiluted", "Diluted (in dollars per share)", None),
+        ("WeightedAverageNumberOfSharesOutstandingBasic", "Basic (in shares)", "SharesAverage"),
+        ("WeightedAverageNumberOfDilutedSharesOutstanding", "Diluted (in shares)", "SharesFullyDilutedAverage")
+    ]
+
+    BALANCE_CONCEPTS = [
+        ("CashAndCashEquivalentsAtCarryingValue", "Cash and cash equivalents", "CashAndMarketableSecurities"),
+        ("MarketableSecuritiesCurrent", "Marketable securities", "ShortTermInvestments"),
+        ("AccountsReceivableNetCurrent", "Accounts receivable, net", "TradeReceivables"),
+        ("NontradeReceivablesCurrent", "Vendor non-trade receivables", "OtherNonOperatingCurrentAssets"),
+        ("InventoryNet", "Inventories", "Inventories"),
+        ("OtherAssetsCurrent", "Other current assets", "OtherNonOperatingCurrentAssets"),
+        ("AssetsCurrent", "Total current assets", "CurrentAssetsTotal"),
+        ("MarketableSecuritiesNoncurrent", "Marketable securities (noncurrent)", "OtherNonOperatingNonCurrentAssets"),
+        ("PropertyPlantAndEquipmentNet", "Property, plant and equipment, net", "PlantPropertyEquipmentNet"),
+        ("OtherAssetsNoncurrent", "Other non-current assets", "OtherNonOperatingNonCurrentAssets"),
+        ("Assets", "Total assets", "Assets"),
+        ("AccountsPayableCurrent", "Accounts payable", "TradePayables"),
+        ("OtherLiabilitiesCurrent", "Other current liabilities", "OtherNonOperatingCurrentLiabilities"),
+        ("ContractWithCustomerLiabilityCurrent", "Deferred revenue", "OtherOperatingCurrentLiabilities"),
+        ("CommercialPaper", "Commercial paper", "ShortTermDebt"),
+        ("LongTermDebtCurrent", "Term debt (current)", "CurrentPortionOfLongTermDebt"),
+        ("LiabilitiesCurrent", "Total current liabilities", "CurrentLiabilitiesTotal"),
+        ("LongTermDebtNoncurrent", "Term debt (noncurrent)", "LongTermDebt"),
+        ("OtherLiabilitiesNoncurrent", "Other non-current liabilities", "OtherNonOperatingNonCurrentAssets"),
+        ("Liabilities", "Total liabilities", "Liabilities"),
+        ("CommonStocksIncludingAdditionalPaidInCapital", "Common stock and additional paid-in capital", "CommonEquity"),
+        ("RetainedEarningsAccumulatedDeficit", "Retained earnings/(Accumulated deficit)", "RetainedEarnings"),
+        ("AccumulatedOtherComprehensiveIncomeLossNetOfTax", "Accumulated other comprehensive loss", "AccumulatedOtherComprehensiveIncome"),
+        ("StockholdersEquity", "Total shareholders' equity", "AllEquityBalance"),
+        ("LiabilitiesAndStockholdersEquity", "Total liabilities and shareholders' equity", "LiabilitiesAndEquity")
+    ]
+
+    CASHFLOW_CONCEPTS = [
+        ("CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", "Cash, cash equivalents, and restricted cash, beginning", "CashAndCashEquivalents"),
+        ("NetIncomeLoss", "Net income", "NetIncome"),
+        ("DepreciationDepletionAndAmortization", "Depreciation and amortization", "DepreciationExpense"),
+        ("ShareBasedCompensation", "Share-based compensation expense", "StockBasedCompensationExpense"),
+        ("NetCashProvidedByUsedInOperatingActivities", "Cash generated by operating activities", "NetCashFromOperatingActivities"),
+        ("PaymentsToAcquirePropertyPlantAndEquipment", "Payments for property, plant and equipment", "CapitalExpenses"),
+        ("NetCashProvidedByUsedInInvestingActivities", "Cash generated by investing activities", "NetCashFromInvestingActivities"),
+        ("PaymentsOfDividends", "Payments for dividends", "DistributionsToMinorityInterests"),
+        ("PaymentsForRepurchaseOfCommonStock", "Repurchases of common stock", "EquityExpenseIncome(BuybackIssued)"),
+        ("ProceedsFromIssuanceOfLongTermDebt", "Proceeds from term debt", "DebtProceeds"),
+        ("RepaymentsOfLongTermDebt", "Repayments of term debt", "DebtRepayments"),
+        ("NetCashProvidedByUsedInFinancingActivities", "Cash used in financing activities", "NetCashFromFinancingActivities"),
+        ("CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect", "Net change in cash", "NetChangeInCash")
+    ]
+
+    output = {
+        "income_statement": parse_sec_statement(facts, INCOME_CONCEPTS),
+        "balance_sheet": parse_sec_statement(facts, BALANCE_CONCEPTS),
+        "cashflow_statement": parse_sec_statement(facts, CASHFLOW_CONCEPTS)
+    }
+    
     print(json.dumps(output, ensure_ascii=False))
 
-def get_relationship(owner):
-    if getattr(owner, 'is_director', False):
-        return "Director"
-    elif getattr(owner, 'is_officer', False):
-        return "Officer"
-    elif getattr(owner, 'is_ten_pct_owner', False):
-        return "10% Owner"
-    else:
+def get_ciks_or_fallback(symbol):
+    cik = get_cik(symbol)
+    if not cik:
+        # Hardcoded list as final fallback
+        fallbacks = {
+            "AAPL": "0000320193",
+            "MSFT": "0000789019",
+            "GOOGL": "0001652044",
+            "GOOG": "0001652044",
+            "AMZN": "0001018724",
+            "NVDA": "0001045810",
+            "META": "0001326801",
+            "TSLA": "0001318605",
+            "JPM": "0000019617",
+        }
+        return fallbacks.get(symbol.upper())
+    return cik
+
+def get_relationship(rel_node):
+    if rel_node is None:
         return "Insider"
+    
+    officer_title = rel_node.find(".//officerTitle")
+    if officer_title is not None and officer_title.text:
+        return officer_title.text.strip()
+        
+    is_dir = rel_node.find(".//isDirector")
+    if is_dir is not None and is_dir.text and is_dir.text.lower() in ["1", "true"]:
+        return "Director"
+        
+    is_off = rel_node.find(".//isOfficer")
+    if is_off is not None and is_off.text and is_off.text.lower() in ["1", "true"]:
+        return "Officer"
+        
+    is_ten = rel_node.find(".//isTenPercentOwner")
+    if is_ten is not None and is_ten.text and is_ten.text.lower() in ["1", "true"]:
+        return "10% Owner"
+        
+    return "Insider"
+
+def parse_filing_xml(args):
+    cik, acc_num, primary_doc, filing_date = args
+    acc_num_no_dashes = acc_num.replace("-", "")
+    xml_name = os.path.basename(primary_doc)
+    
+    xml_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_num_no_dashes}/{xml_name}"
+    index_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_num_no_dashes}/{acc_num}-index.html"
+    
+    try:
+        req_xml = urllib.request.Request(xml_url, headers={"User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req_xml, timeout=5) as response_xml:
+            xml_content = response_xml.read()
+            
+        root = ET.fromstring(xml_content)
+        
+        owner_name_node = root.find(".//rptOwnerName")
+        owner_name = owner_name_node.text.strip() if owner_name_node is not None else "Unknown"
+        
+        if owner_name != "Unknown":
+            parts = [p.capitalize() for p in owner_name.split()]
+            if len(parts) > 1:
+                owner_name = " ".join(parts)
+        
+        rel_node = root.find(".//reportingOwnerRelationship")
+        relationship = get_relationship(rel_node)
+        
+        non_derivs = root.findall(".//nonDerivativeTransaction")
+        txs = []
+        for tx in non_derivs:
+            title_node = tx.find(".//securityTitle/value")
+            title = title_node.text if title_node is not None else "Common Stock"
+            
+            date_node = tx.find(".//transactionDate/value")
+            tx_date = date_node.text if date_node is not None else filing_date
+            
+            code_node = tx.find(".//transactionCode")
+            code = code_node.text if code_node is not None else ""
+            
+            shares_node = tx.find(".//transactionShares/value")
+            shares = float(shares_node.text) if shares_node is not None else 0.0
+            
+            price_node = tx.find(".//transactionPricePerShare/value")
+            price = float(price_node.text) if price_node is not None else 0.0
+            
+            value = shares * price
+            
+            remaining_node = tx.find(".//sharesOwnedFollowingTransaction/value")
+            remaining = float(remaining_node.text) if remaining_node is not None else 0.0
+            
+            txs.append({
+                "owner": owner_name,
+                "relationship": relationship,
+                "security_title": title,
+                "date": tx_date,
+                "code": code,
+                "shares": shares,
+                "price": price,
+                "value": value,
+                "remaining": remaining,
+                "filing_url": index_url
+            })
+        return txs
+    except Exception:
+        return []
 
 def handle_insiders(symbol):
-    company = Company(symbol)
-    filings = company.get_filings(form="4")
+    cik = get_ciks_or_fallback(symbol)
+    if not cik:
+        raise ValueError(f"Could not resolve CIK for ticker: {symbol}")
+        
+    url = f"https://data.sec.gov/submissions/CIK{cik}.json"
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(req, timeout=5) as response:
+        sub = json.loads(response.read().decode("utf-8"))
+        
+    recent = sub["filings"]["recent"]
+    forms = recent["form"]
+    acc_nums = recent["accessionNumber"]
+    docs = recent["primaryDocument"]
+    dates = recent["filingDate"]
     
-    # Take latest 15 Form 4 filings
-    latest_filings = filings[:15]
+    form4_indices = [i for i, f in enumerate(forms) if f == "4"][:15]
+    
+    tasks = []
+    for idx in form4_indices:
+        tasks.append((cik, acc_nums[idx], docs[idx], dates[idx]))
+        
     transactions = []
-    
-    for idx, f in enumerate(latest_filings):
-        try:
-            obj = f.obj()
-            if obj is None:
-                continue
-                
-            df = obj.to_dataframe()
-            if df is None or df.empty:
-                continue
-                
-            # Construct SEC EDGAR index URL directly
-            cik = getattr(f, 'cik', '')
-            if not cik:
-                cik = getattr(company, 'cik', '')
-            accession_no = f.accession_no
-            accession_no_no_dashes = accession_no.replace('-', '')
-            filing_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_no_no_dashes}/{accession_no}-index.html"
-            
-            # Map columns from the parsed DataFrame
-            for _, row in df.iterrows():
-                owner_name = clean_val(row.get('Insider', 'Unknown'))
-                relationship = clean_val(row.get('Position', 'Insider'))
-                security_title = clean_val(row.get('Description', ''))
-                date = clean_val(row.get('Date', ''))
-                code = clean_val(row.get('Code', ''))
-                shares = clean_val(row.get('Shares', 0))
-                price = clean_val(row.get('Price', 0.0))
-                value = clean_val(row.get('Value', 0.0))
-                
-                # Compute value if missing
-                if value is None and shares is not None and price is not None:
-                    try:
-                        value = float(shares) * float(price)
-                    except Exception:
-                        value = 0.0
-                        
-                remaining = clean_val(row.get('Remaining Shares', 0))
-                
-                transactions.append({
-                    "owner": owner_name,
-                    "relationship": relationship,
-                    "security_title": security_title,
-                    "date": date,
-                    "code": code,
-                    "shares": shares,
-                    "price": price,
-                    "value": value,
-                    "remaining": remaining,
-                    "filing_url": filing_url
-                })
-        except Exception:
-            # Skip errors on individual filings to be robust
-            continue
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        results = executor.map(parse_filing_xml, tasks)
+        for res in results:
+            transactions.extend(res)
             
     print(json.dumps(transactions, ensure_ascii=False))
 
 def handle_holdings(cik_or_symbol):
+    # Lazy imports to save 5 seconds on startup of financials/insiders
+    from edgar import Company
+    import pandas as pd
+    import numpy as np
+
+    set_identity("Stocklens Research Agent stocklens-admin@gmail.com")
+    
     company = Company(cik_or_symbol)
     filings = company.get_filings(form="13F-HR")
     
@@ -169,7 +386,6 @@ def handle_holdings(cik_or_symbol):
         df = obj_13f.holdings
         if isinstance(df, pd.DataFrame):
             for _, row in df.iterrows():
-                # Fallback dictionary mapping
                 issuer = clean_val(row.get('Issuer', row.get('nameOfIssuer', '')))
                 class_val = clean_val(row.get('Class', row.get('titleOfClass', '')))
                 cusip = clean_val(row.get('Cusip', row.get('cusip', '')))
@@ -199,7 +415,6 @@ def handle_holdings(cik_or_symbol):
                     cleaned[k] = clean_val(v)
                 compare_list.append(cleaned)
     except Exception:
-        # Ignore comparison errors and fallback to empty
         pass
         
     print(json.dumps({
@@ -208,6 +423,10 @@ def handle_holdings(cik_or_symbol):
     }, ensure_ascii=False))
 
 def handle_section(symbol, item):
+    # Lazy imports
+    from edgar import Company
+    set_identity("Stocklens Research Agent stocklens-admin@gmail.com")
+    
     company = Company(symbol)
     filings = company.get_filings(form="10-K")
     if len(filings) == 0:
@@ -221,7 +440,6 @@ def handle_section(symbol, item):
     elif item == "7":
         text = getattr(latest_10k, 'management_discussion', '')
     else:
-        # fallback try matching risk factors if 1A or management discussion if 7
         if "1A" in item:
             text = getattr(latest_10k, 'risk_factors', '')
         elif "7" in item:
@@ -234,10 +452,13 @@ def handle_section(symbol, item):
     }, ensure_ascii=False))
 
 def handle_risk_diff(symbol):
+    # Lazy imports
+    from edgar import Company
+    set_identity("Stocklens Research Agent stocklens-admin@gmail.com")
+    
     company = Company(symbol)
     filings = company.get_filings(form="10-K")
     if len(filings) < 2:
-        # If there's only 1 or 0 filings, we cannot diff
         if len(filings) == 1:
             try:
                 latest = filings[0].obj()

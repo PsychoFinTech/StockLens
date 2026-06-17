@@ -8,8 +8,8 @@ import { WatchlistPage } from './pages/WatchlistPage.jsx';
 import { ScreenerPage } from './pages/ScreenerPage.jsx';
 import { MarketDashboardPage } from './pages/MarketDashboardPage.jsx';
 import { CompanyPage } from './pages/CompanyPage.jsx';
-// CompanyPagePreview is now an alias — both routes use the full-featured CompanyPage
-const CompanyPagePreview = CompanyPage;
+import { CompanyPagePreview } from './pages/CompanyPagePreview.jsx';
+
 
 // 1. Initialize TanStack Query engine
 const queryClient = new QueryClient({
