@@ -365,7 +365,7 @@ def handle_insiders(symbol):
 
 def handle_holdings(cik_or_symbol):
     # Lazy imports to save 5 seconds on startup of financials/insiders
-    from edgar import Company
+    from edgar import Company, set_identity
     import pandas as pd
     import numpy as np
 
@@ -424,7 +424,7 @@ def handle_holdings(cik_or_symbol):
 
 def handle_section(symbol, item):
     # Lazy imports
-    from edgar import Company
+    from edgar import Company, set_identity
     set_identity("Stocklens Research Agent stocklens-admin@gmail.com")
     
     company = Company(symbol)
@@ -453,7 +453,7 @@ def handle_section(symbol, item):
 
 def handle_risk_diff(symbol):
     # Lazy imports
-    from edgar import Company
+    from edgar import Company, set_identity
     set_identity("Stocklens Research Agent stocklens-admin@gmail.com")
     
     company = Company(symbol)
