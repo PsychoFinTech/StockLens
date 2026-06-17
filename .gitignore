@@ -1,0 +1,17 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# SQLite database files (contain cached data, not source code)
+*.db
+*.db-shm
+*.db-wal
+
+# Internal tool config
+.superpowers/
+.gemini/

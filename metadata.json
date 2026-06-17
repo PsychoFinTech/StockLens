@@ -1,0 +1,6 @@
+{
+  "name": "StockLens",
+  "description": "StockLens is a production-grade global equities research, charting, and stock screening platform inspired by Finology Ticker. Features real-time quotes, multi-source financials, and personalized watchlists.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
