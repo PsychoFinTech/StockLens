@@ -383,7 +383,7 @@ export const CompanyPagePreview: React.FC = () => {
       const resp = await edgarApiClient.get(`/edgar/financials/${upperSymbol}`);
       return resp.data;
     },
-    enabled: activePrimaryTab === 'sec',
+    enabled: true,
     staleTime: 24 * 60 * 60 * 1000 // cache for 24h
   });
 
@@ -394,7 +394,7 @@ export const CompanyPagePreview: React.FC = () => {
       const resp = await edgarApiClient.get(`/edgar/financials/${secComparePeer.toUpperCase()}`);
       return resp.data;
     },
-    enabled: !!secComparePeer && activePrimaryTab === 'sec',
+    enabled: !!secComparePeer,
     staleTime: 24 * 60 * 60 * 1000
   });
 
@@ -404,7 +404,7 @@ export const CompanyPagePreview: React.FC = () => {
       const resp = await edgarApiClient.get(`/edgar/insiders/${upperSymbol}`);
       return resp.data;
     },
-    enabled: activePrimaryTab === 'sec',
+    enabled: true,
     staleTime: 60 * 60 * 1000 // cache 1h for frequently updated insider filings
   });
 
@@ -414,7 +414,7 @@ export const CompanyPagePreview: React.FC = () => {
       const resp = await edgarApiClient.get(`/edgar/holdings/${holdingsQuery}`);
       return resp.data;
     },
-    enabled: activePrimaryTab === 'sec',
+    enabled: true,
     staleTime: 24 * 60 * 60 * 1000
   });
 
@@ -424,7 +424,7 @@ export const CompanyPagePreview: React.FC = () => {
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/1A`);
       return resp.data;
     },
-    enabled: activePrimaryTab === 'sec',
+    enabled: true,
     staleTime: 24 * 60 * 60 * 1000
   });
 
@@ -434,7 +434,7 @@ export const CompanyPagePreview: React.FC = () => {
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/7`);
       return resp.data;
     },
-    enabled: activePrimaryTab === 'sec',
+    enabled: true,
     staleTime: 24 * 60 * 60 * 1000
   });
 
@@ -444,7 +444,7 @@ export const CompanyPagePreview: React.FC = () => {
       const resp = await edgarApiClient.get(`/edgar/risk-diff/${upperSymbol}`);
       return resp.data;
     },
-    enabled: showRiskDiff && activePrimaryTab === 'sec',
+    enabled: showRiskDiff,
     staleTime: 24 * 60 * 60 * 1000
   });
 
