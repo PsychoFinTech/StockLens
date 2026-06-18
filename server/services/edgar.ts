@@ -166,6 +166,9 @@ const USER_AGENT = 'Stocklens Research Agent stocklens-admin@gmail.com';
 async function getCik(symbol: string): Promise<string> {
   const sym = symbol.toUpperCase();
   if (tickerToCikMap[sym]) {
+    if (tickerToCikMap[sym] === 'NONE') {
+      throw new Error(`Ticker ${sym} is known to have no SEC CIK`);
+    }
     return tickerToCikMap[sym];
   }
 
@@ -199,12 +202,26 @@ async function getCik(symbol: string): Promise<string> {
       JPM: '0000019617',
     };
     if (fallbacks[sym]) return fallbacks[sym];
+    
+    // Cache failure to avoid hitting SEC again
+    tickerToCikMap[sym] = 'NONE';
+    try {
+      const tickerPath = path.join(process.cwd(), 'server', 'services', 'ticker_to_cik.json');
+      fs.writeFileSync(tickerPath, JSON.stringify(tickerToCikMap), 'utf8');
+    } catch {}
     throw new Error(`Could not resolve CIK for ticker ${sym}`);
   }
 
   if (tickerToCikMap[sym]) {
     return tickerToCikMap[sym];
   }
+
+  // Cache failure if still not found
+  tickerToCikMap[sym] = 'NONE';
+  try {
+    const tickerPath = path.join(process.cwd(), 'server', 'services', 'ticker_to_cik.json');
+    fs.writeFileSync(tickerPath, JSON.stringify(tickerToCikMap), 'utf8');
+  } catch {}
   throw new Error(`Could not resolve CIK for ticker ${sym}`);
 }
 

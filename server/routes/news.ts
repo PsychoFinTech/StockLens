@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { finnhubService } from '../services/finnhub.js';
+import { yahooService } from '../services/yahoo.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
@@ -9,7 +9,7 @@ router.get('/market', apiLimiter, async (req, res, next) => {
   try {
     let news: any[] = [];
     try {
-      const resp = await finnhubService.getMarketNews();
+      const resp = await yahooService.getMarketNews();
       if (resp && Array.isArray(resp)) {
         news = resp;
       }
@@ -43,7 +43,7 @@ router.get('/:symbol', apiLimiter, async (req, res, next) => {
   try {
     let news: any[] = [];
     try {
-      const resp = await finnhubService.getNews(symbol);
+      const resp = await yahooService.getNews(symbol);
       if (resp && Array.isArray(resp)) {
         news = resp;
       }

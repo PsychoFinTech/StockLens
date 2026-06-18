@@ -141,6 +141,19 @@ export const useCompanyData = ({
     }
   });
 
+  const isUSSymbol = (symbol: string): boolean => {
+    const upper = symbol.toUpperCase();
+    if (!upper.includes('.')) {
+      return true;
+    }
+    const parts = upper.split('.');
+    const suffix = parts[parts.length - 1];
+    if (suffix.length === 1) {
+      return true;
+    }
+    return false;
+  };
+
   const isUSStock = profile ? (
     (profile.exchange || '').toUpperCase().includes('NASDAQ') ||
     (profile.exchange || '').toUpperCase().includes('NYSE') ||
@@ -151,8 +164,8 @@ export const useCompanyData = ({
     (profile.country || '').toUpperCase() === 'US' ||
     (profile.country || '').toUpperCase() === 'USA' ||
     (profile.country || '').toUpperCase() === 'UNITED STATES' ||
-    (!upperSymbol.includes('.') && upperSymbol.length <= 5)
-  ) : !upperSymbol.includes('.');
+    isUSSymbol(upperSymbol)
+  ) : isUSSymbol(upperSymbol);
 
   // SEC EDGAR Query Hooks - these are lazy loaded
   const { data: edgarFinancials, isPending: isEdgarFinancialsPending, isError: isEdgarFinancialsError } = useQuery({
@@ -162,7 +175,11 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: isUSStock,
-    staleTime: 24 * 60 * 60 * 1000 // cache for 24h
+    staleTime: 24 * 60 * 60 * 1000, // cache for 24h
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   const { data: edgarCompareFinancials } = useQuery({
@@ -173,7 +190,11 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: !!secComparePeer && secComparePeer !== upperSymbol,
-    staleTime: 24 * 60 * 60 * 1000
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   const { data: edgarInsiders, isPending: isEdgarInsidersPending, isError: isEdgarInsidersError } = useQuery({
@@ -183,7 +204,11 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: isUSStock,
-    staleTime: 60 * 60 * 1000 // cache 1h
+    staleTime: 60 * 60 * 1000, // cache 1h
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   const { data: edgarHoldings, isPending: isEdgarHoldingsPending, isError: isEdgarHoldingsError } = useQuery({
@@ -192,8 +217,12 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/holdings/${holdingsQuery}`);
       return resp.data;
     },
-    enabled: !!holdingsQuery,
-    staleTime: 24 * 60 * 60 * 1000
+    enabled: isUSStock && !!holdingsQuery,
+    staleTime: 24 * 60 * 60 * 1000,
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   const { data: edgarSection1, isPending: isSection1Pending, isError: isSection1Error } = useQuery({
@@ -203,7 +232,11 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: isUSStock,
-    staleTime: 5 * 60 * 1000 // 5 minutes cache
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   const { data: edgarSection1A, isPending: isSection1APending, isError: isSection1AError } = useQuery({
@@ -213,7 +246,11 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: isUSStock,
-    staleTime: 5 * 60 * 1000 // 5 minutes cache
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   const { data: edgarSection7, isPending: isSection7Pending, isError: isSection7Error } = useQuery({
@@ -223,7 +260,11 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: isUSStock,
-    staleTime: 5 * 60 * 1000 // 5 minutes cache
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   const { data: edgarRiskDiff, isPending: isRiskDiffPending, isError: isRiskDiffError } = useQuery({
@@ -233,7 +274,11 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: showRiskDiff && isUSStock,
-    staleTime: 5 * 60 * 1000 // 5 minutes cache
+    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
   });
 
   return {

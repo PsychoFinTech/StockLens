@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { finnhubService } from '../services/finnhub.js';
+import { yahooService } from '../services/yahoo.js';
 import db from '../services/db.js';
 import { searchLimiter } from '../middleware/rateLimiter.js';
 
@@ -44,12 +44,13 @@ router.get('/', searchLimiter, async (req, res, next) => {
     // 2. Fetch from Finnhub as dynamic supplementary buffer (if search length > 1)
     if (query.length > 1) {
       try {
-        const liveData: any = await finnhubService.searchSymbol(query);
+        const liveData: any = await yahooService.searchSymbol(query);
         if (liveData?.result && Array.isArray(liveData.result)) {
           // Normalize and merge without duplicates
           const seenSymbols = new Set(results.map(r => r.symbol.toUpperCase()));
           
           for (const item of liveData.result) {
+            if (!item || !item.symbol) continue;
             const sym = item.symbol.toUpperCase();
             if (!seenSymbols.has(sym)) {
               results.push({

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { finnhubService } from '../services/finnhub.js';
+import { yahooService } from '../services/yahoo.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
@@ -68,9 +68,9 @@ router.get('/:symbol', apiLimiter, async (req, res, next) => {
     let liveC: any = null;
 
     try {
-      liveC = await finnhubService.getCandles(symbol, resolution, from, to);
+      liveC = await yahooService.getCandles(symbol, resolution, from, to);
     } catch (err: any) {
-      console.warn(`[CHART ROUTE WARNING] Candle query fail for ${symbol} on Finnhub:`, err.message);
+      console.warn(`[CHART ROUTE WARNING] Candle query fail for ${symbol} on Yahoo:`, err.message);
     }
 
     // If Finnhub has data, map OHLC arrays to structured json objects

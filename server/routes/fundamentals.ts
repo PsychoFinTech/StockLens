@@ -1,12 +1,23 @@
 import { Router } from 'express';
-import { finnhubService } from '../services/finnhub.js';
 import { yahooService } from '../services/yahoo.js';
-import { alphavantageService } from '../services/alphavantage.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 import db from '../services/db.js';
 import { prefetchEdgar } from '../services/edgar.js';
 
 const router = Router();
+
+function isUSSymbol(symbol: string): boolean {
+  const upper = symbol.toUpperCase();
+  if (!upper.includes('.')) {
+    return true;
+  }
+  const parts = upper.split('.');
+  const suffix = parts[parts.length - 1];
+  if (suffix.length === 1) {
+    return true;
+  }
+  return false;
+}
 
 // 1. GET /api/profile/:symbol -> Company name, logo, sector, industry, country, website, description
 router.get('/profile/:symbol', apiLimiter, async (req, res, next) => {
@@ -15,11 +26,11 @@ router.get('/profile/:symbol', apiLimiter, async (req, res, next) => {
   try {
     let profile: any = null;
 
-    // --- LEVEL 1: FINNHUB ---
+    // --- LEVEL 1: YAHOO FINANCE ---
     try {
-      profile = await finnhubService.getProfile(symbol);
+      profile = await yahooService.getProfile(symbol);
     } catch (err: any) {
-      console.warn(`[PROFILE ROUTE] Finnhub failed for ${symbol}:`, err.message);
+      console.warn(`[PROFILE ROUTE] Yahoo failed for ${symbol}:`, err.message);
     }
 
     // --- LEVEL 2: FALLBACK TO SQLITE METADATA OR PLACEHOLDERS ---
@@ -32,24 +43,27 @@ router.get('/profile/:symbol', apiLimiter, async (req, res, next) => {
       console.error('[PROFILE SQLITE CHECK FAIL]', dbErr);
     }
 
+    const isUS = isUSSymbol(symbol);
     const payload = {
       symbol,
       name: profile?.name || localMeta?.name || symbol,
       logo: profile?.logo || '',
       sector: profile?.finnhubIndustry || localMeta?.sector || 'Industrial Sector',
       industry: profile?.finnhubIndustry || localMeta?.industry || 'Miscellaneous Industries',
-      exchange: profile?.exchange || localMeta?.exchange || 'OTC Market',
-      country: profile?.country || localMeta?.country || 'Global',
+      exchange: profile?.exchange || localMeta?.exchange || (isUS ? 'OTC Market' : 'International Exchange'),
+      country: profile?.country || localMeta?.country || (isUS ? 'US' : 'International'),
       weburl: profile?.weburl || '',
       ipo: profile?.ipo || '—',
-      description: profile?.description || `${profile?.name || localMeta?.name || symbol} is a leading global enterprise registered in ${profile?.country || localMeta?.country || 'international markets'}, specializing in ${profile?.finnhubIndustry || localMeta?.sector || 'specialized services'}.`
+      description: profile?.description || `${profile?.name || localMeta?.name || symbol} is a leading global enterprise registered in ${profile?.country || localMeta?.country || (isUS ? 'US markets' : 'international markets')}, specializing in ${profile?.finnhubIndustry || localMeta?.sector || 'specialized services'}.`
     };
 
     res.json(payload);
 
     // Fire-and-forget: start warming the EDGAR cache for this symbol in the background.
     // By the time the user navigates to the SEC tab (~10-30s), data will be pre-fetched.
-    setImmediate(() => prefetchEdgar(symbol));
+    if (isUS) {
+      setImmediate(() => prefetchEdgar(symbol));
+    }
   } catch (error) {
     next(error);
   }
@@ -62,20 +76,10 @@ router.get('/financials/:symbol', apiLimiter, async (req, res, next) => {
   try {
     let financials: any = null;
 
-    // --- WATERFALL STEP 1: YAHOO ---
     try {
       financials = await yahooService.getFinancials(symbol);
     } catch (yErr: any) {
-      console.warn(`[FINANCIALS WATERFALL] Yahoo layer fail for ${symbol}. Falling back to Alpha Vantage.`, yErr.message);
-    }
-
-    // --- WATERFALL STEP 2: ALPHA VANTAGE ---
-    if (!financials || !financials.incomeStatement || financials.incomeStatement.length === 0) {
-      try {
-        financials = await alphavantageService.getFinancials(symbol);
-      } catch (avErr: any) {
-        console.warn(`[FINANCIALS WATERFALL] Alpha Vantage layer fail for ${symbol}. Checking SQLite backup table.`, avErr.message);
-      }
+      console.warn(`[FINANCIALS] Yahoo layer fail for ${symbol}:`, yErr.message);
     }
 
     // Standardize mapping format for charts
@@ -130,34 +134,24 @@ router.get('/ratios/:symbol', apiLimiter, async (req, res, next) => {
 
   try {
     let metrics: any = null;
-    let yahooStats: any = null;
 
-    // Query Finnhub basic metrics first (Primary)
     try {
-      metrics = await finnhubService.getBasicFinancials(symbol);
+      metrics = await yahooService.getBasicFinancials(symbol);
     } catch (err: any) {
-      console.warn(`[RATIOS ROUTE] Finnhub metric call skipped/failed for ${symbol}:`, err.message);
-    }
-
-    // Query Yahoo as complimentary extra
-    try {
-      const summary = await yahooService.getFinancials(symbol);
-      yahooStats = summary?.ratios || null;
-    } catch (err) {
-      // Don't log crash
+      console.warn(`[RATIOS ROUTE] Yahoo basic metrics failed for ${symbol}:`, err.message);
     }
 
     // Extract metrics parameters
     const m = metrics?.metric || {};
     
-    const pe = m.peAnnual || yahooStats?.ratios?.peRatio || 25.4; // Fallback default normal
-    const pb = m.pbAnnual || yahooStats?.priceToBook || 4.2;
-    const roe = m.roeTTM || yahooStats?.returnOnEquity * 100 || 18.5; // TTM % formats
-    const roce = m.roceTTM || m.roicTTM || (roe * 0.95) || 17.2; // Derived ROCE
-    const de = m.debtEquityAnnual || yahooStats?.debtToEquity || 0.65;
-    const eps = m.epsBasicExclExtraItemsTTM || m.epsNormalizedAnnual || 5.84;
-    const mcap = m.marketCapitalization || yahooStats?.enterpriseToEquity || 150000; // in millions
-    const divYield = m.dividendYieldIndicated5Y || m.dividendYieldIndicated || yahooStats?.dividendYield || 1.2;
+    const pe = m.peAnnual || 25.4; // Fallback default normal
+    const pb = m.pbAnnual || 4.2;
+    const roe = m.roeTTM || 18.5; // TTM % formats
+    const roce = m.roicTTM || (roe * 0.95) || 17.2; // Derived ROCE
+    const de = m.debtEquityAnnual || 0.65;
+    const eps = m.epsBasicExclExtraItemsTTM || 5.84;
+    const mcap = m.marketCapitalization || 150000; // in millions
+    const divYield = m.dividendYieldIndicated || 1.2;
 
     const payload = {
       symbol,
@@ -236,16 +230,14 @@ router.get('/peers/:symbol', apiLimiter, async (req, res, next) => {
   try {
     let peers: string[] = [];
 
-    // --- LEVEL 1: FINNHUB PEERS (most accurate, curated by Finnhub) ---
+    // --- LEVEL 1: YAHOO FINANCE PEERS ---
     try {
-      const finnhubPeers = await finnhubService.getPeers(symbol);
-      if (finnhubPeers && finnhubPeers.length > 0) {
-        // Finnhub returns direct competitors. Filter out the queried symbol itself.
-        // Limit to 7 peers (plus the current symbol = 8 total)
-        peers = finnhubPeers.filter((p: string) => p !== symbol).slice(0, 7);
+      const yahooPeers = await yahooService.getPeers(symbol);
+      if (yahooPeers && yahooPeers.length > 0) {
+        peers = yahooPeers.filter((p: string) => p !== symbol).slice(0, 7);
       }
     } catch (err: any) {
-      console.warn(`[PEERS ROUTE] Finnhub peers query fail for ${symbol}:`, err.message);
+      console.warn(`[PEERS ROUTE] Yahoo peers query fail for ${symbol}:`, err.message);
     }
 
     // --- LEVEL 2: KNOWN COMPETITOR MAP (curated hardcoded direct competitors) ---
@@ -254,8 +246,6 @@ router.get('/peers/:symbol', apiLimiter, async (req, res, next) => {
     }
 
     // --- LEVEL 3: SQLITE PEERS FROM SAME INDUSTRY+SECTOR FALLBACK ---
-    // Only fires when both Finnhub and the hardcoded map have no data.
-    // Uses both sector AND industry for much tighter matching than sector alone.
     if (peers.length === 0) {
       try {
         const metaStmt = db.prepare('SELECT sector, industry FROM stocks WHERE symbol = ?');

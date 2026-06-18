@@ -1,5 +1,4 @@
 import cron from 'node-cron';
-import { finnhubService } from './finnhub.js';
 import { yahooService } from './yahoo.js';
 import db from './db.js';
 
@@ -14,7 +13,7 @@ export const initCronJobs = () => {
     for (const ticker of WARM_TICKERS) {
       try {
         console.log(`[CRON] Pre-warming quotes for: ${ticker}`);
-        await finnhubService.getQuote(ticker);
+        await yahooService.getQuote(ticker);
         
         console.log(`[CRON] Pre-warming financials for: ${ticker}`);
         await yahooService.getFinancials(ticker);

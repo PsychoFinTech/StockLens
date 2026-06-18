@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../services/db.js';
-import { finnhubService } from '../services/finnhub.js';
+import { yahooService } from '../services/yahoo.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
@@ -36,7 +36,7 @@ router.get('/', apiLimiter, async (req, res, next) => {
         let change_pct = 0;
 
         try {
-          const quote = await finnhubService.getQuote(symbol);
+          const quote = await yahooService.getQuote(symbol);
           if (quote) {
             price = quote.price;
             change = quote.change;
