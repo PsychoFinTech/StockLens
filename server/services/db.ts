@@ -3,7 +3,7 @@ import path from 'path';
 import { SEED_STOCKS } from './seeds.js';
 
 // Initialize Database
-const dbPath = path.resolve(process.cwd(), 'stocklens.db');
+const dbPath = process.env.SQLITE_DB_PATH || path.resolve(process.cwd(), 'stocklens.db');
 const db = new Database(dbPath);
 
 // Enable WAL for performance and concurrent readers

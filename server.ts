@@ -24,7 +24,7 @@ import { prefetchEdgar } from './server/services/edgar.js';
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   // Let Express rate-limiter trust the reverse proxy headers
   app.set('trust proxy', 1);
