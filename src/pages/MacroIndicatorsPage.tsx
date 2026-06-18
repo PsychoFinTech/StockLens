@@ -7,7 +7,19 @@ import { IndicatorCard } from "../components/macro/IndicatorCard";
 import { MacroSkeleton } from "../components/macro/MacroSkeleton";
 import { Globe } from "lucide-react";
 
-const ALL_SERIES: MacroSeriesId[] = ["FEDFUNDS", "DGS10", "DGS2", "CPIAUCSL", "UNRATE", "GDPC1", "ICSA"];
+const ALL_SERIES: MacroSeriesId[] = [
+  "FEDFUNDS",
+  "DGS10",
+  "DGS2",
+  "T10Y2Y",
+  "BAMLH0A0HYM2",
+  "CPIAUCSL",
+  "PCEPI",
+  "UNRATE",
+  "PAYEMS",
+  "GDPC1",
+  "ICSA"
+];
 
 export const MacroIndicatorsPage: React.FC = () => {
   const { data, loading, errors, refetch } = useFredSeries(ALL_SERIES);
@@ -63,7 +75,7 @@ export const MacroIndicatorsPage: React.FC = () => {
         <div className="bg-gray-50/50 rounded-xl p-6 border border-gray-100">
           <SectionHeader title="Rates & Yields" icon="📈" />
           <div className="grid grid-cols-1 gap-4">
-            {(["FEDFUNDS", "DGS10", "DGS2"] as MacroSeriesId[]).map((id) => (
+            {(["FEDFUNDS", "DGS10", "DGS2", "T10Y2Y", "BAMLH0A0HYM2"] as MacroSeriesId[]).map((id) => (
               <IndicatorCard
                 key={id}
                 config={MACRO_CONFIG[id]}
@@ -80,7 +92,7 @@ export const MacroIndicatorsPage: React.FC = () => {
           <div className="bg-gray-50/50 rounded-xl p-6 border border-gray-100">
             <SectionHeader title="Inflation & Growth" icon="💹" />
             <div className="grid grid-cols-1 gap-4">
-              {(["CPIAUCSL", "GDPC1"] as MacroSeriesId[]).map((id) => (
+              {(["CPIAUCSL", "PCEPI", "GDPC1"] as MacroSeriesId[]).map((id) => (
                 <IndicatorCard
                   key={id}
                   config={MACRO_CONFIG[id]}
@@ -95,7 +107,7 @@ export const MacroIndicatorsPage: React.FC = () => {
           <div className="bg-gray-50/50 rounded-xl p-6 border border-gray-100">
             <SectionHeader title="Labor Market" icon="👷" />
             <div className="grid grid-cols-1 gap-4">
-              {(["UNRATE", "ICSA"] as MacroSeriesId[]).map((id) => (
+              {(["UNRATE", "PAYEMS", "ICSA"] as MacroSeriesId[]).map((id) => (
                 <IndicatorCard
                   key={id}
                   config={MACRO_CONFIG[id]}

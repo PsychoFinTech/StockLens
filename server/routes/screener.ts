@@ -4,7 +4,7 @@ import { apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 
-// GET /api/screener -> Filter our 200 pre-seeded global stocks
+// GET /api/screener -> Filter our seeded S&P 500 and global equities
 router.get('/', apiLimiter, (req, res, next) => {
   try {
     const exchangeFilter = req.query.exchange ? req.query.exchange.toString().trim() : '';

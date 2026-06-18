@@ -63,7 +63,7 @@ const countStmt = db.prepare('SELECT COUNT(*) as count FROM stocks');
 const { count } = countStmt.get() as { count: number };
 
 if (count === 0) {
-  console.log('[DB] Seeding stock metadata table with 200 popular global equities...');
+  console.log('[DB] Seeding stock metadata table with S&P 500 and popular global equities...');
   const insertStmt = db.prepare(`
     INSERT INTO stocks (symbol, name, exchange, sector, industry, country)
     VALUES (?, ?, ?, ?, ?, ?)

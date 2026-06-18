@@ -200,7 +200,7 @@ export const ScreenerPage: React.FC = () => {
           <h1 className="font-sans text-2xl font-black text-gray-900 tracking-tight">Equities Stock Screener</h1>
         </div>
         <p className="font-sans text-xs sm:text-sm text-gray-500 max-w-2xl">
-          Instantly filter through our seeded 200 top-flight equities of global and Indian stock markets.
+          Instantly filter through our seeded S&P 500 and popular global equities.
         </p>
       </div>
 
@@ -215,10 +215,10 @@ export const ScreenerPage: React.FC = () => {
           </h3>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {isSectorPending ? (
             Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />
+              <div key={i} className="h-28 rounded-xl bg-gray-100 animate-pulse" />
             ))
           ) : (
             sectorSummary?.map((s) => {
@@ -228,20 +228,20 @@ export const ScreenerPage: React.FC = () => {
                 <button
                   key={s.name}
                   onClick={() => handleSectorCardClick(s.name)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-5 rounded-2xl border text-left transition-all ${
                     isSelected 
                       ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-500/20' 
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-2xs'
+                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
                   }`}
                 >
-                  <div className="font-sans font-bold text-xs text-gray-950 truncate">
+                  <div className="font-sans font-bold text-lg text-gray-950 truncate">
                     {s.name}
                   </div>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <span className="font-mono text-[9px] font-bold text-gray-400">
+                  <div className="flex items-baseline gap-2 mt-2">
+                    <span className="font-mono text-xs font-bold text-gray-400">
                       {s.proxy}
                     </span>
-                    <span className={`font-mono text-[10px] font-bold ml-auto ${
+                    <span className={`font-mono text-base font-black ml-auto ${
                       isUp ? 'text-emerald-600' : 'text-rose-600'
                     }`}>
                       {isUp ? '+' : ''}{s.performance.toFixed(2)}%

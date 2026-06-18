@@ -12,6 +12,7 @@ import { CompanyPageSkeleton } from '../../components/Skeleton.jsx';
 import { OverviewTab } from './OverviewTab.jsx';
 import { AnalysisTab } from './AnalysisTab.jsx';
 import { FinancialsTab } from './FinancialsTab.jsx';
+import { CongressionalTrading } from '../../components/congress/CongressionalTrading.jsx';
 import { InfoTab } from './InfoTab.jsx';
 import { SECTab } from './SECTab.jsx';
 
@@ -376,6 +377,8 @@ export const CompanyPage: React.FC = () => {
           detailData={detailData}
           currencySuffixLabel={currencySuffixLabel}
         />
+
+        <CongressionalTrading ticker={upperSymbol} />
 
         <InfoTab
           detailData={detailData}

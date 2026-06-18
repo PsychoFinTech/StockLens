@@ -73,4 +73,38 @@ router.get('/risk-diff/:symbol', apiLimiter, async (req, res, next) => {
   }
 });
 
+// 6. GET /api/edgar/congress/trades
+router.get('/congress/trades', apiLimiter, async (req, res, next) => {
+  try {
+    const { cacheService } = await import('../services/cache.js');
+    const cacheKey = 'congress_trades_fmp';
+    let data = cacheService.get<any>(cacheKey);
+    
+    if (!data) {
+      const apiKey = process.env.FMP_API_KEY;
+      if (!apiKey) throw new Error('FMP_API_KEY not configured');
+      
+      console.log('[CONGRESS] Cache miss. Fetching trades from FMP...');
+      const response = await fetch(`https://financialmodelingprep.com/stable/senate-latest?apikey=${apiKey}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+      if (!response.ok) throw new Error(`FMP API returned status ${response.status}`);
+      data = await response.json();
+      cacheService.set(cacheKey, data, 3600 * 6); // Cache for 6 hours
+    }
+    
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 7. GET /api/edgar/congress/committees (kept for backward compat, FMP data doesn't need it)
+router.get('/congress/committees', apiLimiter, async (_req, res) => {
+  res.json({});
+});
+
 export default router;
+

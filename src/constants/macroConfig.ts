@@ -4,8 +4,12 @@ export type MacroSeriesId =
   | "FEDFUNDS"
   | "DGS10"
   | "DGS2"
+  | "T10Y2Y"
+  | "BAMLH0A0HYM2"
   | "CPIAUCSL"
+  | "PCEPI"
   | "UNRATE"
+  | "PAYEMS"
   | "GDPC1"
   | "ICSA";
 
@@ -35,9 +39,27 @@ export const MACRO_CONFIG: Record<MacroSeriesId, MacroSeriesConfig> = {
     section: "Rates & Yields",
     formatter: (val) => `${val.toFixed(2)}%`,
   },
+  T10Y2Y: {
+    id: "T10Y2Y",
+    name: "Yield Curve Spread (10Y-2Y)",
+    section: "Rates & Yields",
+    formatter: (val) => `${val.toFixed(2)}%`,
+  },
+  BAMLH0A0HYM2: {
+    id: "BAMLH0A0HYM2",
+    name: "High Yield Credit Spread",
+    section: "Rates & Yields",
+    formatter: (val) => `${val.toFixed(2)}%`,
+  },
   CPIAUCSL: {
     id: "CPIAUCSL",
     name: "Consumer Price Index",
+    section: "Inflation & Growth",
+    formatter: (val) => val.toFixed(2),
+  },
+  PCEPI: {
+    id: "PCEPI",
+    name: "PCE Price Index",
     section: "Inflation & Growth",
     formatter: (val) => val.toFixed(2),
   },
@@ -46,6 +68,12 @@ export const MACRO_CONFIG: Record<MacroSeriesId, MacroSeriesConfig> = {
     name: "Unemployment Rate",
     section: "Labor Market",
     formatter: (val) => `${val.toFixed(1)}%`,
+  },
+  PAYEMS: {
+    id: "PAYEMS",
+    name: "Nonfarm Payrolls",
+    section: "Labor Market",
+    formatter: (val) => `${(val / 1000).toFixed(2)}M`,
   },
   GDPC1: {
     id: "GDPC1",

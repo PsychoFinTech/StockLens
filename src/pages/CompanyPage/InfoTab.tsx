@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import React from 'react';
 
 interface SuperInvestor {
   avatar: string;
@@ -24,7 +23,6 @@ export const InfoTab: React.FC<InfoTabProps> = ({
   companyNews,
   isCompanyNewsPending,
 }) => {
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   return (
     <div id="info" className="space-y-6 scroll-mt-20 animate-in fade-in duration-200">
@@ -56,42 +54,6 @@ export const InfoTab: React.FC<InfoTabProps> = ({
         </div>
       )}
 
-      {/* Interactive FAQ list accordion */}
-      {detailData.faqs && detailData.faqs.length > 0 && (
-        <div id="faqs" className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">
-          <h3 className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em] border-b border-slate-100 pb-3">
-            Frequently Asked Questions (FAQs)
-          </h3>
-
-          <div className="divide-y divide-slate-100">
-            {detailData.faqs.map((faq: FAQItem, idx: number) => {
-              const isOpen = openFaqIndex === idx;
-              return (
-                <div key={idx} className="py-3.5">
-                  <button
-                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                    className="w-full flex justify-between items-center text-left py-1 group focus:outline-none cursor-pointer"
-                  >
-                    <span className="font-sans font-semibold text-xs text-slate-800 group-hover:text-[#059669] transition">
-                      {faq.q}
-                    </span>
-                    {isOpen ? (
-                      <ChevronUp className="h-4 w-4 text-[#059669] shrink-0" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-[#059669] shrink-0" />
-                    )}
-                  </button>
-                  {isOpen && (
-                    <p className="font-sans text-xs text-slate-650 bg-slate-50 p-3.5 rounded-lg border border-slate-100 mt-2.5 leading-relaxed text-justify animate-in slide-in-from-top-1 duration-150">
-                      {faq.a}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Equity news bulletins block card list */}
       <div className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">

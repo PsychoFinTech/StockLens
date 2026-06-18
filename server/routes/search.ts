@@ -13,7 +13,7 @@ router.get('/', searchLimiter, async (req, res, next) => {
   }
 
   try {
-    // 1. Search locally in our seeded list of 200 equities in SQLite (extremely fast, zero API cost)
+    // 1. Search locally in our seeded list of S&P 500 and global equities in SQLite (extremely fast, zero API cost)
     const dbStmt = db.prepare(`
       SELECT symbol, name, exchange, sector, country 
       FROM stocks 
