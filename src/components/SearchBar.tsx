@@ -16,9 +16,13 @@ interface SearchResult {
 
 interface SearchBarProps {
   placeholder?: string;
+  variant?: 'default' | 'hero';
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({ placeholder = 'Search tickers...' }) => {
+export const SearchBar: React.FC<SearchBarProps> = ({ 
+  placeholder = 'Search tickers...',
+  variant = 'default'
+}) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -80,11 +84,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({ placeholder = 'Search tick
     navigate(`/company/${encodeURIComponent(symbol.toUpperCase())}`);
   };
 
+  const isHero = variant === 'hero';
+
   return (
     <div ref={dropdownRef} className="relative w-full">
       {/* Search Input Container */}
       <div className="relative">
-        <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-gray-400" />
+        <Search className={`absolute text-gray-400 ${
+          isHero 
+            ? 'left-4.5 top-1/2 -translate-y-1/2 h-5.5 w-5.5 text-emerald-600' 
+            : 'left-3 top-2.5 h-4.5 w-4.5'
+        }`} />
         <input
           ref={inputRef}
           type="text"
@@ -92,13 +102,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({ placeholder = 'Search tick
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.trim() && setIsOpen(true)}
           placeholder={placeholder}
-          id="global-stock-search"
-          className="w-full rounded-lg border border-gray-200/80 bg-gray-50/50 py-2 pl-10 pr-10 text-sm placeholder-gray-400 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15"
+          id={isHero ? 'hero-stock-search' : 'global-stock-search'}
+          className={
+            isHero
+              ? 'w-full rounded-full border border-gray-200/80 bg-white py-3.5 pl-13 pr-12 text-[15px] font-medium placeholder-gray-400 outline-none shadow-sm transition-all focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10'
+              : 'w-full rounded-lg border border-gray-200/80 bg-gray-50/50 py-2 pl-10 pr-10 text-sm placeholder-gray-400 outline-none transition-all focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/15'
+          }
         />
-        <div className="absolute right-3.5 top-2 ml-1 items-center flex gap-1 pointer-events-none">
+        <div className={`absolute right-4.5 top-1/2 -translate-y-1/2 ml-1 items-center flex gap-1 pointer-events-none`}>
           {isSearching ? (
             <Loader2 className="h-4.5 w-4.5 animate-spin text-gray-400" />
-          ) : (
+          ) : !isHero && (
             <div className="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-gray-150 bg-white shadow-3xs text-[10px] text-gray-400 font-mono">
               <Command className="h-2.5 w-2.5" />
               <span>K</span>
@@ -109,7 +123,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ placeholder = 'Search tick
 
       {/* Autocomplete Results Grid */}
       {isOpen && (
-        <div className="absolute right-0 top-11 z-50 w-full min-w-[310px] max-h-[380px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-xl animate-in fade-in-50 slide-in-from-top-2 duration-150">
+        <div className={`absolute right-0 z-50 w-full min-w-[310px] max-h-[380px] overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 shadow-xl animate-in fade-in-50 slide-in-from-top-2 duration-150 ${
+          isHero ? 'top-16' : 'top-11'
+        }`}>
           
           {results.length === 0 ? (
             <div className="px-4 py-6 text-center">

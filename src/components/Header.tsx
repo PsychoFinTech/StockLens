@@ -75,9 +75,11 @@ export const Header: React.FC = () => {
 
         {/* Global Instant Search Bar & Mobile Nav Trigger */}
         <div className="flex items-center gap-4 flex-1 md:flex-none justify-end">
-          <div className="w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
-            <SearchBar placeholder="Search 200+ global stocks..." />
-          </div>
+          {location.pathname !== '/' && (
+            <div className="w-full max-w-[280px] sm:max-w-xs md:max-w-sm">
+              <SearchBar placeholder="Search 200+ global stocks..." />
+            </div>
+          )}
         </div>
       </div>
 

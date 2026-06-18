@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import apiClient from '../utils/apiClient.js';
 import { StockCard } from '../components/StockCard.jsx';
 import { CardSkeleton } from '../components/Skeleton.jsx';
+import { SearchBar } from '../components/SearchBar.jsx';
 import { Star, Newspaper, Plus, Sparkles, Building, Briefcase, ExternalLink } from 'lucide-react';
 import { formatDate } from '../utils/formatters.js';
 
@@ -70,27 +71,33 @@ export const WatchlistPage: React.FC = () => {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-      {/* 1. Dashboard Jumbotron Intro */}
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50/50 via-teal-50/20 to-white p-6 sm:p-8 shadow-3xs">
-        <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-250 text-emerald-800 font-mono text-[11px] font-bold uppercase tracking-wider">
-            <Sparkles className="h-3 w-3" />
+      {/* 1. Centered Hero Search Section */}
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-150/60 bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white py-12 px-6 sm:px-12 text-center shadow-3xs">
+        <div className="relative z-10 max-w-3xl mx-auto space-y-6">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-wider">
+            <Sparkles className="h-3 w-3 text-emerald-650" />
             <span>Active Financial Analysis Engine</span>
           </div>
-          <h1 className="font-sans text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">
-            Welcome to <span className="text-emerald-600">StockLens</span>
+          
+          <h1 className="font-sans text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-950 leading-tight">
+            The Modern Stock Screener that <br className="hidden sm:inline" />
+            helps you <span className="text-emerald-600 bg-emerald-50/40 px-2 rounded-lg border border-emerald-100/30">pick better stocks</span>.
           </h1>
-          <p className="font-sans text-sm sm:text-base text-gray-500 leading-relaxed max-w-lg">
-            Track and analyze over 200+ global and Indian equities using high-fidelity historical candle charts, financial profiles, key ratios, and peers mapping.
+          
+          <p className="font-sans text-xs sm:text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+            Instantly search and analyze over 200+ global equities with high-fidelity historical charts, deep ratios analyzer, insider logs, and YoY risk diff reports.
           </p>
+
+          <div className="w-full max-w-xl mx-auto pt-2">
+            <SearchBar 
+              variant="hero" 
+              placeholder="Type a Company Name or Brand to Search" 
+            />
+          </div>
         </div>
-        
-        {/* Decorative corner graphics */}
-        <div className="absolute right-0 bottom-0 top-0 w-1/3 opacity-15 hidden md:block select-none pointer-events-none">
-          <svg className="w-full h-full text-emerald-400" viewBox="0 0 100 100" fill="none" preserveAspectRatio="none">
-            <path d="M0,100 L50,40 L70,60 L100,0 L100,100 Z" fill="currentColor" />
-          </svg>
-        </div>
+
+        {/* Decorative background grids */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_0.75px,transparent_0.75px),linear-gradient(to_bottom,#e2e8f0_0.75px,transparent_0.75px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 select-none pointer-events-none" />
       </div>
 
       {/* 2. Main Two-Column Hub Layout */}
