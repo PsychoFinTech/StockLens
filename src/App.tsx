@@ -1,14 +1,12 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Header } from './components/Header.jsx';
 import { Ticker } from './components/Ticker.jsx';
-import { TickerPreview } from './components/TickerPreview.jsx';
 import { WatchlistPage } from './pages/WatchlistPage.jsx';
 import { ScreenerPage } from './pages/ScreenerPage.jsx';
 import { MarketDashboardPage } from './pages/MarketDashboardPage.jsx';
-import { CompanyPage } from './pages/CompanyPage.jsx';
-import { CompanyPagePreview } from './pages/CompanyPagePreview.jsx';
+import { CompanyPage } from './pages/CompanyPage/index.jsx';
 
 
 // 1. Initialize TanStack Query engine
@@ -22,13 +20,6 @@ const queryClient = new QueryClient({
   }
 });
 
-// Selector to render the dark premium Ticker on the preview route, and the standard one elsewhere
-const TickerSelector: React.FC = () => {
-  const location = useLocation();
-  const isCompany = location.pathname.startsWith('/company-preview/') || location.pathname.startsWith('/company/');
-  return isCompany ? <TickerPreview /> : <Ticker />;
-};
-
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -38,8 +29,8 @@ export default function App() {
           {/* Header block */}
           <Header />
 
-          {/* Indices ticker widget (displays dark animated preview version on preview routes) */}
-          <TickerSelector />
+          {/* Indices ticker widget */}
+          <Ticker />
 
           {/* Main workspace routing content */}
           <main className="flex-1">
@@ -48,7 +39,6 @@ export default function App() {
               <Route path="/screener" element={<ScreenerPage />} />
               <Route path="/market" element={<MarketDashboardPage />} />
               <Route path="/company/:symbol" element={<CompanyPage />} />
-              <Route path="/company-preview/:symbol" element={<CompanyPagePreview />} />
             </Routes>
           </main>
 

@@ -25,6 +25,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ placeholder = 'Search tick
   const [isSearching, setIsSearching] = useState(false);
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Close dropdown on clicking outside
   useEffect(() => {
@@ -35,6 +36,18 @@ export const SearchBar: React.FC<SearchBarProps> = ({ placeholder = 'Search tick
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Cmd+K / Ctrl+K global listener to focus search bar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // Debounce dynamically
@@ -73,6 +86,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ placeholder = 'Search tick
       <div className="relative">
         <Search className="absolute left-3 top-2.5 h-4.5 w-4.5 text-gray-400" />
         <input
+          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
