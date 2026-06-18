@@ -313,7 +313,7 @@ export const CompanyPage: React.FC = () => {
               <option value="analysis">Analysis</option>
               <option value="financials">Financials</option>
               <option value="info">Company Info</option>
-              <option value="sec">SEC Filings</option>
+              {!isIndian && <option value="sec">SEC Filings</option>}
             </select>
           </div>
 
@@ -324,7 +324,7 @@ export const CompanyPage: React.FC = () => {
               { id: 'analysis', label: 'Analysis', icon: TrendingUp },
               { id: 'financials', label: 'Financials', icon: DollarSign },
               { id: 'info', label: 'Company Info', icon: Building2 },
-              { id: 'sec', label: 'SEC Filings', icon: FileText }
+              ...(isIndian ? [] : [{ id: 'sec', label: 'SEC Filings', icon: FileText }])
             ].map((tab) => {
               const Icon = tab.icon;
               const ia = activePrimaryTab === tab.id;

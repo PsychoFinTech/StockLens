@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SearchBar } from './SearchBar.jsx';
-import { TrendingUp, Layers, LineChart, Star } from 'lucide-react';
+import { TrendingUp, Layers, LineChart, Star, Globe } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const location = useLocation();
@@ -70,6 +70,18 @@ export const Header: React.FC = () => {
               <LineChart className="h-4 w-4" />
               Markets
             </Link>
+
+            <Link
+              to="/macro"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-sans text-sm font-medium transition-colors ${
+                isLinkActive('/macro') 
+                  ? 'bg-emerald-50 text-emerald-700' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Globe className="h-4 w-4" />
+              Macro
+            </Link>
           </nav>
         </div>
 
@@ -111,6 +123,15 @@ export const Header: React.FC = () => {
         >
           <LineChart className="h-4 w-4" />
           Markets
+        </Link>
+        <Link
+          to="/macro"
+          className={`flex flex-col items-center gap-0.5 font-sans text-xs font-semibold ${
+            isLinkActive('/macro') ? 'text-emerald-700' : 'text-gray-500'
+          }`}
+        >
+          <Globe className="h-4 w-4" />
+          Macro
         </Link>
       </div>
     </header>

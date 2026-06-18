@@ -7,6 +7,7 @@ import { WatchlistPage } from './pages/WatchlistPage.jsx';
 import { ScreenerPage } from './pages/ScreenerPage.jsx';
 import { MarketDashboardPage } from './pages/MarketDashboardPage.jsx';
 import { CompanyPage } from './pages/CompanyPage/index.jsx';
+import { MacroIndicatorsPage } from './pages/MacroIndicatorsPage.jsx';
 
 
 // 1. Initialize TanStack Query engine
@@ -38,6 +39,7 @@ export default function App() {
               <Route path="/" element={<WatchlistPage />} />
               <Route path="/screener" element={<ScreenerPage />} />
               <Route path="/market" element={<MarketDashboardPage />} />
+              <Route path="/macro" element={<MacroIndicatorsPage />} />
               <Route path="/company/:symbol" element={<CompanyPage />} />
             </Routes>
           </main>

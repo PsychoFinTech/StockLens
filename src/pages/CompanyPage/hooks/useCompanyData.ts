@@ -141,6 +141,14 @@ export const useCompanyData = ({
     }
   });
 
+  const isUSStock = profile ? (
+    !upperSymbol.endsWith('.NS') && 
+    !upperSymbol.endsWith('.BO') && 
+    !(profile.exchange || '').toUpperCase().includes('NSE') && 
+    !(profile.exchange || '').toUpperCase().includes('BSE') && 
+    !(profile.exchange || '').toUpperCase().includes('INDIA')
+  ) : (!upperSymbol.endsWith('.NS') && !upperSymbol.endsWith('.BO'));
+
   // SEC EDGAR Query Hooks - these are lazy loaded
   const { data: edgarFinancials, isPending: isEdgarFinancialsPending, isError: isEdgarFinancialsError } = useQuery({
     queryKey: ['edgarFinancials', upperSymbol],
@@ -148,7 +156,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/financials/${upperSymbol}`);
       return resp.data;
     },
-    enabled: true,
+    enabled: isUSStock,
     staleTime: 24 * 60 * 60 * 1000 // cache for 24h
   });
 
@@ -159,7 +167,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/financials/${secComparePeer.toUpperCase()}`);
       return resp.data;
     },
-    enabled: !!secComparePeer,
+    enabled: !!secComparePeer && secComparePeer !== upperSymbol,
     staleTime: 24 * 60 * 60 * 1000
   });
 
@@ -169,7 +177,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/insiders/${upperSymbol}`);
       return resp.data;
     },
-    enabled: true,
+    enabled: isUSStock,
     staleTime: 60 * 60 * 1000 // cache 1h
   });
 
@@ -179,7 +187,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/holdings/${holdingsQuery}`);
       return resp.data;
     },
-    enabled: true,
+    enabled: !!holdingsQuery,
     staleTime: 24 * 60 * 60 * 1000
   });
 
@@ -189,7 +197,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/1`);
       return resp.data;
     },
-    enabled: true,
+    enabled: isUSStock,
     staleTime: 5 * 60 * 1000 // 5 minutes cache
   });
 
@@ -199,7 +207,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/1A`);
       return resp.data;
     },
-    enabled: true,
+    enabled: isUSStock,
     staleTime: 5 * 60 * 1000 // 5 minutes cache
   });
 
@@ -209,7 +217,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/7`);
       return resp.data;
     },
-    enabled: true,
+    enabled: isUSStock,
     staleTime: 5 * 60 * 1000 // 5 minutes cache
   });
 
@@ -219,7 +227,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/risk-diff/${upperSymbol}`);
       return resp.data;
     },
-    enabled: showRiskDiff,
+    enabled: showRiskDiff && isUSStock,
     staleTime: 5 * 60 * 1000 // 5 minutes cache
   });
 
