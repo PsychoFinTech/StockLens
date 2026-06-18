@@ -1,7 +1,12 @@
 import YahooFinance from 'yahoo-finance2';
 import { cacheService, CACHE_TTLS } from './cache.js';
 
-const yahooFinance = new YahooFinance();
+// ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
+let YahooFinanceClass: any = YahooFinance;
+if (YahooFinanceClass && typeof YahooFinanceClass.default === 'function') {
+  YahooFinanceClass = YahooFinanceClass.default;
+}
+const yahooFinance = new YahooFinanceClass();
 
 export const yahooService = {
   // Fetch historical financial data (5 years of Annual statements)
