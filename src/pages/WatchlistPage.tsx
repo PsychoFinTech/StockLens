@@ -72,7 +72,7 @@ export const WatchlistPage: React.FC = () => {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
       {/* 1. Centered Hero Search Section */}
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-150/60 bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white py-12 px-6 sm:px-12 text-center shadow-3xs">
+      <div className="relative rounded-2xl border border-emerald-150/60 bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white py-12 px-6 sm:px-12 text-center shadow-3xs">
         <div className="relative z-10 max-w-3xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-wider">
             <Sparkles className="h-3 w-3 text-emerald-650" />
@@ -97,7 +97,7 @@ export const WatchlistPage: React.FC = () => {
         </div>
 
         {/* Decorative background grids */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_0.75px,transparent_0.75px),linear-gradient(to_bottom,#e2e8f0_0.75px,transparent_0.75px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 select-none pointer-events-none" />
+        <div className="absolute inset-0 rounded-2xl bg-[linear-gradient(to_right,#e2e8f0_0.75px,transparent_0.75px),linear-gradient(to_bottom,#e2e8f0_0.75px,transparent_0.75px)] bg-[size:3rem_3rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-30 select-none pointer-events-none" />
       </div>
 
       {/* 2. Main Two-Column Hub Layout */}
