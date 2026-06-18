@@ -142,12 +142,17 @@ export const useCompanyData = ({
   });
 
   const isUSStock = profile ? (
-    !upperSymbol.endsWith('.NS') && 
-    !upperSymbol.endsWith('.BO') && 
-    !(profile.exchange || '').toUpperCase().includes('NSE') && 
-    !(profile.exchange || '').toUpperCase().includes('BSE') && 
-    !(profile.exchange || '').toUpperCase().includes('INDIA')
-  ) : (!upperSymbol.endsWith('.NS') && !upperSymbol.endsWith('.BO'));
+    (profile.exchange || '').toUpperCase().includes('NASDAQ') ||
+    (profile.exchange || '').toUpperCase().includes('NYSE') ||
+    (profile.exchange || '').toUpperCase().includes('NEW YORK') ||
+    (profile.exchange || '').toUpperCase().includes('OTC') ||
+    (profile.exchange || '').toUpperCase().includes('BATS') ||
+    (profile.exchange || '').toUpperCase().includes('AMEX') ||
+    (profile.country || '').toUpperCase() === 'US' ||
+    (profile.country || '').toUpperCase() === 'USA' ||
+    (profile.country || '').toUpperCase() === 'UNITED STATES' ||
+    (!upperSymbol.includes('.') && upperSymbol.length <= 5)
+  ) : !upperSymbol.includes('.');
 
   // SEC EDGAR Query Hooks - these are lazy loaded
   const { data: edgarFinancials, isPending: isEdgarFinancialsPending, isError: isEdgarFinancialsError } = useQuery({
@@ -247,6 +252,7 @@ export const useCompanyData = ({
     quote,
     companyNews,
     isCompanyNewsPending,
+    isUSStock,
     edgarFinancials,
     isEdgarFinancialsPending,
     isEdgarFinancialsError,

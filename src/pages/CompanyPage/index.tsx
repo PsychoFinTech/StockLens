@@ -54,6 +54,7 @@ export const CompanyPage: React.FC = () => {
     quote,
     companyNews,
     isCompanyNewsPending,
+    isUSStock,
     edgarFinancials,
     isEdgarFinancialsPending,
     isEdgarFinancialsError,
@@ -313,7 +314,7 @@ export const CompanyPage: React.FC = () => {
               <option value="analysis">Analysis</option>
               <option value="financials">Financials</option>
               <option value="info">Company Info</option>
-              {!isIndian && <option value="sec">SEC Filings</option>}
+              {isUSStock && <option value="sec">SEC Filings</option>}
             </select>
           </div>
 
@@ -324,7 +325,7 @@ export const CompanyPage: React.FC = () => {
               { id: 'analysis', label: 'Analysis', icon: TrendingUp },
               { id: 'financials', label: 'Financials', icon: DollarSign },
               { id: 'info', label: 'Company Info', icon: Building2 },
-              ...(isIndian ? [] : [{ id: 'sec', label: 'SEC Filings', icon: FileText }])
+              ...(isUSStock ? [{ id: 'sec', label: 'SEC Filings', icon: FileText }] : [])
             ].map((tab) => {
               const Icon = tab.icon;
               const ia = activePrimaryTab === tab.id;
@@ -382,47 +383,49 @@ export const CompanyPage: React.FC = () => {
           isCompanyNewsPending={isCompanyNewsPending}
         />
 
-        <SECTab
-          upperSymbol={upperSymbol}
-          peers={peers || []}
-          activeSecSubTab={activeSecSubTab}
-          setActiveSecSubTab={setActiveSecSubTab}
-          secComparePeer={secComparePeer}
-          setSecComparePeer={setSecComparePeer}
-          activeSecStatement={activeSecStatement}
-          setActiveSecStatement={setActiveSecStatement}
-          holdingsSearchInput={holdingsSearchInput}
-          setHoldingsSearchInput={setHoldingsSearchInput}
-          holdingsQuery={holdingsQuery}
-          setHoldingsQuery={setHoldingsQuery}
-          activeTenKTab={activeTenKTab}
-          setActiveTenKTab={setActiveTenKTab}
-          showRiskDiff={showRiskDiff}
-          setShowRiskDiff={setShowRiskDiff}
-          
-          edgarFinancials={edgarFinancials}
-          isEdgarFinancialsPending={isEdgarFinancialsPending}
-          isEdgarFinancialsError={isEdgarFinancialsError}
-          edgarCompareFinancials={edgarCompareFinancials}
-          edgarInsiders={edgarInsiders}
-          isEdgarInsidersPending={isEdgarInsidersPending}
-          isEdgarInsidersError={isEdgarInsidersError}
-          edgarHoldings={edgarHoldings}
-          isEdgarHoldingsPending={isEdgarHoldingsPending}
-          isEdgarHoldingsError={isEdgarHoldingsError}
-          edgarSection1={edgarSection1}
-          isSection1Pending={isSection1Pending}
-          isSection1Error={isSection1Error}
-          edgarSection1A={edgarSection1A}
-          isSection1APending={isSection1APending}
-          isSection1AError={isSection1AError}
-          edgarSection7={edgarSection7}
-          isSection7Pending={isSection7Pending}
-          isSection7Error={isSection7Error}
-          edgarRiskDiff={edgarRiskDiff}
-          isRiskDiffPending={isRiskDiffPending}
-          isRiskDiffError={isRiskDiffError}
-        />
+        {isUSStock && (
+          <SECTab
+            upperSymbol={upperSymbol}
+            peers={peers || []}
+            activeSecSubTab={activeSecSubTab}
+            setActiveSecSubTab={setActiveSecSubTab}
+            secComparePeer={secComparePeer}
+            setSecComparePeer={setSecComparePeer}
+            activeSecStatement={activeSecStatement}
+            setActiveSecStatement={setActiveSecStatement}
+            holdingsSearchInput={holdingsSearchInput}
+            setHoldingsSearchInput={setHoldingsSearchInput}
+            holdingsQuery={holdingsQuery}
+            setHoldingsQuery={setHoldingsQuery}
+            activeTenKTab={activeTenKTab}
+            setActiveTenKTab={setActiveTenKTab}
+            showRiskDiff={showRiskDiff}
+            setShowRiskDiff={setShowRiskDiff}
+            
+            edgarFinancials={edgarFinancials}
+            isEdgarFinancialsPending={isEdgarFinancialsPending}
+            isEdgarFinancialsError={isEdgarFinancialsError}
+            edgarCompareFinancials={edgarCompareFinancials}
+            edgarInsiders={edgarInsiders}
+            isEdgarInsidersPending={isEdgarInsidersPending}
+            isEdgarInsidersError={isEdgarInsidersError}
+            edgarHoldings={edgarHoldings}
+            isEdgarHoldingsPending={isEdgarHoldingsPending}
+            isEdgarHoldingsError={isEdgarHoldingsError}
+            edgarSection1={edgarSection1}
+            isSection1Pending={isSection1Pending}
+            isSection1Error={isSection1Error}
+            edgarSection1A={edgarSection1A}
+            isSection1APending={isSection1APending}
+            isSection1AError={isSection1AError}
+            edgarSection7={edgarSection7}
+            isSection7Pending={isSection7Pending}
+            isSection7Error={isSection7Error}
+            edgarRiskDiff={edgarRiskDiff}
+            isRiskDiffPending={isRiskDiffPending}
+            isRiskDiffError={isRiskDiffError}
+          />
+        )}
 
       </div>
     </div>
