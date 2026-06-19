@@ -428,5 +428,81 @@ export const yahooService = {
       console.error(`[YAHOO CANDLES ERROR] Failed to fetch candles for ${rawSymbol}`, error.message);
       return { s: 'no_data' };
     }
+  },
+
+  // Shareholding data (major holders, institutional ownership, mutual fund ownership)
+  getShareholding: async (symbol: string) => {
+    const rawSymbol = symbol.toUpperCase();
+    const cacheKey = `yahoo:shareholding:${rawSymbol}`;
+
+    // Try in-memory cache first
+    const cached = cacheService.get<any>(cacheKey);
+    if (cached) {
+      cacheService.logHit('shareholding', rawSymbol, 'MEMCACHE_YAHOO_SHAREHOLDING');
+      return cached;
+    }
+
+    // Try SQLite backup next (if within 24h)
+    const backup = cacheService.getShareholdingBackup(rawSymbol);
+    if (backup && (Date.now() - backup.updated_at < CACHE_TTLS.FUNDAMENTALS * 1000)) {
+      console.log(`[YAHOO] Found fresh SQLite shareholding backup for: ${rawSymbol}`);
+      cacheService.set(cacheKey, backup.data, CACHE_TTLS.FUNDAMENTALS);
+      return backup.data;
+    }
+
+    console.log(`[YAHOO] Fetching shareholding quoteSummary for: ${rawSymbol}`);
+    try {
+      const result: any = await yahooFinance.quoteSummary(rawSymbol, {
+        modules: ['majorHoldersBreakdown', 'institutionOwnership', 'fundOwnership']
+      });
+
+      if (!result) {
+        throw new Error('No quoteSummary results found for shareholding');
+      }
+
+      const majorHolders = {
+        insidersPercentHeld: result.majorHoldersBreakdown?.insidersPercentHeld ?? null,
+        institutionsPercentHeld: result.majorHoldersBreakdown?.institutionsPercentHeld ?? null,
+        institutionsFloatPercentHeld: result.majorHoldersBreakdown?.institutionsFloatPercentHeld ?? null,
+        institutionsCount: result.majorHoldersBreakdown?.institutionsCount ?? null
+      };
+
+      const institutionalHolders = (result.institutionOwnership?.ownershipList || []).map((item: any) => ({
+        organization: item.organization || '—',
+        position: item.position || null,
+        reportDate: item.reportDate || null,
+        pctHeld: item.pctHeld || null,
+        value: item.value || null
+      }));
+
+      const mutualFundHolders = (result.fundOwnership?.ownershipList || []).map((item: any) => ({
+        organization: item.organization || '—',
+        position: item.position || null,
+        reportDate: item.reportDate || null,
+        pctHeld: item.pctHeld || null,
+        value: item.value || null
+      }));
+
+      const payload = {
+        majorHolders,
+        institutionalHolders,
+        mutualFundHolders
+      };
+
+      // Set node-cache & save backend SQLite persistent backup
+      cacheService.set(cacheKey, payload, CACHE_TTLS.FUNDAMENTALS);
+      cacheService.saveShareholdingBackup(rawSymbol, payload);
+
+      return payload;
+    } catch (error: any) {
+      console.error(`[YAHOO ERROR] Failed to fetch shareholding for ${rawSymbol}`, error.message);
+      
+      // Fallback to SQLite check (even if expired)
+      if (backup) {
+        console.log(`[YAHOO FALLBACK] Returned SQLite shareholding data backup for ${rawSymbol}`);
+        return backup.data;
+      }
+      throw error;
+    }
   }
 };

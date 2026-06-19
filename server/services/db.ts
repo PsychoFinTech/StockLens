@@ -56,6 +56,12 @@ db.exec(`
     data TEXT NOT NULL,
     fetched_at INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS shareholding_cache (
+    symbol TEXT PRIMARY KEY,
+    data TEXT NOT NULL, -- Stored as JSON string
+    updated_at INTEGER NOT NULL
+  );
 `);
 
 // Alter quotes table if needed for schema updates

@@ -338,4 +338,26 @@ router.get('/peers/:symbol', apiLimiter, async (req, res, next) => {
   }
 });
 
+// 5. GET /api/shareholding/:symbol -> major holders, institutional ownership, mutual fund ownership
+router.get('/shareholding/:symbol', apiLimiter, async (req, res, next) => {
+  const symbol = req.params.symbol.toUpperCase();
+
+  try {
+    const data = await yahooService.getShareholding(symbol);
+    res.json(data);
+  } catch (error: any) {
+    console.warn(`[SHAREHOLDING ROUTE] Failed for ${symbol}:`, error.message);
+    res.json({
+      majorHolders: {
+        insidersPercentHeld: null,
+        institutionsPercentHeld: null,
+        institutionsFloatPercentHeld: null,
+        institutionsCount: null
+      },
+      institutionalHolders: [],
+      mutualFundHolders: []
+    });
+  }
+});
+
 export default router;

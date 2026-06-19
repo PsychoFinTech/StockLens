@@ -132,7 +132,9 @@ export const CompanyPage: React.FC = () => {
     isRiskDiffError,
     edgarProxy,
     isEdgarProxyPending,
-    isEdgarProxyError
+    isEdgarProxyError,
+    shareholding,
+    isShareholdingPending
   } = useCompanyData({
     upperSymbol,
     secComparePeer,
@@ -442,6 +444,8 @@ export const CompanyPage: React.FC = () => {
           ratios={ratios}
           quote={quote}
           handleScrollToSection={handleScrollToSection}
+          shareholding={shareholding}
+          isShareholdingPending={isShareholdingPending}
         />
         
         <AnalysisTab

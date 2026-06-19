@@ -1,6 +1,6 @@
 import React from 'react';
-import { HelpCircle, BadgeInfo } from 'lucide-react';
-import { formatPrice, formatMarketCap, formatShares } from '../../utils/formatters.js';
+import { HelpCircle, BadgeInfo, Loader2 } from 'lucide-react';
+import { formatPrice, formatMarketCap, formatShares, formatDate, formatLargeNumber, getCurrencySymbol } from '../../utils/formatters.js';
 import { FinStarRating } from './components/FinStarRating.jsx';
 
 interface CompanyProfile {
@@ -41,6 +41,8 @@ interface OverviewTabProps {
   ratios: Ratios | undefined;
   quote: any;
   handleScrollToSection: (id: string) => void;
+  shareholding: any;
+  isShareholdingPending: boolean;
 }
 
 const getTooltipContent = (tag: string, ratios: Ratios | undefined): string => {
@@ -69,7 +71,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   profile,
   ratios,
   quote,
-  handleScrollToSection
+  handleScrollToSection,
+  shareholding,
+  isShareholdingPending
 }) => {
   // Simple dynamic FinStar rating calculation based on real ratios
   const hasRatios = !!ratios && ratios.pe !== '—';
@@ -294,15 +298,160 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
       <div id="shareholding" className="space-y-6 scroll-mt-20">
         <div className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-6">
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-            <h3 className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em]">
+            <h3 className="text-[11.5px] font-semibold text-slate-500 uppercase tracking-[0.08em]">
               Shareholding Pattern
             </h3>
             <span className="text-[10px] font-mono text-slate-400">Equity capital split</span>
           </div>
 
-          <div className="py-12 text-center font-mono text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
-            Shareholding pattern data unavailable for this company
-          </div>
+          {isShareholdingPending ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400 font-mono text-xs space-y-3">
+              <Loader2 className="h-6 w-6 animate-spin text-[#059669]" />
+              <span>Loading shareholding pattern data...</span>
+            </div>
+          ) : shareholding && (
+            (shareholding.majorHolders && shareholding.majorHolders.insidersPercentHeld !== null) ||
+            (shareholding.institutionalHolders && shareholding.institutionalHolders.length > 0) ||
+            (shareholding.mutualFundHolders && shareholding.mutualFundHolders.length > 0)
+          ) ? (
+            <div className="space-y-6">
+              {/* Major Holders Breakdown */}
+              {shareholding.majorHolders && shareholding.majorHolders.insidersPercentHeld !== null && (
+                <div className="space-y-3">
+                  <h4 className="text-[12px] font-bold text-slate-500 uppercase tracking-[0.08em]">Major Holders</h4>
+                  <div className="border border-[#E5E8EF] rounded-xl overflow-hidden bg-white">
+                    <table className="w-full text-left font-sans text-xs">
+                      <tbody className="divide-y divide-[#E5E8EF]">
+                        {[
+                          {
+                            label: '% of Shares Held by All Insiders',
+                            value: shareholding.majorHolders.insidersPercentHeld !== null 
+                              ? `${(shareholding.majorHolders.insidersPercentHeld * 100).toFixed(2)}%` 
+                              : '—'
+                          },
+                          {
+                            label: '% of Shares Held by Institutions',
+                            value: shareholding.majorHolders.institutionsPercentHeld !== null 
+                              ? `${(shareholding.majorHolders.institutionsPercentHeld * 100).toFixed(2)}%` 
+                              : '—'
+                          },
+                          {
+                            label: '% of Float Held by Institutions',
+                            value: shareholding.majorHolders.institutionsFloatPercentHeld !== null 
+                              ? `${(shareholding.majorHolders.institutionsFloatPercentHeld * 100).toFixed(2)}%` 
+                              : '—'
+                          },
+                          {
+                            label: 'Number of Institutions Holding Shares',
+                            value: shareholding.majorHolders.institutionsCount !== null 
+                              ? formatLargeNumber(shareholding.majorHolders.institutionsCount) 
+                              : '—'
+                          }
+                        ].map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 transition">
+                            <td className="px-4 py-3 font-mono font-bold text-slate-900 w-1/4 border-r border-[#E5E8EF] text-right bg-slate-50/10">
+                              {row.value}
+                            </td>
+                            <td className="px-4 py-3 text-slate-650 font-medium">
+                              {row.label}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Top Institutional Holders */}
+              {shareholding.institutionalHolders && shareholding.institutionalHolders.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-[12px] font-bold text-slate-500 uppercase tracking-[0.08em]">Top Institutional Holders</h4>
+                  <div className="border border-[#E5E8EF] rounded-xl overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-[#E5E8EF] text-xs font-sans text-left">
+                        <thead>
+                          <tr className="bg-[rgba(5,150,105,0.04)] text-[#059669] border-b border-[#E5E8EF] text-[10.5px] font-bold uppercase tracking-wider">
+                            <th className="py-3 px-4 font-bold text-left">Holder</th>
+                            <th className="py-3 px-4 font-bold text-right">Shares</th>
+                            <th className="py-3 px-4 font-bold text-center">Date Reported</th>
+                            <th className="py-3 px-4 font-bold text-right">% Out</th>
+                            <th className="py-3 px-4 font-bold text-right">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5E8EF] text-slate-700 bg-white">
+                          {shareholding.institutionalHolders.map((item: any, idx: number) => {
+                            const isEven = idx % 2 === 1;
+                            const currency = getCurrencySymbol(profile.exchange, profile.symbol);
+                            const valFormatted = item.value 
+                              ? `${currency}${Math.round(item.value).toLocaleString()}` 
+                              : '—';
+                            return (
+                              <tr key={idx} className={`${isEven ? 'bg-[#F8F9FB]/40' : 'bg-white'} hover:bg-slate-50/50 transition`}>
+                                <td className="py-3 px-4 font-bold text-slate-900">{item.organization}</td>
+                                <td className="py-3 px-4 text-right font-mono font-medium">{item.position ? formatShares(item.position, profile.exchange, profile.symbol) : '—'}</td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-600">{item.reportDate ? formatDate(item.reportDate) : '—'}</td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-600">
+                                  {item.pctHeld !== null ? `${(item.pctHeld * 100).toFixed(2)}%` : '—'}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono font-medium">{valFormatted}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Top Mutual Fund Holders */}
+              {shareholding.mutualFundHolders && shareholding.mutualFundHolders.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-[12px] font-bold text-slate-500 uppercase tracking-[0.08em]">Top Mutual Fund Holders</h4>
+                  <div className="border border-[#E5E8EF] rounded-xl overflow-hidden bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-[#E5E8EF] text-xs font-sans text-left">
+                        <thead>
+                          <tr className="bg-[rgba(5,150,105,0.04)] text-[#059669] border-b border-[#E5E8EF] text-[10.5px] font-bold uppercase tracking-wider">
+                            <th className="py-3 px-4 font-bold text-left">Holder</th>
+                            <th className="py-3 px-4 font-bold text-right">Shares</th>
+                            <th className="py-3 px-4 font-bold text-center">Date Reported</th>
+                            <th className="py-3 px-4 font-bold text-right">% Out</th>
+                            <th className="py-3 px-4 font-bold text-right">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#E5E8EF] text-slate-700 bg-white">
+                          {shareholding.mutualFundHolders.map((item: any, idx: number) => {
+                            const isEven = idx % 2 === 1;
+                            const currency = getCurrencySymbol(profile.exchange, profile.symbol);
+                            const valFormatted = item.value 
+                              ? `${currency}${Math.round(item.value).toLocaleString()}` 
+                              : '—';
+                            return (
+                              <tr key={idx} className={`${isEven ? 'bg-[#F8F9FB]/40' : 'bg-white'} hover:bg-slate-50/50 transition`}>
+                                <td className="py-3 px-4 font-bold text-slate-900">{item.organization}</td>
+                                <td className="py-3 px-4 text-right font-mono font-medium">{item.position ? formatShares(item.position, profile.exchange, profile.symbol) : '—'}</td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-600">{item.reportDate ? formatDate(item.reportDate) : '—'}</td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-600">
+                                  {item.pctHeld !== null ? `${(item.pctHeld * 100).toFixed(2)}%` : '—'}
+                                </td>
+                                <td className="py-3 px-4 text-right font-mono font-medium">{valFormatted}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-12 text-center font-mono text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+              Shareholding pattern data unavailable for this company
+            </div>
+          )}
         </div>
       </div>
 

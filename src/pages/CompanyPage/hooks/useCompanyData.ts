@@ -313,6 +313,15 @@ export const useCompanyData = ({
     }
   });
 
+  const { data: shareholding, isPending: isShareholdingPending } = useQuery({
+    queryKey: ['shareholding', upperSymbol],
+    queryFn: async () => {
+      const resp = await apiClient.get(`/shareholding/${encodeURIComponent(upperSymbol)}`);
+      return resp.data;
+    },
+    staleTime: 60 * 60 * 1000 // 1 hour client cache
+  });
+
   return {
     watchlist,
     isStarred,
@@ -357,6 +366,8 @@ export const useCompanyData = ({
     isRiskDiffError,
     edgarProxy,
     isEdgarProxyPending,
-    isEdgarProxyError
+    isEdgarProxyError,
+    shareholding,
+    isShareholdingPending
   };
 };
