@@ -134,6 +134,17 @@ export const SECTab: React.FC<SECTabProps> = ({
     return isAllUpper || isTitleCase;
   };
 
+  const isNoiseParagraph = (p: string): boolean => {
+    const trimmed = p.trim();
+    if (trimmed.length === 0) return true;
+    // Ignore pure numbers (page numbers)
+    if (/^\d+$/.test(trimmed)) return true;
+    // Ignore "Table of Contents" and variant endings
+    const lower = trimmed.toLowerCase();
+    if (lower === 'table of contents' || lower === 'table of contents.') return true;
+    return false;
+  };
+
   const highlightText = (text: string, search: string) => {
     if (!search || !search.trim()) return text;
     const cleanSearch = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); // escape regex special chars
@@ -650,7 +661,7 @@ export const SECTab: React.FC<SECTabProps> = ({
                       <span>{edgarSection1.title}</span>
                     </h4>
                     <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
-                      {edgarSection1.paragraphs.map((p: string, pIdx: number) => {
+                      {edgarSection1.paragraphs.filter((p: string) => !isNoiseParagraph(p)).map((p: string, pIdx: number) => {
                         if (isParagraphHeader(p)) {
                           return (
                             <h5 key={pIdx} className="font-sans font-bold text-slate-900 text-sm mt-6 mb-2 border-t border-slate-100 pt-4 first:border-0 first:mt-0 first:pt-0">
@@ -707,6 +718,7 @@ export const SECTab: React.FC<SECTabProps> = ({
                       
                       <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
                         {edgarRiskDiff.paragraphs
+                          .filter((p: any) => !isNoiseParagraph(p.text))
                           .filter((p: any) => {
                             if (diffFilter === 'changes') return p.status === 'added' || p.status === 'removed';
                             if (diffFilter === 'added') return p.status === 'added';
@@ -716,11 +728,11 @@ export const SECTab: React.FC<SECTabProps> = ({
                           .map((p: any, pIdx: number) => {
                             let styleClass = 'p-3 rounded-xl border border-[#E5E8EF] bg-white';
                             if (p.status === 'added') {
-                              styleClass = 'p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/20 text-emerald-950 font-medium shadow-[0_1px_2px_rgba(5,150,105,0.03)]';
+                              styleClass = 'p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/20 text-emerald-955 font-medium shadow-[0_1px_2px_rgba(5,150,105,0.03)]';
                             } else if (p.status === 'removed') {
                               styleClass = 'p-3.5 rounded-xl border border-rose-200 bg-rose-50/20 text-rose-955 line-through decoration-rose-300 font-medium shadow-[0_1px_2px_rgba(220,38,38,0.03)]';
                             } else {
-                              styleClass = 'p-3 text-slate-650 border border-slate-100 bg-slate-50/10';
+                              styleClass = 'p-3 text-slate-655 border border-slate-100 bg-slate-50/10';
                             }
                             
                             return (
@@ -750,7 +762,7 @@ export const SECTab: React.FC<SECTabProps> = ({
                         <span>{edgarSection1A.title}</span>
                       </h4>
                       <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
-                        {edgarSection1A.paragraphs.map((p: string, pIdx: number) => {
+                        {edgarSection1A.paragraphs.filter((p: string) => !isNoiseParagraph(p)).map((p: string, pIdx: number) => {
                           if (isParagraphHeader(p)) {
                             return (
                               <h5 key={pIdx} className="font-sans font-bold text-slate-900 text-sm mt-6 mb-2 border-t border-slate-100 pt-4 first:border-0 first:mt-0 first:pt-0">
@@ -759,7 +771,7 @@ export const SECTab: React.FC<SECTabProps> = ({
                             );
                           }
                           return (
-                            <p key={pIdx} className="leading-relaxed text-slate-700 text-left">
+                            <p key={pIdx} className="leading-relaxed text-slate-755 text-left">
                               {highlightText(p, secSearchInput)}
                             </p>
                           );
@@ -780,7 +792,7 @@ export const SECTab: React.FC<SECTabProps> = ({
                       <span>{edgarSection7.title}</span>
                     </h4>
                     <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
-                      {edgarSection7.paragraphs.map((p: string, pIdx: number) => {
+                      {edgarSection7.paragraphs.filter((p: string) => !isNoiseParagraph(p)).map((p: string, pIdx: number) => {
                         if (isParagraphHeader(p)) {
                           return (
                             <h5 key={pIdx} className="font-sans font-bold text-slate-900 text-sm mt-6 mb-2 border-t border-slate-100 pt-4 first:border-0 first:mt-0 first:pt-0">
