@@ -262,90 +262,90 @@ export const SECTab: React.FC<SECTabProps> = ({
             ) : isEdgarFinancialsError ? (
               <div className="py-8 text-center text-red-400 text-sm">⚠️ Could not load SEC financials for {upperSymbol}. The company may not be SEC-registered or EDGAR data is unavailable right now.</div>
             ) : edgarFinancials ? (
-              <div className="overflow-x-auto border border-[#E5E8EF] rounded-xl">
-                <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
-                  <thead>
-                    <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[11px] font-bold uppercase tracking-wider">
-                      <th className="py-3 px-4 font-bold">Standardized Item (USD in Millions)</th>
-                      {secComparePeer ? (
-                        <>
-                          <th className="py-3 px-4 text-right font-bold bg-[#E6F0FF]/30">{upperSymbol} (2025)</th>
-                          <th className="py-3 px-4 text-right font-bold bg-[#EEF2FF]/40">{secComparePeer} (2025)</th>
-                          <th className="py-3 px-4 text-right font-bold bg-[#E6F0FF]/30">{upperSymbol} (2024)</th>
-                          <th className="py-3 px-4 text-right font-bold bg-[#EEF2FF]/40">{secComparePeer} (2024)</th>
-                          <th className="py-3 px-4 text-right font-bold bg-[#E6F0FF]/30">{upperSymbol} (2023)</th>
-                          <th className="py-3 px-4 text-right font-bold bg-[#EEF2FF]/40">{secComparePeer} (2023)</th>
-                        </>
-                      ) : (
-                        <>
-                          <th className="py-3 px-4 text-right font-bold">FY 2025</th>
-                          <th className="py-3 px-4 text-right font-bold">FY 2024</th>
-                          <th className="py-3 px-4 text-right font-bold">FY 2023</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
-                    {(() => {
-                      const statementKey = activeSecStatement === 'income'
-                        ? 'incomeStatement'
-                        : activeSecStatement === 'balance'
-                          ? 'balanceSheet'
-                          : 'cashFlow';
+              (() => {
+                const statementKey = activeSecStatement === 'income'
+                  ? 'incomeStatement'
+                  : activeSecStatement === 'balance'
+                    ? 'balanceSheet'
+                    : 'cashFlow';
 
-                      const activeRows = edgarFinancials[statementKey] || [];
-                      const peerRows = edgarCompareFinancials ? edgarCompareFinancials[statementKey] || [] : [];
+                const activeRows = edgarFinancials[statementKey] || [];
+                const peerRows = edgarCompareFinancials ? edgarCompareFinancials[statementKey] || [] : [];
 
-                      return activeRows.map((row: any, rIdx: number) => {
-                        const peerRow = peerRows.find((pr: any) => pr.label === row.label);
-                        const isBoldRow = ['Total Revenue', 'Gross Profit', 'Operating Income', 'Net Income', 'Total Assets', 'Total Liabilities', 'Total Stockholders Equity', 'Operating Cash Flow', 'Free Cash Flow'].includes(row.label);
-                        
-                        const formatVal = (val: any) => {
-                          if (val === undefined || val === null) return '—';
-                          if (typeof val === 'number') {
-                            if (row.label.includes('EPS')) {
-                              return `$${val.toFixed(2)}`;
+                // Dynamically get the list of years sorted descending from activeRows and peerRows
+                const years = Array.from(
+                  new Set([
+                    ...activeRows.flatMap((row: any) => Object.keys(row.values || {})),
+                    ...peerRows.flatMap((row: any) => Object.keys(row.values || {}))
+                  ])
+                ).sort((a, b) => b.localeCompare(a));
+
+                return (
+                  <div className="overflow-x-auto border border-[#E5E8EF] rounded-xl">
+                    <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
+                      <thead>
+                        <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[11px] font-bold uppercase tracking-wider">
+                          <th className="py-3 px-4 font-bold">Standardized Item (USD in Millions)</th>
+                          {secComparePeer ? (
+                            years.flatMap(year => [
+                              <th key={`${upperSymbol}-${year}`} className="py-3 px-4 text-right font-bold bg-[#E6F0FF]/30">{upperSymbol} ({year})</th>,
+                              <th key={`${secComparePeer}-${year}`} className="py-3 px-4 text-right font-bold bg-[#EEF2FF]/40">{secComparePeer} ({year})</th>
+                            ])
+                          ) : (
+                            years.map(year => (
+                              <th key={year} className="py-3 px-4 text-right font-bold">FY {year}</th>
+                            ))
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
+                        {activeRows.map((row: any, rIdx: number) => {
+                          const peerRow = peerRows.find((pr: any) => pr.label === row.label);
+                          const isBoldRow = ['Total Revenue', 'Gross Profit', 'Operating Income', 'Net Income', 'Total Assets', 'Total Liabilities', 'Total Stockholders Equity', 'Operating Cash Flow', 'Free Cash Flow'].includes(row.label);
+                          
+                          const formatVal = (val: any) => {
+                            if (val === undefined || val === null) return '—';
+                            if (typeof val === 'number') {
+                              if (row.label.includes('EPS')) {
+                                return `$${val.toFixed(2)}`;
+                              }
+                              return `$${val.toLocaleString()}M`;
                             }
-                            return `$${val.toLocaleString()}M`;
-                          }
-                          return val;
-                        };
+                            return val;
+                          };
 
-                        return (
-                          <tr
-                            key={rIdx}
-                            className={`${
-                              isBoldRow 
-                                ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/20' 
-                                : rIdx % 2 === 1 
-                                  ? 'bg-slate-50/10' 
-                                  : 'bg-white'
-                            } hover:bg-slate-50/40 transition`}
-                          >
-                            <td className="py-3 px-4 font-sans font-medium text-slate-800">{row.label}</td>
-                            {secComparePeer ? (
-                              <>
-                                <td className="py-3 px-4 text-right font-semibold bg-[#E6F0FF]/15 text-slate-900">{formatVal(row.values['2025'])}</td>
-                                <td className="py-3 px-4 text-right text-slate-650 bg-[#EEF2FF]/20">{formatVal(peerRow?.values['2025'])}</td>
-                                <td className="py-3 px-4 text-right font-semibold bg-[#E6F0FF]/15 text-slate-900">{formatVal(row.values['2024'])}</td>
-                                <td className="py-3 px-4 text-right text-slate-650 bg-[#EEF2FF]/20">{formatVal(peerRow?.values['2024'])}</td>
-                                <td className="py-3 px-4 text-right font-semibold bg-[#E6F0FF]/15 text-slate-900">{formatVal(row.values['2023'])}</td>
-                                <td className="py-3 px-4 text-right text-slate-650 bg-[#EEF2FF]/20">{formatVal(peerRow?.values['2023'])}</td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="py-3 px-4 text-right font-semibold text-slate-900">{formatVal(row.values['2025'])}</td>
-                                <td className="py-3 px-4 text-right text-slate-600">{formatVal(row.values['2024'])}</td>
-                                <td className="py-3 px-4 text-right text-slate-600">{formatVal(row.values['2023'])}</td>
-                              </>
-                            )}
-                          </tr>
-                        );
-                      });
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                          return (
+                            <tr
+                              key={rIdx}
+                              className={`${
+                                isBoldRow 
+                                  ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/20' 
+                                  : rIdx % 2 === 1 
+                                    ? 'bg-slate-50/10' 
+                                    : 'bg-white'
+                              } hover:bg-slate-50/40 transition`}
+                            >
+                              <td className="py-3 px-4 font-sans font-medium text-slate-800">{row.label}</td>
+                              {secComparePeer ? (
+                                years.flatMap(year => [
+                                  <td key={`${upperSymbol}-${year}`} className="py-3 px-4 text-right font-semibold bg-[#E6F0FF]/15 text-slate-900">{formatVal(row.values[year])}</td>,
+                                  <td key={`${secComparePeer}-${year}`} className="py-3 px-4 text-right text-slate-650 bg-[#EEF2FF]/20">{formatVal(peerRow?.values[year])}</td>
+                                ])
+                              ) : (
+                                years.map((year, idx) => (
+                                  <td key={year} className={`py-3 px-4 text-right ${idx === 0 ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
+                                    {formatVal(row.values[year])}
+                                  </td>
+                                ))
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()
             ) : (
               <div className="py-4 text-center text-slate-400">Failed to load statements.</div>
             )}

@@ -374,7 +374,7 @@ function parseSecStatement(facts: any, conceptsList: [string, string, string | n
   const sortedYears = Object.keys(yearToPeriod)
     .map(Number)
     .sort((a, b) => b - a)
-    .slice(0, 3); // latest 3 years
+    .slice(0, 5); // latest 5 years
 
   const periods = sortedYears.map(y => yearToPeriod[y]);
 
@@ -680,8 +680,8 @@ export const edgarService = {
   getFinancials: async (symbol: string): Promise<EdgarFinancials> => {
     const sym = symbol.toUpperCase();
     return cachedFetch<EdgarFinancials>(
-      `fin:${sym}`,
-      `financials:${sym}`,
+      `fin5y:${sym}`,
+      `financials5y:${sym}`,
       SQLITE_TTL.financials,
       async () => {
         const cik = await getCik(sym);
@@ -1395,12 +1395,12 @@ export const edgarService = {
 export function prefetchEdgar(symbol: string): void {
   const sym = symbol.toUpperCase();
 
-  if (memCache.get(`fin:${sym}`) !== undefined) return;
+  if (memCache.get(`fin5y:${sym}`) !== undefined) return;
 
-  const existing = sqliteGet(`financials:${sym}`, SQLITE_TTL.financials);
+  const existing = sqliteGet(`financials5y:${sym}`, SQLITE_TTL.financials);
   if (existing !== null) return;
 
-  if (inFlight.has(`fin:${sym}`)) return;
+  if (inFlight.has(`fin5y:${sym}`)) return;
 
   console.log(`[EDGAR PREFETCH] Background warming cache for: ${sym}`);
 
