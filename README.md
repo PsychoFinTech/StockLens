@@ -1,53 +1,153 @@
-# StockLens — Equities Analysis & Charting Engine
+# StockLens
 
-**StockLens** is a production-grade, highly-performant global equities research, charting, and stock screening platform inspired by Finology Ticker. Powered by a hybrid full-stack TypeScript architecture, it features a lightning-fast SQLite local store mapped with progressive waterfalled API resolvers for Finnhub, Yahoo, and Alpha Vantage, maintaining robust uptime under free API key usage.
+**Full-stack equities research dashboard** for quotes, charts, fundamentals, stock screening, SEC filings, congressional trading activity, and macro indicators.
 
----
-
-## 🎨 Visual Identity & Aesthetic Principles
-
-- **Swiss Slate Theme**: Styled with a minimal, high-contrast light layout, using generous negative space, soft gray borders (`border-gray-150`), and solid dark text pairing elegantly with an active emerald brand accent color.
-- **Aesthetic Pairings**: Prominent use of the robust `Inter` sans-serif typeface for readable content paired with `JetBrains Mono` for precise multi-market numbers, percentage symbols, and trading indicators.
-- **Responsive Touch Design**: Optimized for standard desktop views as well as narrow mobile screens, providing custom horizontal scroll indicators and at least `44px` touch target bounding boxes.
+StockLens is a single-process app built with **React, Express, TypeScript, and SQLite**. It prefers real data, caches aggressively, and shows honest unavailable states when live data cannot be fetched.
 
 ---
 
-## 🚀 Core Features
+## Features
 
-### 💻 Hybrid Data Integration (Waterfall Engine)
-- **Level 1**: Fetches live equity prices & charts from **Finnhub Core API**.
-- **Level 2**: Pulls comparative valuation metrics & financials using scraper layers from **Yahoo Finance**.
-- **Level 3**: Integrates global data backups on smaller equities using **Alpha Vantage**.
-- **Local Persistence Backup**: Persists quote changes in an active `better-sqlite3` database, providing instant fallback response buffers if live keys hit rate-limits.
-
-### ⭐ Structured Watchlist Layout
-- **Trading Dashboard**: Curated root hub landing view displaying a live grid of starred assets alongside corporate market news bulletins.
-- **Instant Seeding**: Includes quick-add indicators to let first-time users seed MSFT, TSLA, AAPL, NVDA, and RELIANCE in a single click.
-
-### 🔍 Auto-Complete Search
-- Instantly matches search inputs against indexed local SQLite stock tables with rapid, low-latency, and progressive Finnhub global searches.
-
-### 📊 Advanced Multi-Filter Screener
-- **Sector Heatmap cards**: Features an interactive heatmap sector selector at the top; clicking blocks applies immediate sector filtering to the main tabular results.
-- **Advanced Selectors**: Filter securities by Exchange (NASDAQ, NYSE, NSE, LSE, XETRA, TSE) or category, with responsive client-side pagination and column sorting.
+* **Watchlist dashboard** for tracking selected tickers
+* **Company pages** with overview, charts, financial statements, ratios, analysis, and SEC data
+* **Stock screener** with filters for exchange, sector, market cap, valuation, profitability, and leverage
+* **Market dashboard** with indices, movers, breakouts, and sector performance
+* **SEC tools** for insider trades, institutional holdings, proxy statements, and filing sections
+* **Congressional trading** disclosures
+* **Macro indicators** powered by FRED
+* **Search** with fast autocomplete over the local stock index
+* **Caching-first behavior** so the app remains usable when external APIs rate-limit or fail
 
 ---
 
-## 🛠️ Architecture and Setup
+## Why StockLens
 
-### Directory Layout
-- `/server/routes/` - Standard Express routers: screener, market, search, charts, watchlist, news.
-- `/server/services/` - Core database setups, caches, cron schedulers, and API proxies.
-- `/src/components/` - Highly cohesive widgets: Chart, Table, StockCard, Ticker, SearchBar, Skeleton.
-- `/src/pages/` - Views: Watchlist Hub, Screener, Markets, Company Analytics.
+Most retail investing dashboards either hide their data sources or quietly invent values when live APIs fail. StockLens does the opposite:
 
-### Running Development Server
+* it prefers **real data**,
+* it **caches** results to reduce API pressure,
+* and it shows **no-data / unavailable states** instead of fake placeholders.
+
+That makes it better suited for research, debugging, and portfolio work.
+
+---
+
+## Data Sources
+
+| Source                  | Used for                                                                            | Auth                                |
+| ----------------------- | ----------------------------------------------------------------------------------- | ----------------------------------- |
+| Yahoo Finance           | Quotes, historical candles, profiles, financial statements, peers, news             | None                                |
+| SEC EDGAR               | 10-K / 10-Q sections, Form 4 insider trades, 13F holdings, DEF 14A proxy statements | None, compliant User-Agent required |
+| Financial Modeling Prep | Congressional trading disclosures                                                   | API key                             |
+| FRED                    | Macro indicators such as rates, CPI, unemployment, GDP                              | API key                             |
+
+---
+
+## Architecture
+
+```text
+React UI
+   ↓
+Express API
+   ↓
+Cache Layer
+   ↓
+SQLite Backup
+   ↓
+External Data Sources
+```
+
+### Repository structure
+
+```text
+/server
+  /routes      API routes for quotes, charts, screener, market, news, search, watchlist, edgar, macro
+  /services    Data fetching, caching, database helpers, cron jobs
+  /middleware  Rate limiting and error handling
+
+/src
+  /pages       Main app pages
+  /components  Shared UI components
+  /hooks       React Query data hooks
+  /utils       Formatters and helpers
+```
+
+### Storage
+
+SQLite is used for:
+
+* stock universe seed data
+* cached quotes
+* cached fundamentals
+* watchlist data
+* cache logs
+* SEC filing cache
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+* Node.js 22+ recommended
+* npm
+* Optional API keys for FRED and Financial Modeling Prep
+
+### Install
+
 ```bash
+npm install
+cp .env.example .env
 npm run dev
 ```
 
-### Building for Production hosting
+### Production build
+
 ```bash
 npm run build
+npm start
 ```
-This produces client static layers and bundles the backend server into a single portable ESM/CJS asset inside `/dist`.
+
+### Type checking
+
+```bash
+npm run lint
+```
+
+---
+
+## Environment Variables
+
+```env
+FRED_API_KEY=
+FMP_API_KEY=
+PORT=3000
+SQLITE_DB_PATH=./stocklens.db
+```
+
+Notes:
+
+* The app runs without API keys, but FRED and congressional trading pages will show unavailable states.
+* `SQLITE_DB_PATH` is optional and defaults to a local database file.
+
+---
+
+## Scripts
+
+```bash
+npm run dev      # Start the full-stack dev server
+npm run build    # Build client and server for production
+npm start        # Run the production server
+npm run lint     # TypeScript type check
+npm run clean    # Remove build artifacts
+```
+
+---
+
+## Reliability Notes
+
+StockLens uses a simple data waterfall:
+
+1. in-memory cache for speed
+2. SQLite backup for persistence
+3. live fetch for fresh data
