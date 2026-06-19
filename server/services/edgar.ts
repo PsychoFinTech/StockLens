@@ -562,6 +562,40 @@ async function parse13F(cik: string, accNum: string): Promise<any[]> {
 
 // ─── 10-K Section Extraction ───────────────────────────────────────────────────
 
+function matchesStart(lines: string[], idx: number, item: string): boolean {
+  const line = lines[idx];
+  if (item === '1') {
+    if (/^Item\s+1\b/i.test(line)) {
+      if (/Business/i.test(line)) return true;
+      if (idx + 1 < lines.length && /Business/i.test(lines[idx + 1])) return true;
+    }
+  } else if (item === '1A') {
+    if (/^Item\s+1A\b/i.test(line)) {
+      if (/Risk\s+Factors/i.test(line)) return true;
+      if (idx + 1 < lines.length && /Risk\s+Factors/i.test(lines[idx + 1])) return true;
+    }
+  } else if (item === '7') {
+    if (/^Item\s+7\b/i.test(line)) {
+      if (/Management/i.test(line) && /Discussion/i.test(line)) return true;
+      if (idx + 1 < lines.length && /Management/i.test(lines[idx + 1]) && /Discussion/i.test(lines[idx + 1])) return true;
+      if (idx + 2 < lines.length && /Management/i.test(lines[idx + 2]) && /Discussion/i.test(lines[idx + 2])) return true;
+    }
+  }
+  return false;
+}
+
+function matchesEnd(lines: string[], idx: number, item: string): boolean {
+  const line = lines[idx];
+  if (item === '1') {
+    return /^Item\s+1A\b/i.test(line) || /^Item\s+1B\b/i.test(line) || /^Item\s+2\b/i.test(line);
+  } else if (item === '1A') {
+    return /^Item\s+1B\b/i.test(line) || /^Item\s+2\b/i.test(line);
+  } else if (item === '7') {
+    return /^Item\s+7A\b/i.test(line) || /^Item\s+8\b/i.test(line);
+  }
+  return false;
+}
+
 function extractSectionText(html: string, itemName: string): string[] {
   let text = html.replace(/<\/?(?:div|p|tr|h1|h2|h3|h4|h5|h6|br)[^>]*>/gi, '\n');
   text = text.replace(/<[^>]+>/g, ' '); // Strip all other tags
@@ -576,66 +610,47 @@ function extractSectionText(html: string, itemName: string): string[] {
              .replace(/&#8217;/g, "'");
              
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  const startThreshold = itemName === '1' ? Math.floor(lines.length * 0.05) : Math.floor(lines.length * 0.10);
-  let startIdx = -1;
-  let endIdx = -1;
   
-  if (itemName === '1') {
-    for (let i = startThreshold; i < lines.length; i++) {
-      const line = lines[i];
-      if (/^Item\s+1\b/i.test(line) && /Business/i.test(line)) {
-        startIdx = i;
-        break;
-      }
-    }
-    if (startIdx !== -1) {
-      for (let i = startIdx + 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (/^Item\s+1A\b/i.test(line) || /^Item\s+1B\b/i.test(line) || /^Item\s+2\b/i.test(line)) {
-          endIdx = i;
-          break;
-        }
-      }
-    }
-  } else if (itemName === '1A') {
-    for (let i = startThreshold; i < lines.length; i++) {
-      const line = lines[i];
-      if (/^Item\s+1A\b/i.test(line) && /Risk\s+Factors/i.test(line)) {
-        startIdx = i;
-        break;
-      }
-    }
-    if (startIdx !== -1) {
-      for (let i = startIdx + 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (/^Item\s+1B\b/i.test(line) || /^Item\s+2\b/i.test(line)) {
-          endIdx = i;
-          break;
-        }
-      }
-    }
-  } else if (itemName === '7') {
-    for (let i = startThreshold; i < lines.length; i++) {
-      const line = lines[i];
-      if (/^Item\s+7\b/i.test(line) && /Management/i.test(line) && /Discussion/i.test(line)) {
-        startIdx = i;
-        break;
-      }
-    }
-    if (startIdx !== -1) {
-      for (let i = startIdx + 1; i < lines.length; i++) {
-        const line = lines[i];
-        if (/^Item\s+7A\b/i.test(line) || /^Item\s+8\b/i.test(line)) {
-          endIdx = i;
-          break;
+  const candidates: { startIdx: number; endIdx: number; distance: number }[] = [];
+  const startIndices: number[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    if (matchesStart(lines, i, itemName)) {
+      startIndices.push(i);
+      for (let j = i + 1; j < lines.length; j++) {
+        if (matchesEnd(lines, j, itemName)) {
+          candidates.push({ startIdx: i, endIdx: j, distance: j - i });
+          break; // only match the first end for this start
         }
       }
     }
   }
   
-  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+  // Filter candidates with minimum distance of 30 lines to bypass Table of Contents
+  const validCandidates = candidates.filter(c => c.distance >= 30);
+  
+  if (validCandidates.length > 0) {
+    // Sort by distance descending, picking the largest block (most likely the actual section)
+    validCandidates.sort((a, b) => b.distance - a.distance);
+    const best = validCandidates[0];
+    return lines.slice(best.startIdx + 1, best.endIdx);
+  }
+  
+  // Fallback 1: first candidate if any exists (even if distance is small)
+  if (candidates.length > 0) {
+    candidates.sort((a, b) => b.distance - a.distance);
+    return lines.slice(candidates[0].startIdx + 1, candidates[0].endIdx);
+  }
+  
+  // Fallback 2: if we found start indices but no end index, slice from the latest start index to the end (or up to 1000 lines)
+  if (startIndices.length > 0) {
+    // Sort start indices descending (latest in document is usually the actual section to bypass TOC)
+    startIndices.sort((a, b) => b - a);
+    const startIdx = startIndices[0];
+    const endIdx = Math.min(startIdx + 1000, lines.length);
     return lines.slice(startIdx + 1, endIdx);
   }
+  
   return [];
 }
 
@@ -873,8 +888,8 @@ export const edgarService = {
     const finalItem = cleanItem === '1' ? '1' : cleanItem === '1A' ? '1A' : '7';
     
     return cachedFetch<EdgarSectionResponse>(
-      `sec:${sym}:${finalItem}`,
-      `section:${sym}:${finalItem}`,
+      `sec_v2:${sym}:${finalItem}`,
+      `section_v2:${sym}:${finalItem}`,
       SQLITE_TTL.section,
       async () => {
         const cik = await getCik(sym);
@@ -915,8 +930,8 @@ export const edgarService = {
   getRiskDiff: async (symbol: string): Promise<EdgarRiskDiffResponse> => {
     const sym = symbol.toUpperCase();
     return cachedFetch<EdgarRiskDiffResponse>(
-      `rdiff:${sym}`,
-      `risk_diff:${sym}`,
+      `rdiff_v2:${sym}`,
+      `risk_diff_v2:${sym}`,
       SQLITE_TTL.risk_diff,
       async () => {
         const cik = await getCik(sym);
