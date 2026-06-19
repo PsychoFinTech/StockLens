@@ -104,6 +104,49 @@ export const SECTab: React.FC<SECTabProps> = ({
   isEdgarProxyPending,
   isEdgarProxyError,
 }) => {
+  const [secSearchInput, setSecSearchInput] = React.useState('');
+  const [diffFilter, setDiffFilter] = React.useState<'all' | 'changes' | 'added' | 'removed'>('all');
+
+  const isParagraphHeader = (p: string): boolean => {
+    const trimmed = p.trim();
+    if (trimmed.length === 0 || trimmed.length > 90) return false;
+    // Don't format as header if it ends with punctuation like periods
+    const lastChar = trimmed[trimmed.length - 1];
+    if (lastChar === '.' || lastChar === '?' || lastChar === '!') return false;
+    // Common header indicators: starts with Item, Note, Table, Part, or contains standard sections
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith('item ') || lower.startsWith('note ') || lower.startsWith('part ') || lower.startsWith('section ') || lower.startsWith('risks related ')) {
+      return true;
+    }
+    // If it's in Title Case or Upper Case and short, treat as header
+    const isAllUpper = trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed);
+    const words = trimmed.split(/\s+/);
+    const isTitleCase = words.every(w => {
+      if (w.length <= 3) return true; // ignore short words like of/and/the
+      const firstChar = w[0];
+      return firstChar === firstChar.toUpperCase() && /[A-Z]/.test(firstChar);
+    });
+    return isAllUpper || isTitleCase;
+  };
+
+  const highlightText = (text: string, search: string) => {
+    if (!search || !search.trim()) return text;
+    const cleanSearch = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'); // escape regex special chars
+    const regex = new RegExp(`(${cleanSearch})`, 'gi');
+    const parts = text.split(regex);
+    return (
+      <>
+        {parts.map((part, i) => 
+          regex.test(part) ? (
+            <mark key={i} className="bg-yellow-100 text-yellow-900 rounded-sm font-semibold px-0.5">{part}</mark>
+          ) : (
+            part
+          )
+        )}
+      </>
+    );
+  };
+
   return (
     <div id="sec" className="space-y-6 scroll-mt-20">
       <div className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-5">
@@ -557,100 +600,199 @@ export const SECTab: React.FC<SECTabProps> = ({
               )}
             </div>
 
-            {/* Text Content Rendering Area */}
-            <div className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-sm space-y-4">
+            {/* Search Toolbar & Theme Highlights */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between border-b border-slate-100 pb-4 mb-2">
+              <div className="relative w-full md:max-w-md">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search keywords (e.g. AI, FSD, tariff, risk, revenue)..."
+                  value={secSearchInput}
+                  onChange={(e) => setSecSearchInput(e.target.value)}
+                  className="w-full bg-white border border-[#E5E8EF] rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#059669]"
+                />
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <span className="text-[10px] font-mono text-slate-405 uppercase tracking-wider shrink-0">Quick Themes:</span>
+                <div className="flex flex-wrap gap-1">
+                  {['AI', 'FSD', 'Robotaxi', 'Tariff', 'Risk', 'Revenue'].map((pill) => (
+                    <button
+                      key={pill}
+                      onClick={() => setSecSearchInput(secSearchInput === pill ? '' : pill)}
+                      className={`px-2.5 py-1 text-[10.5px] font-bold rounded-lg border transition cursor-pointer ${
+                        secSearchInput === pill
+                          ? 'bg-[#059669]/10 border-[#059669]/30 text-[#059669]'
+                          : 'bg-white border-[#E5E8EF] text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {pill}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Text Content Rendering Area - Unified Paper Canvas */}
+            <div className="bg-white border border-[#E5E8EF] rounded-xl p-6 shadow-sm space-y-4">
               {activeTenKTab === 'business' ? (
                 isSection1Pending ? (
-                  <div className="py-8 text-center text-slate-400 animate-pulse">Loading Business section...</div>
+                  <div className="py-8 text-center text-slate-400 animate-pulse font-mono text-xs">Loading Business description...</div>
                 ) : edgarSection1 && edgarSection1.paragraphs ? (
-                  <div className="space-y-4">
-                    <h4 className="font-sans font-bold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <div className="space-y-4 animate-in fade-in duration-250">
+                    <h4 className="font-sans font-bold text-sm text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-1.5 uppercase tracking-wider">
                       <FileText className="h-4 w-4 text-[#059669]" />
                       <span>{edgarSection1.title}</span>
                     </h4>
-                    <div className="space-y-4 text-justify font-sans text-xs leading-relaxed text-slate-700">
-                      {edgarSection1.paragraphs.map((p: string, pIdx: number) => (
-                        <p key={pIdx} className="bg-slate-50/20 p-3 rounded-xl border border-slate-100/50">
-                          {p}
-                        </p>
-                      ))}
+                    <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
+                      {edgarSection1.paragraphs.map((p: string, pIdx: number) => {
+                        if (isParagraphHeader(p)) {
+                          return (
+                            <h5 key={pIdx} className="font-sans font-bold text-slate-900 text-sm mt-6 mb-2 border-t border-slate-100 pt-4 first:border-0 first:mt-0 first:pt-0">
+                              {p}
+                            </h5>
+                          );
+                        }
+                        return (
+                          <p key={pIdx} className="leading-relaxed text-slate-700 text-left">
+                            {highlightText(p, secSearchInput)}
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
-                  <div className="py-4 text-center text-slate-400">Failed to load Business description.</div>
+                  <div className="py-4 text-center text-slate-400 font-mono text-xs">Failed to load Business description.</div>
                 )
               ) : activeTenKTab === 'risk' ? (
                 showRiskDiff ? (
                   isRiskDiffPending ? (
-                    <div className="py-8 text-center text-slate-400 animate-pulse">Computing YoY difference analysis...</div>
+                    <div className="py-8 text-center text-slate-400 animate-pulse font-mono text-xs">Computing YoY difference analysis...</div>
                   ) : edgarRiskDiff && edgarRiskDiff.paragraphs ? (
-                    <div className="space-y-4">
-                      <div className="flex gap-4 text-[10px] font-mono border-b border-slate-100 pb-2.5 mb-1.5 uppercase">
-                        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-emerald-50 border border-emerald-150 inline-block" /> Added Paragraphs</span>
-                        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-rose-50 border border-rose-150 inline-block" /> Removed Paragraphs</span>
-                        <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-white border border-[#E5E8EF] inline-block" /> Unchanged</span>
+                    <div className="space-y-4 animate-in fade-in duration-250">
+                      {/* Diff Filtering Switcher */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-100 pb-3 mb-2">
+                        <div className="flex bg-slate-50 p-0.5 rounded-lg border border-[#E5E8EF] max-w-sm gap-0.5 w-full sm:w-auto">
+                          {[
+                            { id: 'all', label: 'All Risks' },
+                            { id: 'changes', label: 'Changes Only' },
+                            { id: 'added', label: 'Added Only' },
+                            { id: 'removed', label: 'Removed Only' }
+                          ].map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => setDiffFilter(item.id as any)}
+                              className={`flex-1 sm:flex-none px-3 py-1 font-sans text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                                diffFilter === item.id 
+                                  ? 'bg-slate-800 text-white shadow-xs' 
+                                  : 'text-slate-500 hover:text-slate-800'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        <div className="flex gap-4 text-[10px] font-mono uppercase text-slate-500 font-semibold tracking-wider">
+                          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-emerald-50 border border-emerald-150 inline-block" /> Added</span>
+                          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-rose-50 border border-rose-150 inline-block" /> Removed</span>
+                          <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded bg-white border border-[#E5E8EF] inline-block" /> Unchanged</span>
+                        </div>
                       </div>
                       
-                      <div className="space-y-4 text-justify font-sans text-xs leading-relaxed text-slate-700">
-                        {edgarRiskDiff.paragraphs.map((p: any, pIdx: number) => {
-                          let styleClass = 'p-3 rounded-xl border border-[#E5E8EF] bg-white';
-                          if (p.status === 'added') {
-                            styleClass = 'p-3 rounded-xl border border-emerald-150 bg-emerald-50/30 text-emerald-955 font-medium';
-                          } else if (p.status === 'removed') {
-                            styleClass = 'p-3 rounded-xl border border-rose-150 bg-rose-50/30 text-rose-955 line-through decoration-rose-400 font-medium';
+                      <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
+                        {edgarRiskDiff.paragraphs
+                          .filter((p: any) => {
+                            if (diffFilter === 'changes') return p.status === 'added' || p.status === 'removed';
+                            if (diffFilter === 'added') return p.status === 'added';
+                            if (diffFilter === 'removed') return p.status === 'removed';
+                            return true; // all
+                          })
+                          .map((p: any, pIdx: number) => {
+                            let styleClass = 'p-3 rounded-xl border border-[#E5E8EF] bg-white';
+                            if (p.status === 'added') {
+                              styleClass = 'p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/20 text-emerald-950 font-medium shadow-[0_1px_2px_rgba(5,150,105,0.03)]';
+                            } else if (p.status === 'removed') {
+                              styleClass = 'p-3.5 rounded-xl border border-rose-200 bg-rose-50/20 text-rose-955 line-through decoration-rose-300 font-medium shadow-[0_1px_2px_rgba(220,38,38,0.03)]';
+                            } else {
+                              styleClass = 'p-3 text-slate-650 border border-slate-100 bg-slate-50/10';
+                            }
+                            
+                            return (
+                              <div key={pIdx} className={styleClass}>
+                                {p.status === 'added' || p.status === 'removed' ? (
+                                  highlightText(p.text, secSearchInput)
+                                ) : isParagraphHeader(p.text) ? (
+                                  <h5 className="font-sans font-bold text-slate-900 text-sm">{p.text}</h5>
+                                ) : (
+                                  highlightText(p.text, secSearchInput)
+                                )}
+                              </div>
+                            );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4 text-center text-slate-400 font-mono text-xs">Failed to load risk factor difference report.</div>
+                  )
+                ) : (
+                  isSection1APending ? (
+                    <div className="py-8 text-center text-slate-400 animate-pulse font-mono text-xs">Loading Risk Factors section...</div>
+                  ) : edgarSection1A && edgarSection1A.paragraphs ? (
+                    <div className="space-y-4 animate-in fade-in duration-250">
+                      <h4 className="font-sans font-bold text-sm text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-1.5 uppercase tracking-wider">
+                        <FileText className="h-4 w-4 text-[#059669]" />
+                        <span>{edgarSection1A.title}</span>
+                      </h4>
+                      <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
+                        {edgarSection1A.paragraphs.map((p: string, pIdx: number) => {
+                          if (isParagraphHeader(p)) {
+                            return (
+                              <h5 key={pIdx} className="font-sans font-bold text-slate-900 text-sm mt-6 mb-2 border-t border-slate-100 pt-4 first:border-0 first:mt-0 first:pt-0">
+                                {p}
+                              </h5>
+                            );
                           }
-                          
                           return (
-                            <p key={pIdx} className={styleClass}>
-                              {p.text}
+                            <p key={pIdx} className="leading-relaxed text-slate-700 text-left">
+                              {highlightText(p, secSearchInput)}
                             </p>
                           );
                         })}
                       </div>
                     </div>
                   ) : (
-                    <div className="py-4 text-center text-slate-400">Failed to load risk factor difference report.</div>
-                  )
-                ) : (
-                  isSection1APending ? (
-                    <div className="py-8 text-center text-slate-400 animate-pulse">Loading Risk Factors section...</div>
-                  ) : edgarSection1A && edgarSection1A.paragraphs ? (
-                    <div className="space-y-4">
-                      <h4 className="font-sans font-bold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                        <FileText className="h-4 w-4 text-[#059669]" />
-                        <span>{edgarSection1A.title}</span>
-                      </h4>
-                      <div className="space-y-4 text-justify font-sans text-xs leading-relaxed text-slate-700">
-                        {edgarSection1A.paragraphs.map((p: string, pIdx: number) => (
-                          <p key={pIdx} className="bg-slate-50/20 p-3 rounded-xl border border-slate-100/50">
-                            {p}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="py-4 text-center text-slate-400">Failed to load Risk Factors.</div>
+                    <div className="py-4 text-center text-slate-400 font-mono text-xs">Failed to load Risk Factors.</div>
                   )
                 )
               ) : (
                 isSection7Pending ? (
-                  <div className="py-8 text-center text-slate-400 animate-pulse">Loading MD&A section...</div>
+                  <div className="py-8 text-center text-slate-400 animate-pulse font-mono text-xs">Loading MD&A section...</div>
                 ) : edgarSection7 && edgarSection7.paragraphs ? (
-                  <div className="space-y-4">
-                    <h4 className="font-sans font-bold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                  <div className="space-y-4 animate-in fade-in duration-250">
+                    <h4 className="font-sans font-bold text-sm text-slate-900 border-b border-slate-100 pb-2.5 flex items-center gap-1.5 uppercase tracking-wider">
                       <FileText className="h-4 w-4 text-[#059669]" />
                       <span>{edgarSection7.title}</span>
                     </h4>
-                    <div className="space-y-4 text-justify font-sans text-xs leading-relaxed text-slate-700">
-                      {edgarSection7.paragraphs.map((p: string, pIdx: number) => (
-                        <p key={pIdx} className="bg-slate-50/20 p-3 rounded-xl border border-slate-100/50">
-                          {p}
-                        </p>
-                      ))}
+                    <div className="space-y-4 font-sans text-[13.5px] leading-relaxed text-slate-700">
+                      {edgarSection7.paragraphs.map((p: string, pIdx: number) => {
+                        if (isParagraphHeader(p)) {
+                          return (
+                            <h5 key={pIdx} className="font-sans font-bold text-slate-900 text-sm mt-6 mb-2 border-t border-slate-100 pt-4 first:border-0 first:mt-0 first:pt-0">
+                              {p}
+                            </h5>
+                          );
+                        }
+                        return (
+                          <p key={pIdx} className="leading-relaxed text-slate-700 text-left">
+                            {highlightText(p, secSearchInput)}
+                          </p>
+                        );
+                      })}
                     </div>
                   </div>
                 ) : (
-                  <div className="py-4 text-center text-slate-400">Failed to load MD&A analysis.</div>
+                  <div className="py-4 text-center text-slate-400 font-mono text-xs">Failed to load MD&A analysis.</div>
                 )
               )}
             </div>
