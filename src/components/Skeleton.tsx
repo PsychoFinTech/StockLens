@@ -2,11 +2,12 @@ import React from 'react';
 
 interface SkeletonProps {
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export const Skeleton: React.FC<SkeletonProps> = ({ className = 'h-4 w-full' }) => {
+export const Skeleton: React.FC<SkeletonProps> = ({ className = 'h-4 w-full', style }) => {
   return (
-    <div className={`animate-pulse rounded bg-gray-200/90 ${className}`} />
+    <div className={`animate-pulse rounded bg-gray-200/90 ${className}`} style={style} />
   );
 };
 

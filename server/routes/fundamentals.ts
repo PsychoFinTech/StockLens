@@ -3,6 +3,7 @@ import { yahooService } from '../services/yahoo.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 import db from '../services/db.js';
 import { prefetchEdgar } from '../services/edgar.js';
+import { cacheService } from '../services/cache.js';
 
 const router = Router();
 
@@ -85,41 +86,40 @@ router.get('/financials/:symbol', apiLimiter, async (req, res, next) => {
     // Standardize mapping format for charts
     const result = {
       symbol,
-      incomeStatement: financials?.incomeStatement?.map((r: any) => ({
-        year: r.fiscalDateEnding ? new Date(r.fiscalDateEnding).getFullYear() : '—',
-        date: r.fiscalDateEnding || '—',
-        revenue: r.totalRevenue?.raw || r.totalRevenue || 0,
-        grossProfit: r.grossProfit?.raw || r.grossProfit || 0,
-        netIncome: r.netIncome?.raw || r.netIncome || 0
-      })).slice(0, 5).reverse() || [],
+      incomeStatement: financials?.incomeStatement?.map((r: any) => {
+        const dateVal = r.endDate || r.fiscalDateEnding || '—';
+        return {
+          year: dateVal !== '—' ? new Date(dateVal).getFullYear() : '—',
+          date: dateVal,
+          revenue: r.totalRevenue?.raw || r.totalRevenue || 0,
+          grossProfit: r.grossProfit?.raw || r.grossProfit || 0,
+          netIncome: r.netIncome?.raw || r.netIncome || 0
+        };
+      })?.slice(0, 5).reverse() || [],
 
-      balanceSheet: financials?.balanceSheet?.map((r: any) => ({
-        year: r.fiscalDateEnding ? new Date(r.fiscalDateEnding).getFullYear() : '—',
-        date: r.fiscalDateEnding || '—',
-        assets: r.totalAssets?.raw || r.totalAssets || 0,
-        liabilities: r.totalLiabilities?.raw || r.totalLiabilities || 0,
-        equity: r.totalStockholderEquity?.raw || r.totalShareholderEquity || r.totalStockholderEquity || 0
-      })).slice(0, 5).reverse() || [],
+      balanceSheet: financials?.balanceSheet?.map((r: any) => {
+        const dateVal = r.endDate || r.fiscalDateEnding || '—';
+        return {
+          year: dateVal !== '—' ? new Date(dateVal).getFullYear() : '—',
+          date: dateVal,
+          assets: r.totalAssets?.raw || r.totalAssets || 0,
+          liabilities: r.totalLiabilities?.raw || r.totalLiabilities || 0,
+          equity: r.totalStockholderEquity?.raw || r.totalShareholderEquity || r.totalStockholderEquity || 0
+        };
+      })?.slice(0, 5).reverse() || [],
 
-      cashFlow: financials?.cashFlow?.map((r: any) => ({
-        year: r.fiscalDateEnding ? new Date(r.fiscalDateEnding).getFullYear() : '—',
-        date: r.fiscalDateEnding || '—',
-        operating: r.totalCashFromOperatingActivities?.raw || r.operatingCashflow || 0,
-        investing: r.capitalExpenditures?.raw || r.investingCashflow || 0,
-        financing: r.totalCashFromFinancingActivities?.raw || r.financingCashflow || 0
-      })).slice(0, 5).reverse() || [],
+      cashFlow: financials?.cashFlow?.map((r: any) => {
+        const dateVal = r.endDate || r.fiscalDateEnding || '—';
+        return {
+          year: dateVal !== '—' ? new Date(dateVal).getFullYear() : '—',
+          date: dateVal,
+          operating: r.totalCashFromOperatingActivities?.raw || r.operatingCashflow || 0,
+          investing: r.capitalExpenditures?.raw || r.investingCashflow || 0,
+          financing: r.totalCashFromFinancingActivities?.raw || r.financingCashflow || 0
+        };
+      })?.slice(0, 5).reverse() || [],
       
-      // Standard Mock quarterly values for high-compliance placeholder metrics on smaller stocks
-      quarterly: [
-        { quarter: 'Q1 26', revenue: 105400000000, netIncome: 23640000000, eps: 1.53 },
-        { quarter: 'Q4 25', revenue: 119580000000, netIncome: 33916000000, eps: 2.18 },
-        { quarter: 'Q3 25', revenue: 90146000000, netIncome: 22956000000, eps: 1.46 },
-        { quarter: 'Q2 25', revenue: 94836000000, netIncome: 23640000000, eps: 1.52 },
-        { quarter: 'Q1 25', revenue: 117154000000, netIncome: 33916000000, eps: 2.14 },
-        { quarter: 'Q4 24', revenue: 89498000000, netIncome: 22956000000, eps: 1.43 },
-        { quarter: 'Q3 24', revenue: 81797000000, netIncome: 19881000000, eps: 1.24 },
-        { quarter: 'Q2 24', revenue: 82959000000, netIncome: 20055000000, eps: 1.22 }
-      ]
+      quarterly: []
     };
 
     res.json(result);
@@ -144,14 +144,21 @@ router.get('/ratios/:symbol', apiLimiter, async (req, res, next) => {
     // Extract metrics parameters
     const m = metrics?.metric || {};
     
-    const pe = m.peAnnual || 25.4; // Fallback default normal
-    const pb = m.pbAnnual || 4.2;
-    const roe = m.roeTTM || 18.5; // TTM % formats
-    const roce = m.roicTTM || (roe * 0.95) || 17.2; // Derived ROCE
-    const de = m.debtEquityAnnual || 0.65;
-    const eps = m.epsBasicExclExtraItemsTTM || 5.84;
-    const mcap = m.marketCapitalization || 150000; // in millions
-    const divYield = m.dividendYieldIndicated || 1.2;
+    const pe = m.peAnnual || null;
+    const pb = m.pbAnnual || null;
+    const roe = m.roeTTM || null;
+    const roce = m.roicTTM || (roe !== null ? roe * 0.95 : null);
+    const de = m.debtEquityAnnual || null;
+    const eps = m.epsBasicExclExtraItemsTTM || null;
+    const mcap = m.marketCapitalization || null;
+    const divYield = m.dividendYieldIndicated || null;
+    const ev = m.enterpriseValue || null;
+    const shares = m.sharesOutstanding || null;
+    const bv = m.bookValue || null;
+    const cash = m.totalCash || null;
+    const debt = m.totalDebt || null;
+    const salesGrowth = m.revenueGrowth || null;
+    const profitGrowth = m.earningsGrowth || null;
 
     const payload = {
       symbol,
@@ -161,8 +168,15 @@ router.get('/ratios/:symbol', apiLimiter, async (req, res, next) => {
       roce: roce ? `${Number(roce).toFixed(2)}%` : '—',
       debt_equity: de ? Number(de).toFixed(2) : '—',
       eps: eps ? Number(eps).toFixed(2) : '—',
-      market_cap: mcap * 1000000, // standardize as whole dollars
+      market_cap: mcap ? mcap * 1000000 : null,
       dividend_yield: divYield ? `${Number(divYield).toFixed(2)}%` : '—',
+      enterprise_value: ev,
+      shares_outstanding: shares,
+      book_value: bv,
+      total_cash: cash,
+      total_debt: debt,
+      sales_growth: salesGrowth ? `${Number(salesGrowth).toFixed(2)}%` : '—',
+      profit_growth: profitGrowth ? `${Number(profitGrowth).toFixed(2)}%` : '—',
       updated_at: Date.now()
     };
 
@@ -288,22 +302,36 @@ router.get('/peers/:symbol', apiLimiter, async (req, res, next) => {
         profileStmt = db.prepare('SELECT name, sector, exchange FROM stocks WHERE symbol = ?').get(peerSymbol);
       } catch (e) {}
 
-      // Generates simple pseudo-random prices / multiples bound to symbol chars for UI consistency
-      const hash = peerSymbol.charCodeAt(0) + (peerSymbol.charCodeAt(1) || 5);
-      const price = (hash * 1.5).toFixed(2);
-      const mCapB = ((hash * hash) / 100).toFixed(1);
-      const pe = (10 + (hash % 30)).toFixed(1);
-      const pb = (1.5 + (hash % 8) * 0.4).toFixed(1);
-      const roe = (5 + (hash % 25)).toFixed(1);
+      // Try to get cached/live metrics if available
+      const qStmt = db.prepare('SELECT price FROM quotes WHERE symbol = ?');
+      const quoteRow = qStmt.get(peerSymbol) as { price: number } | undefined;
+
+      const fStmt = db.prepare('SELECT data FROM fundamentals WHERE symbol = ?');
+      const fundRow = fStmt.get(peerSymbol) as { data: string } | undefined;
+      
+      let fundData: any = null;
+      if (fundRow) {
+        try {
+          fundData = JSON.parse(fundRow.data);
+        } catch (e) {}
+      }
+
+      // Check basic financials node cache
+      const cachedRatios = cacheService.get<any>(`yahoo:basic:${peerSymbol}`);
+
+      const pe = cachedRatios?.metric?.peAnnual ?? null;
+      const pb = cachedRatios?.metric?.pbAnnual ?? null;
+      const roe = cachedRatios?.metric?.roeTTM ? `${Number(cachedRatios.metric.roeTTM).toFixed(2)}%` : (fundData?.ratios?.returnOnEquity ? `${(fundData.ratios.returnOnEquity * 100).toFixed(2)}%` : null);
+      const mcap = cachedRatios?.metric?.marketCapitalization ? cachedRatios.metric.marketCapitalization * 1000000 : null;
 
       return {
         symbol: peerSymbol,
         name: profileStmt?.name || `${peerSymbol} Corp`,
-        price: Number(price),
-        mcap: Number(mCapB) * 1000000000,
-        pe: Number(pe),
-        pb: Number(pb),
-        roe: `${roe}%`,
+        price: quoteRow ? quoteRow.price : null,
+        mcap: mcap,
+        pe: pe,
+        pb: pb,
+        roe: roe,
         exchange: profileStmt?.exchange || 'NYSE'
       };
     });

@@ -17,6 +17,7 @@ import screenerRouter from './server/routes/screener.js';
 import marketRouter from './server/routes/market.js';
 import watchlistRouter from './server/routes/watchlist.js';
 import edgarRouter from './server/routes/edgar.js';
+import macroRouter from './server/routes/macro.js';
 
 import { initCronJobs } from './server/services/cron.js';
 import { errorHandler } from './server/middleware/errorHandler.js';
@@ -45,7 +46,7 @@ async function startServer() {
   app.use('/api/screener', screenerRouter);
   app.use('/api/market', marketRouter); // mounts /indices, /movers, /sectors
   app.use('/api/watchlist', watchlistRouter); // mounts /, /add, /:symbol
-  app.use('/api/edgar', edgarRouter);
+  app.use('/api/macro', macroRouter);
 
   // Initialize node-cron cache prewarming
   initCronJobs();

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../services/db.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
+import { cacheService } from '../services/cache.js';
 
 const router = Router();
 
@@ -40,33 +41,35 @@ router.get('/', apiLimiter, (req, res, next) => {
       country: string;
     }>;
 
-    // 2. Decorate each matched stock with highly realistic, deterministic ratios (backed by SQLite real-time updates)
+    // 2. Decorate each matched stock with real cached metrics or null
     const decorated = matchedStocks.map(stock => {
       const sym = stock.symbol;
       
-      // Seed a deterministic hash so ratios are completely stable
-      let hash = 0;
-      for (let i = 0; i < sym.length; i++) {
-        hash += sym.charCodeAt(i);
+      // Check if real cached quote exists
+      const qStmt = db.prepare('SELECT price, change_pct FROM quotes WHERE symbol = ?');
+      const realQuote = qStmt.get(sym) as { price: number, change_pct: number } | undefined;
+
+      // Check if real cached fundamentals exist
+      const fStmt = db.prepare('SELECT data FROM fundamentals WHERE symbol = ?');
+      const realFund = fStmt.get(sym) as { data: string } | undefined;
+
+      let fundData: any = null;
+      if (realFund) {
+        try {
+          fundData = JSON.parse(realFund.data);
+        } catch (e) {}
       }
 
-      // Check if real cached quote exists
-      const qStmt = db.prepare('SELECT price, change, change_pct FROM quotes WHERE symbol = ?');
-      const realQuote = qStmt.get(sym) as any;
+      // Check basic financials node cache
+      const cachedRatios = cacheService.get<any>(`yahoo:basic:${sym}`);
 
-      // Deterministic prices and multiples
-      const basePrice = (hash * 1.62 + 10).toFixed(2);
-      const price = realQuote ? realQuote.price : Number(basePrice);
-      const changePct = realQuote ? realQuote.change_pct : Number((Math.sin(hash) * 3).toFixed(2));
-      
-      // Determine logical Market Cap based on tech weight or standard bank volume
-      let mcapMillions = (hash * hash * 4) + 150; // default in millions
-      if (stock.sector === 'Technology') mcapMillions *= 4.5;
-      if (stock.exchange === 'NYSE' || stock.exchange === 'NASDAQ') mcapMillions *= 3;
-      
-      const pe = Number((12 + (hash % 28) + (stock.sector === 'Technology' ? 12 : 0)).toFixed(2));
-      const roe = Number((6 + (hash % 22) + (stock.sector === 'Technology' ? 10 : 0)).toFixed(2));
-      const de = Number((0.1 + ((hash % 10) * 0.15) - (stock.sector === 'Technology' ? 0.05 : 0)).toFixed(2));
+      const price = realQuote ? realQuote.price : null;
+      const changePct = realQuote ? realQuote.change_pct : null;
+
+      const pe = cachedRatios?.metric?.peAnnual !== undefined ? cachedRatios.metric.peAnnual : null;
+      const roe = cachedRatios?.metric?.roeTTM !== undefined ? cachedRatios.metric.roeTTM : (fundData?.ratios?.returnOnEquity ? fundData.ratios.returnOnEquity * 100 : null);
+      const de = cachedRatios?.metric?.debtEquityAnnual !== undefined ? cachedRatios.metric.debtEquityAnnual : (fundData?.ratios?.debtToEquity ? fundData.ratios.debtToEquity : null);
+      const market_cap = cachedRatios?.metric?.marketCapitalization ? cachedRatios.metric.marketCapitalization * 1000000 : null;
       
       // Return payload elements
       return {
@@ -78,7 +81,7 @@ router.get('/', apiLimiter, (req, res, next) => {
         country: stock.country,
         price,
         change_pct: changePct,
-        market_cap: mcapMillions * 1000000, // standard actual Dollar representation
+        market_cap,
         pe,
         roe,
         debt_equity: de
@@ -87,15 +90,14 @@ router.get('/', apiLimiter, (req, res, next) => {
 
     // 3. Filter the complete arrays using query parameters
     const filtered = decorated.filter(item => {
-      const mcapM = item.market_cap / 1000000;
-      return (
-        mcapM >= minMcap &&
-        mcapM <= maxMcap &&
-        item.pe >= minPe &&
-        item.pe <= maxPe &&
-        item.roe >= minRoe &&
-        item.debt_equity <= maxDe
-      );
+      const mcapM = item.market_cap !== null ? item.market_cap / 1000000 : null;
+      
+      const passMcap = mcapM === null || (mcapM >= minMcap && mcapM <= maxMcap);
+      const passPe = item.pe === null || (item.pe >= minPe && item.pe <= maxPe);
+      const passRoe = item.roe === null || (item.roe >= minRoe);
+      const passDe = item.debt_equity === null || (item.debt_equity <= maxDe);
+
+      return passMcap && passPe && passRoe && passDe;
     });
 
     // 4. Order and pagination
@@ -105,6 +107,9 @@ router.get('/', apiLimiter, (req, res, next) => {
     filtered.sort((a: any, b: any) => {
       let valA = a[sortBy];
       let valB = b[sortBy];
+
+      if (valA === null || valA === undefined) return 1;
+      if (valB === null || valB === undefined) return -1;
 
       if (typeof valA === 'string') {
         return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);

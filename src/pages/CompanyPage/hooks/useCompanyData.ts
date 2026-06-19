@@ -24,6 +24,13 @@ export interface Ratios {
   eps: string;
   market_cap: number;
   dividend_yield: string;
+  enterprise_value?: number | null;
+  shares_outstanding?: number | null;
+  book_value?: number | null;
+  total_cash?: number | null;
+  total_debt?: number | null;
+  sales_growth?: string | null;
+  profit_growth?: string | null;
 }
 
 export interface Peer {
@@ -51,6 +58,7 @@ interface UseCompanyDataProps {
   secComparePeer: string;
   holdingsQuery: string;
   showRiskDiff: boolean;
+  activeSecSubTab: string;
 }
 
 export const useCompanyData = ({
@@ -58,6 +66,7 @@ export const useCompanyData = ({
   secComparePeer,
   holdingsQuery,
   showRiskDiff,
+  activeSecSubTab,
 }: UseCompanyDataProps) => {
   const queryClient = useQueryClient();
 
@@ -130,6 +139,15 @@ export const useCompanyData = ({
       return resp.data;
     },
     refetchInterval: 60000
+  });
+
+  // Fetch Company Financials (Quarterly + Annual Statements)
+  const { data: financials, isPending: isFinancialsPending, error: financialsErr } = useQuery({
+    queryKey: ['financials', upperSymbol],
+    queryFn: async () => {
+      const resp = await apiClient.get(`/financials/${encodeURIComponent(upperSymbol)}`);
+      return resp.data;
+    }
   });
 
   // News bulletins query hook
@@ -281,6 +299,20 @@ export const useCompanyData = ({
     }
   });
 
+  const { data: edgarProxy, isPending: isEdgarProxyPending, isError: isEdgarProxyError } = useQuery({
+    queryKey: ['edgarProxy', upperSymbol],
+    queryFn: async () => {
+      const resp = await edgarApiClient.get(`/edgar/proxy/${upperSymbol}`);
+      return resp.data;
+    },
+    enabled: isUSStock && activeSecSubTab === 'proxy',
+    staleTime: 24 * 60 * 60 * 1000, // cache 24h
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
+  });
+
   return {
     watchlist,
     isStarred,
@@ -298,6 +330,9 @@ export const useCompanyData = ({
     companyNews,
     isCompanyNewsPending,
     isUSStock,
+    financials,
+    isFinancialsPending,
+    financialsErr,
     edgarFinancials,
     isEdgarFinancialsPending,
     isEdgarFinancialsError,
@@ -319,6 +354,9 @@ export const useCompanyData = ({
     isSection7Error,
     edgarRiskDiff,
     isRiskDiffPending,
-    isRiskDiffError
+    isRiskDiffError,
+    edgarProxy,
+    isEdgarProxyPending,
+    isEdgarProxyError
   };
 };

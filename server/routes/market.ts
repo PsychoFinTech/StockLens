@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { yahooService } from '../services/yahoo.js';
 import db from '../services/db.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
+import { cacheService } from '../services/cache.js';
 
 const router = Router();
 
@@ -60,41 +61,56 @@ router.get('/indices', apiLimiter, async (req, res, next) => {
 // 2. GET /api/market/movers -> Top 5 gainers / losers
 router.get('/movers', apiLimiter, async (req, res, next) => {
   try {
-    // Select 100 prominent stocks from Stocks DB and build performance rank
-    const stmt = db.prepare('SELECT symbol, name, exchange FROM stocks LIMIT 100');
+    const stmt = db.prepare('SELECT symbol, name, exchange FROM stocks');
     const universe = stmt.all() as Array<{ symbol: string; name: string; exchange: string }>;
 
-    const ranked = universe.map(stock => {
-      const sym = stock.symbol;
-      let hash = 0;
-      for (let i = 0; i < sym.length; i++) hash += sym.charCodeAt(i);
+    const ranked = universe
+      .map(stock => {
+        const sym = stock.symbol;
 
-      // Check if active quote exists in table
-      const qStmt = db.prepare('SELECT price, change, change_pct FROM quotes WHERE symbol = ?');
-      const realQuote = qStmt.get(sym) as any;
+        // Try node-cache first
+        const cached = cacheService.get<any>(`yahoo:quote:${sym}`);
+        if (cached) {
+          return {
+            symbol: sym,
+            name: stock.name,
+            exchange: stock.exchange,
+            price: cached.price,
+            change_pct: cached.change_pct,
+            high_52w: cached.high_52w,
+            low_52w: cached.low_52w
+          };
+        }
 
-      const changePct = realQuote 
-        ? Number(realQuote.change_pct) 
-        : Number(((Math.sin(hash * 3.3) * 4.5) + (hash % 2 === 0 ? 0.3 : -0.2)).toFixed(2));
-      
-      const price = realQuote ? realQuote.price : Number((10 + (hash % 300)).toFixed(2));
+        // Try SQLite quote backup next
+        const row = cacheService.getQuoteBackup(sym);
+        if (row) {
+          return {
+            symbol: sym,
+            name: stock.name,
+            exchange: stock.exchange,
+            price: row.price,
+            change_pct: row.change_pct,
+            high_52w: row.high_52w,
+            low_52w: row.low_52w
+          };
+        }
 
-      return {
-        symbol: sym,
-        name: stock.name,
-        exchange: stock.exchange,
-        price,
-        change_pct: changePct
-      };
-    });
+        return null;
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
 
     // Sort for Gainers and Losers
     const sortedGainers = [...ranked].sort((a, b) => b.change_pct - a.change_pct).slice(0, 5);
     const sortedLosers = [...ranked].sort((a, b) => a.change_pct - b.change_pct).slice(0, 5);
 
-    // Mock high-fidelity 52W breakouts
-    const high52 = [...ranked].filter(r => r.change_pct > 1.2).slice(0, 5);
-    const low52 = [...ranked].filter(r => r.change_pct < -1.2).slice(0, 5);
+    // 52-week breakout candidates
+    const high52 = ranked
+      .filter(r => r.price !== null && r.high_52w !== null && r.price >= r.high_52w * 0.99)
+      .slice(0, 5);
+    const low52 = ranked
+      .filter(r => r.price !== null && r.low_52w !== null && r.price <= r.low_52w * 1.01)
+      .slice(0, 5);
 
     res.json({
       gainers: sortedGainers,
@@ -107,35 +123,43 @@ router.get('/movers', apiLimiter, async (req, res, next) => {
   }
 });
 
-// 3. GET /api/market/sectors -> Heatmap Sector Performance
-router.get('/sectors', apiLimiter, (req, res) => {
+// 3. GET /api/market/sectors -> Heatmap Sector Performance (fetched dynamically from ETFs)
+router.get('/sectors', apiLimiter, async (req, res, next) => {
   const sectors = [
-    { name: 'Technology', proxy: 'XLK', performance: 1.45 },
-    { name: 'Financials', proxy: 'XLF', performance: 0.82 },
-    { name: 'Healthcare', proxy: 'XLV', performance: -0.34 },
-    { name: 'Consumer Cyclical', proxy: 'XLY', performance: 1.12 },
-    { name: 'Industrials', proxy: 'XLI', performance: 0.25 },
-    { name: 'Energy', proxy: 'XLE', performance: -1.78 },
-    { name: 'Basic Materials', proxy: 'XLB', performance: -0.15 },
-    { name: 'Consumer Defensive', proxy: 'XLP', performance: 0.08 },
-    { name: 'Utilities', proxy: 'XLU', performance: -0.67 },
-    { name: 'Real Estate', proxy: 'XLRE', performance: -1.02 },
-    { name: 'Telecom Services', proxy: 'XLC', performance: 1.89 },
-    { name: 'Aerospace & Defense', proxy: 'ITA', performance: 0.44 }
+    { name: 'Technology', proxy: 'XLK' },
+    { name: 'Financials', proxy: 'XLF' },
+    { name: 'Healthcare', proxy: 'XLV' },
+    { name: 'Consumer Cyclical', proxy: 'XLY' },
+    { name: 'Industrials', proxy: 'XLI' },
+    { name: 'Energy', proxy: 'XLE' },
+    { name: 'Basic Materials', proxy: 'XLB' },
+    { name: 'Consumer Defensive', proxy: 'XLP' },
+    { name: 'Utilities', proxy: 'XLU' },
+    { name: 'Real Estate', proxy: 'XLRE' },
+    { name: 'Telecom Services', proxy: 'XLC' },
+    { name: 'Aerospace & Defense', proxy: 'ITA' }
   ];
 
-  // Introduce small random daytime movement to make UI feel alive
-  const hourFactor = new Date().getHours() / 24;
-  const mapped = sectors.map((sec, idx) => {
-    const shift = (Math.sin(idx + hourFactor) * 0.4).toFixed(2);
-    const perf = Number((sec.performance + Number(shift)).toFixed(2));
-    return {
-      ...sec,
-      performance: perf
-    };
-  });
-
-  res.json(mapped);
+  try {
+    const results = await Promise.all(
+      sectors.map(async (sec) => {
+        let quote: any = null;
+        try {
+          quote = await yahooService.getQuote(sec.proxy);
+        } catch (e: any) {
+          console.warn(`[SECTORS ROUTE] Failed to get quote for sector proxy ${sec.proxy}:`, e.message);
+        }
+        return {
+          name: sec.name,
+          proxy: sec.proxy,
+          performance: quote ? Number(quote.change_pct.toFixed(2)) : 0
+        };
+      })
+    );
+    res.json(results);
+  } catch (error) {
+    next(error);
+  }
 });
 
 export default router;

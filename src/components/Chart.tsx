@@ -59,7 +59,10 @@ export const Chart: React.FC<ChartProps> = ({ symbol, exchange = 'US' }) => {
     queryKey: ['chart', symbol, queryPeriod, intervalQueryParam],
     queryFn: async () => {
       const resp = await apiClient.get(`/chart/${encodeURIComponent(symbol)}?period=${queryPeriod}&interval=${intervalQueryParam}`);
-      return resp.data || [];
+      if (resp.data && resp.data.s === 'no_data') {
+        return [];
+      }
+      return Array.isArray(resp.data) ? resp.data : [];
     },
     staleTime: 60000 
   });
@@ -325,7 +328,7 @@ export const Chart: React.FC<ChartProps> = ({ symbol, exchange = 'US' }) => {
           </div>
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-neutral-50/20 gap-2 border border-dashed border-neutral-200/70 rounded-2xl">
-            <span className="font-sans font-semibold text-neutral-400 text-xs">No historical market points yet</span>
+            <span className="font-sans font-semibold text-neutral-400 text-xs">Price history unavailable for this symbol/period</span>
           </div>
         )}
       </div>

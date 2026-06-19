@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FRED_API_KEY, MacroSeriesId } from "../constants/macroConfig";
+import { MacroSeriesId } from "../constants/macroConfig";
 import { Observation } from "../utils/macroHelpers";
 
 export type FredSeriesResult = {
@@ -15,7 +15,7 @@ export const useFredSeries = (seriesIds: MacroSeriesId[]) => {
 
   const fetchSeries = async (id: MacroSeriesId): Promise<FredSeriesResult> => {
     try {
-      const url = `/fred-proxy/fred/series/observations?series_id=${id}&api_key=${FRED_API_KEY}&file_type=json&sort_order=asc&limit=600`;
+      const url = `/api/macro/${id}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error("Network response was not ok");
       const json = await response.json();

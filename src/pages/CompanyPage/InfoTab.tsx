@@ -27,32 +27,6 @@ export const InfoTab: React.FC<InfoTabProps> = ({
   return (
     <div id="info" className="space-y-6 scroll-mt-20 animate-in fade-in duration-200">
       
-      {/* Super Investors widget group */}
-      {detailData.superInvestors && detailData.superInvestors.length > 0 && (
-        <div id="investors" className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-            <h3 className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em]">
-              Institutional Investors Details
-            </h3>
-            <span className="text-[10px] font-mono text-slate-400">Substantial portfolios holding</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {detailData.superInvestors.map((inv: SuperInvestor, idx: number) => (
-              <div key={idx} className="p-4 bg-white border border-[#E5E8EF] rounded-xl flex items-center gap-4 transition hover:border-[#059669] shadow-sm hover:shadow-md">
-                <div className="h-10 w-10 rounded-full bg-[#059669] text-white font-sans font-bold flex items-center justify-center text-sm shadow-xs">
-                  {inv.avatar}
-                </div>
-                <div className="space-y-0.5 min-w-0">
-                  <p className="font-sans font-bold text-slate-800 text-xs truncate uppercase tracking-tight">{inv.name}</p>
-                  <p className="font-mono text-[11.5px] font-bold text-[#059669]">{inv.holdingVal}</p>
-                  <p className="text-[9px] font-mono text-slate-400 uppercase tracking-wide">{inv.period}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
 
       {/* Equity news bulletins block card list */}

@@ -75,7 +75,7 @@ export const cacheService = {
   // Retrieve cached quote from SQLite as fallback backup
   getQuoteBackup: (symbol: string): any | null => {
     try {
-      const stmt = db.prepare('SELECT price, change, change_pct, updated_at FROM quotes WHERE symbol = ?');
+      const stmt = db.prepare('SELECT price, change, change_pct, high_52w, low_52w, updated_at FROM quotes WHERE symbol = ?');
       const row = stmt.get(symbol.toUpperCase()) as any;
       if (row) {
         return row;
@@ -87,18 +87,20 @@ export const cacheService = {
   },
 
   // Save successful quote to SQLite
-  saveQuoteBackup: (symbol: string, quote: { price: number, change: number, change_pct: number }): void => {
+  saveQuoteBackup: (symbol: string, quote: { price: number, change: number, change_pct: number, high_52w?: number | null, low_52w?: number | null }): void => {
     try {
       const stmt = db.prepare(`
-        INSERT INTO quotes (symbol, price, change, change_pct, updated_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO quotes (symbol, price, change, change_pct, high_52w, low_52w, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(symbol) DO UPDATE SET
           price = excluded.price,
           change = excluded.change,
           change_pct = excluded.change_pct,
+          high_52w = excluded.high_52w,
+          low_52w = excluded.low_52w,
           updated_at = excluded.updated_at
       `);
-      stmt.run(symbol.toUpperCase(), quote.price, quote.change, quote.change_pct, Date.now());
+      stmt.run(symbol.toUpperCase(), quote.price, quote.change, quote.change_pct, quote.high_52w ?? null, quote.low_52w ?? null, Date.now());
     } catch (error) {
       console.error('[DB QUOTE BACKUP SAVE ERROR]', error);
     }

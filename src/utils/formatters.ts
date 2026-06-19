@@ -94,3 +94,33 @@ export const formatLargeNumber = (num: number | null | undefined): string => {
   }
   return Math.round(num).toLocaleString();
 };
+
+// Formats outstanding shares (B/M for US, Cr/L for India)
+export const formatShares = (shares: number | null | undefined, exchange: string = 'US', symbol: string = ''): string => {
+  if (shares === null || shares === undefined || isNaN(shares)) {
+    return '—';
+  }
+  const val = Number(shares);
+  const ex = (exchange || '').toUpperCase();
+  const sym = (symbol || '').toUpperCase();
+  const isIndian = sym.endsWith('.NS') || sym.endsWith('.BO') || ex.includes('NSE') || ex.includes('BSE') || ex.includes('INDIA');
+
+  if (isIndian) {
+    if (val >= 10_000_000) {
+      return `${(val / 10_000_000).toFixed(2)} Cr`;
+    }
+    if (val >= 100_000) {
+      return `${(val / 100_000).toFixed(2)} L`;
+    }
+    return val.toLocaleString();
+  } else {
+    if (val >= 1_000_000_000) {
+      return `${(val / 1_000_000_000).toFixed(2)} B`;
+    }
+    if (val >= 1_000_000) {
+      return `${(val / 1_000_000).toFixed(2)} M`;
+    }
+    return val.toLocaleString();
+  }
+};
+

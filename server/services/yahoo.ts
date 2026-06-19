@@ -230,11 +230,12 @@ export const yahooService = {
     try {
       console.log(`[YAHOO] Fetching basic financials for: ${rawSymbol}`);
       const summary = await yahooFinance.quoteSummary(rawSymbol, {
-        modules: ['financialData', 'defaultKeyStatistics']
+        modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail']
       });
 
       const fd = (summary?.financialData || {}) as any;
       const ks = (summary?.defaultKeyStatistics || {}) as any;
+      const sd = (summary?.summaryDetail || {}) as any;
 
       const basicObj = {
         metric: {
@@ -245,7 +246,14 @@ export const yahooService = {
           debtEquityAnnual: fd.debtToEquity || null,
           epsBasicExclExtraItemsTTM: ks.trailingEps || ks.forwardEps || null,
           marketCapitalization: ks.enterpriseValue ? ks.enterpriseValue / 1000000 : null,
-          dividendYieldIndicated: ks.dividendYield ? ks.dividendYield * 100 : null
+          dividendYieldIndicated: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
+          enterpriseValue: ks.enterpriseValue || null,
+          sharesOutstanding: ks.sharesOutstanding || null,
+          bookValue: ks.bookValue || null,
+          totalCash: fd.totalCash || null,
+          totalDebt: fd.totalDebt || null,
+          revenueGrowth: fd.revenueGrowth ? fd.revenueGrowth * 100 : null,
+          earningsGrowth: fd.earningsGrowth ? fd.earningsGrowth * 100 : null
         }
       };
 

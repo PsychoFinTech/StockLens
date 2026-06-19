@@ -56,7 +56,7 @@ export const HeroSpreadCard: React.FC<HeroSpreadCardProps> = ({ spreadData }) =>
             <Tooltip
               contentStyle={{ borderRadius: "8px", border: "none", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)" }}
               labelFormatter={(label) => new Date(label).toLocaleDateString()}
-              formatter={(val: number) => [formatSpreadValue(val), "Spread"]}
+              formatter={(val: any) => [formatSpreadValue(Number(val)), "Spread"]}
             />
             <Area
               type="monotone"

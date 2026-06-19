@@ -1,4 +1,3 @@
-export const FRED_API_KEY = "620b1ae0e8cceb701d836654f66e0871";
 
 export type MacroSeriesId = 
   | "FEDFUNDS"

@@ -25,6 +25,8 @@ db.exec(`
     price REAL NOT NULL,
     change REAL NOT NULL,
     change_pct REAL NOT NULL,
+    high_52w REAL,
+    low_52w REAL,
     updated_at INTEGER NOT NULL
   );
 
@@ -55,6 +57,14 @@ db.exec(`
     fetched_at INTEGER NOT NULL
   );
 `);
+
+// Alter quotes table if needed for schema updates
+try {
+  db.exec('ALTER TABLE quotes ADD COLUMN high_52w REAL');
+} catch (_) {}
+try {
+  db.exec('ALTER TABLE quotes ADD COLUMN low_52w REAL');
+} catch (_) {}
 
 console.log('[DB] Database initialized successfully in WAL mode.');
 

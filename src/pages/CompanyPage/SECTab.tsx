@@ -1,6 +1,7 @@
 import React from 'react';
 import { Building, ExternalLink, FileText, Search } from 'lucide-react';
 import { formatDate } from '../../utils/formatters.js';
+import { ProxyStatementPanel } from './components/ProxyStatementPanel.jsx';
 
 interface Peer {
   symbol: string;
@@ -16,8 +17,8 @@ interface Peer {
 interface SECTabProps {
   upperSymbol: string;
   peers: Peer[];
-  activeSecSubTab: 'standardized' | 'insiders' | 'holdings' | 'tenk';
-  setActiveSecSubTab: React.Dispatch<React.SetStateAction<'standardized' | 'insiders' | 'holdings' | 'tenk'>>;
+  activeSecSubTab: 'standardized' | 'insiders' | 'holdings' | 'tenk' | 'proxy';
+  setActiveSecSubTab: React.Dispatch<React.SetStateAction<'standardized' | 'insiders' | 'holdings' | 'tenk' | 'proxy'>>;
   secComparePeer: string;
   setSecComparePeer: React.Dispatch<React.SetStateAction<string>>;
   activeSecStatement: 'income' | 'balance' | 'cash';
@@ -54,6 +55,9 @@ interface SECTabProps {
   edgarRiskDiff: any;
   isRiskDiffPending: boolean;
   isRiskDiffError: boolean;
+  edgarProxy: any;
+  isEdgarProxyPending: boolean;
+  isEdgarProxyError: boolean;
 }
 
 export const SECTab: React.FC<SECTabProps> = ({
@@ -96,6 +100,9 @@ export const SECTab: React.FC<SECTabProps> = ({
   edgarRiskDiff,
   isRiskDiffPending,
   isRiskDiffError,
+  edgarProxy,
+  isEdgarProxyPending,
+  isEdgarProxyError,
 }) => {
   return (
     <div id="sec" className="space-y-6 scroll-mt-20">
@@ -117,7 +124,8 @@ export const SECTab: React.FC<SECTabProps> = ({
               { id: 'standardized', label: '📊 Standardized Statements' },
               { id: 'insiders', label: '👥 Insider Activities' },
               { id: 'holdings', label: '🏢 Institutional Holdings' },
-              { id: 'tenk', label: '📄 10-K Analysis' }
+              { id: 'tenk', label: '📄 10-K Analysis' },
+              { id: 'proxy', label: '📋 Proxy Statement' }
             ].map((subTab) => (
               <button
                 key={subTab.id}
@@ -647,6 +655,16 @@ export const SECTab: React.FC<SECTabProps> = ({
               )}
             </div>
           </div>
+        )}
+
+        {/* Sub-tab: Proxy Statement Panel */}
+        {activeSecSubTab === 'proxy' && (
+          <ProxyStatementPanel
+            data={edgarProxy}
+            isPending={isEdgarProxyPending}
+            isError={isEdgarProxyError}
+            upperSymbol={upperSymbol}
+          />
         )}
 
       </div>

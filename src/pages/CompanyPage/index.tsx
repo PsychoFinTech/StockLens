@@ -1,20 +1,69 @@
 import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCompanyData } from './hooks/useCompanyData.js';
-import { formatPrice } from '../../utils/formatters.js';
+import { formatPrice, formatMarketCap, formatShares } from '../../utils/formatters.js';
 import { getStockDetailedData } from '../../utils/stockDetailsRegistry.js';
 import { 
   Star, ArrowLeft, ExternalLink, Check, Loader2, RefreshCw, 
-  SearchX, ShieldAlert, LayoutDashboard, TrendingUp, DollarSign, Building2, FileText, Users
+  SearchX, ShieldAlert, LayoutDashboard, TrendingUp, Building2, FileText, Users
 } from 'lucide-react';
 import { CompanyPageSkeleton } from '../../components/Skeleton.jsx';
 
 import { OverviewTab } from './OverviewTab.jsx';
 import { AnalysisTab } from './AnalysisTab.jsx';
-import { FinancialsTab } from './FinancialsTab.jsx';
 import { CongressionalTrading } from '../../components/congress/CongressionalTrading.jsx';
 import { InfoTab } from './InfoTab.jsx';
 import { SECTab } from './SECTab.jsx';
+
+function formatRealFinancialsToRegistry(financials: any) {
+  if (!financials) return { annualPnL: [], balanceSheet: [], cashFlows: [] };
+
+  const annualPnL: any[] = [];
+  const balanceSheet: any[] = [];
+  const cashFlows: any[] = [];
+
+  if (financials.incomeStatement && financials.incomeStatement.length > 0) {
+    const periods = financials.incomeStatement.map((r: any) => String(r.year || '—'));
+    const revenues = financials.incomeStatement.map((r: any) => r.revenue !== undefined && r.revenue !== null ? r.revenue.toLocaleString() : '—');
+    const grossProfits = financials.incomeStatement.map((r: any) => r.grossProfit !== undefined && r.grossProfit !== null ? r.grossProfit.toLocaleString() : '—');
+    const netIncomes = financials.incomeStatement.map((r: any) => r.netIncome !== undefined && r.netIncome !== null ? r.netIncome.toLocaleString() : '—');
+
+    annualPnL.push({ particulars: "Revenue", periods, values: [revenues] });
+    annualPnL.push({ particulars: "Gross Profit", periods, values: [grossProfits] });
+    annualPnL.push({ particulars: "Net Profit / Net Income", periods, values: [netIncomes] });
+  }
+
+  if (financials.balanceSheet && financials.balanceSheet.length > 0) {
+    const periods = financials.balanceSheet.map((r: any) => String(r.year || '—'));
+    const assets = financials.balanceSheet.map((r: any) => r.assets !== undefined && r.assets !== null ? r.assets.toLocaleString() : '—');
+    const liabilities = financials.balanceSheet.map((r: any) => r.liabilities !== undefined && r.liabilities !== null ? r.liabilities.toLocaleString() : '—');
+    const equities = financials.balanceSheet.map((r: any) => r.equity !== undefined && r.equity !== null ? r.equity.toLocaleString() : '—');
+
+    balanceSheet.push({ particulars: "Total Assets", periods, values: [assets] });
+    balanceSheet.push({ particulars: "Total Liabilities", periods, values: [liabilities] });
+    balanceSheet.push({ particulars: "Shareholders' Equity", periods, values: [equities] });
+  }
+
+  if (financials.cashFlow && financials.cashFlow.length > 0) {
+    const periods = financials.cashFlow.map((r: any) => String(r.year || '—'));
+    const opert = financials.cashFlow.map((r: any) => r.operating !== undefined && r.operating !== null ? r.operating.toLocaleString() : '—');
+    const invest = financials.cashFlow.map((r: any) => r.investing !== undefined && r.investing !== null ? r.investing.toLocaleString() : '—');
+    const financ = financials.cashFlow.map((r: any) => r.financing !== undefined && r.financing !== null ? r.financing.toLocaleString() : '—');
+
+    cashFlows.push({ particulars: "Operating Cash Flow", periods, values: [opert] });
+    cashFlows.push({ particulars: "Investing Cash Flow", periods, values: [invest] });
+    cashFlows.push({ particulars: "Financing Cash Flow", periods, values: [financ] });
+
+    const fcf = financials.cashFlow.map((r: any) => {
+      const opVal = r.operating || 0;
+      const invVal = r.investing || 0;
+      return (opVal + invVal).toLocaleString();
+    });
+    cashFlows.push({ particulars: "Free Cash Flow (FCF)", periods, values: [fcf] });
+  }
+
+  return { annualPnL, balanceSheet, cashFlows };
+}
 
 export const CompanyPage: React.FC = () => {
   const { symbol = '' } = useParams<{ symbol: string }>();
@@ -22,10 +71,10 @@ export const CompanyPage: React.FC = () => {
   const upperSymbol = symbol.toUpperCase();
 
   // Grouped Primary Navigation Mode state
-  const [activePrimaryTab, setActivePrimaryTab] = useState<'overview' | 'financials' | 'analysis' | 'info' | 'sec'>('overview');
+  const [activePrimaryTab, setActivePrimaryTab] = useState<'overview' | 'analysis' | 'info' | 'sec'>('overview');
 
   // SEC Filings sub-tab state
-  const [activeSecSubTab, setActiveSecSubTab] = useState<'standardized' | 'insiders' | 'holdings' | 'tenk'>('standardized');
+  const [activeSecSubTab, setActiveSecSubTab] = useState<'standardized' | 'insiders' | 'holdings' | 'tenk' | 'proxy'>('standardized');
   
   // Standardized statement comparison states
   const [secComparePeer, setSecComparePeer] = useState<string>('');
@@ -56,6 +105,9 @@ export const CompanyPage: React.FC = () => {
     companyNews,
     isCompanyNewsPending,
     isUSStock,
+    financials,
+    isFinancialsPending,
+    financialsErr,
     edgarFinancials,
     isEdgarFinancialsPending,
     isEdgarFinancialsError,
@@ -77,12 +129,16 @@ export const CompanyPage: React.FC = () => {
     isSection7Error,
     edgarRiskDiff,
     isRiskDiffPending,
-    isRiskDiffError
+    isRiskDiffError,
+    edgarProxy,
+    isEdgarProxyPending,
+    isEdgarProxyError
   } = useCompanyData({
     upperSymbol,
     secComparePeer,
     holdingsQuery,
-    showRiskDiff
+    showRiskDiff,
+    activeSecSubTab
   });
 
   const handlePeerClick = (peerSym: string) => {
@@ -173,6 +229,36 @@ export const CompanyPage: React.FC = () => {
   // Fetch fully customized and structured visual data model
   const detailData = getStockDetailedData(upperSymbol, livePriceVal, ratios, profile.exchange);
 
+  // Format real financials to registry format
+  const formattedFin = formatRealFinancialsToRegistry(financials);
+
+  // Extend detailData with real data and clean fallbacks to prevent runtime crashes
+  (detailData as any).essentials = {
+    marketCapCr: ratios?.market_cap ? formatMarketCap(ratios.market_cap, profile.exchange) : '—',
+    enterpriseValue: ratios?.enterprise_value ? formatMarketCap(ratios.enterprise_value, profile.exchange) : '—',
+    pe: ratios?.pe || '—',
+    pb: ratios?.pb || '—',
+    roe: ratios?.roe || '—',
+    roce: ratios?.roce || '—',
+    epsTTM: ratios?.eps || '—',
+    debt: ratios?.total_debt ? formatMarketCap(ratios.total_debt, profile.exchange) : '—',
+    cash: ratios?.total_cash ? formatMarketCap(ratios.total_cash, profile.exchange) : '—',
+    sharesOutstanding: ratios?.shares_outstanding ? formatShares(ratios.shares_outstanding, profile.exchange, profile.symbol) : '—',
+    salesGrowth: ratios?.sales_growth || '—',
+    profitGrowth: ratios?.profit_growth || '—',
+  };
+
+  (detailData as any).ratiosHistorical = {
+    salesGrowth: { yr1: '—', yr3: '—', yr5: '—' },
+    profitGrowth: { yr1: '—', yr3: '—', yr5: '—' },
+    roe: { yr1: '—', yr3: '—', yr5: '—', history: [] },
+    roce: { yr1: '—', yr3: '—', yr5: '—', history: [] },
+  };
+
+  (detailData as any).annualPnL = formattedFin.annualPnL;
+  (detailData as any).balanceSheet = formattedFin.balanceSheet;
+  (detailData as any).cashFlows = formattedFin.cashFlows;
+
   // isNasdaq flag
   const isNasdaq = upperSymbol === 'AAPL' || upperSymbol === 'MSFT' || upperSymbol === 'TSLA' || upperSymbol === 'NVDA' ||
     (profile?.exchange || '').toUpperCase().includes('NASDAQ') || (profile?.exchange || '').toUpperCase().includes('NYSE') || (profile?.exchange || '').toUpperCase().includes('US') || (profile?.exchange || '').toUpperCase().includes('OTC') ||
@@ -255,7 +341,7 @@ export const CompanyPage: React.FC = () => {
                 )}
               </div>
               <p className="text-[10px] text-slate-400 font-medium mt-1.5">
-                Prices delayed 15 min · Source: {profile.exchange && (profile.exchange.toUpperCase().includes('NSE') || profile.exchange.toUpperCase().includes('BSE') || profile.exchange.toUpperCase().includes('INDIA')) ? 'Yahoo Finance Scraper' : 'Finnhub Core API'} · Last updated: {quote?.updated_at ? new Date(quote.updated_at).toLocaleTimeString() : new Date().toLocaleTimeString()}
+                Prices delayed 15 min · Source: Yahoo Finance Scraper · Last updated: {quote?.updated_at ? new Date(quote.updated_at).toLocaleTimeString() : new Date().toLocaleTimeString()}
               </p>
             </div>
 
@@ -313,7 +399,6 @@ export const CompanyPage: React.FC = () => {
             >
               <option value="overview">Overview</option>
               <option value="analysis">Analysis</option>
-              <option value="financials">Financials</option>
               <option value="info">Company Info</option>
               {isUSStock && <option value="sec">SEC Filings</option>}
             </select>
@@ -324,7 +409,6 @@ export const CompanyPage: React.FC = () => {
             {[
               { id: 'overview', label: 'Overview', icon: LayoutDashboard },
               { id: 'analysis', label: 'Analysis', icon: TrendingUp },
-              { id: 'financials', label: 'Financials', icon: DollarSign },
               { id: 'info', label: 'Company Info', icon: Building2 },
               ...(isUSStock ? [{ id: 'sec', label: 'SEC Filings', icon: FileText }] : [])
             ].map((tab) => {
@@ -356,6 +440,7 @@ export const CompanyPage: React.FC = () => {
           detailData={detailData}
           profile={profile}
           ratios={ratios}
+          quote={quote}
           handleScrollToSection={handleScrollToSection}
         />
         
@@ -371,12 +456,10 @@ export const CompanyPage: React.FC = () => {
           handlePeerClick={handlePeerClick}
           ratios={ratios}
           isNasdaq={isNasdaq}
+          financials={financials}
         />
 
-        <FinancialsTab
-          detailData={detailData}
-          currencySuffixLabel={currencySuffixLabel}
-        />
+
 
         <CongressionalTrading ticker={upperSymbol} />
 
@@ -427,6 +510,9 @@ export const CompanyPage: React.FC = () => {
             edgarRiskDiff={edgarRiskDiff}
             isRiskDiffPending={isRiskDiffPending}
             isRiskDiffError={isRiskDiffError}
+            edgarProxy={edgarProxy}
+            isEdgarProxyPending={isEdgarProxyPending}
+            isEdgarProxyError={isEdgarProxyError}
           />
         )}
 

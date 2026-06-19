@@ -2,16 +2,90 @@ import React, { useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 
 interface FinancialsTabProps {
-  detailData: any;
+  symbol: string;
+  financials: any;
+  isFinancialsPending: boolean;
+  financialsErr: any;
   currencySuffixLabel: string;
 }
 
 export const FinancialsTab: React.FC<FinancialsTabProps> = ({
-  detailData,
+  symbol,
+  financials,
+  isFinancialsPending,
+  financialsErr,
   currencySuffixLabel,
 }) => {
-  const [activeStatementTab, setActiveStatementTab] = useState<'quarterly' | 'pnl' | 'balance' | 'cash' | 'corpAction'>('quarterly');
-  const [activeCorpActionSubTab, setActiveCorpActionSubTab] = useState<'dividend' | 'bonus' | 'rights' | 'splits'>('dividend');
+  const [activeStatementTab, setActiveStatementTab] = useState<'quarterly' | 'pnl' | 'balance' | 'cash'>('pnl');
+
+  const hasData = financials && !isFinancialsPending && !financialsErr;
+
+  // Map quarterly results
+  const quarterlyResults = React.useMemo(() => {
+    if (!hasData || !financials.quarterly || financials.quarterly.length === 0) return [];
+    const periods = financials.quarterly.map((r: any) => r.quarter || r.date || '—');
+    return [
+      { particulars: "Revenue", periods, values: [financials.quarterly.map((r: any) => r.revenue ? r.revenue.toLocaleString() : '—')] },
+      { particulars: "Net Profit / Net Income", periods, values: [financials.quarterly.map((r: any) => r.netIncome ? r.netIncome.toLocaleString() : '—')] },
+      { particulars: "Adjusted EPS", periods, values: [financials.quarterly.map((r: any) => r.eps !== undefined && r.eps !== null ? r.eps.toFixed(2) : '—')] }
+    ];
+  }, [financials, hasData]);
+
+  // Map P&L (Annual)
+  const annualPnL = React.useMemo(() => {
+    if (!hasData || !financials.incomeStatement || financials.incomeStatement.length === 0) return [];
+    const periods = financials.incomeStatement.map((r: any) => String(r.year || r.date || '—'));
+    return [
+      { particulars: "Revenue", periods, values: [financials.incomeStatement.map((r: any) => r.revenue ? r.revenue.toLocaleString() : '—')] },
+      { particulars: "Gross Profit", periods, values: [financials.incomeStatement.map((r: any) => r.grossProfit ? r.grossProfit.toLocaleString() : '—')] },
+      { particulars: "Net Profit / Net Income", periods, values: [financials.incomeStatement.map((r: any) => r.netIncome ? r.netIncome.toLocaleString() : '—')] }
+    ];
+  }, [financials, hasData]);
+
+  // Map Balance Sheet (Annual)
+  const balanceSheet = React.useMemo(() => {
+    if (!hasData || !financials.balanceSheet || financials.balanceSheet.length === 0) return [];
+    const periods = financials.balanceSheet.map((r: any) => String(r.year || r.date || '—'));
+    return [
+      { particulars: "Total Assets", periods, values: [financials.balanceSheet.map((r: any) => r.assets ? r.assets.toLocaleString() : '—')] },
+      { particulars: "Total Liabilities", periods, values: [financials.balanceSheet.map((r: any) => r.liabilities ? r.liabilities.toLocaleString() : '—')] },
+      { particulars: "Shareholders' Equity", periods, values: [financials.balanceSheet.map((r: any) => r.equity ? r.equity.toLocaleString() : '—')] }
+    ];
+  }, [financials, hasData]);
+
+  // Map Cash Flows (Annual)
+  const cashFlows = React.useMemo(() => {
+    if (!hasData || !financials.cashFlow || financials.cashFlow.length === 0) return [];
+    const periods = financials.cashFlow.map((r: any) => String(r.year || r.date || '—'));
+    return [
+      { particulars: "Operating Cash Flow", periods, values: [financials.cashFlow.map((r: any) => r.operating ? r.operating.toLocaleString() : '—')] },
+      { particulars: "Investing Cash Flow", periods, values: [financials.cashFlow.map((r: any) => r.investing ? r.investing.toLocaleString() : '—')] },
+      { particulars: "Financing Cash Flow", periods, values: [financials.cashFlow.map((r: any) => r.financing ? r.financing.toLocaleString() : '—')] }
+    ];
+  }, [financials, hasData]);
+
+  if (isFinancialsPending) {
+    return (
+      <div id="financials" className="bg-white border border-[#E5E8EF] rounded-xl p-8 text-center space-y-4">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#059669] mx-auto"></div>
+        <p className="font-mono text-xs text-slate-400">Loading financial statements...</p>
+      </div>
+    );
+  }
+
+  if (financialsErr) {
+    return (
+      <div id="financials" className="bg-white border border-[#E5E8EF] rounded-xl p-8 text-center text-slate-400 font-mono text-xs">
+        Failed to load financials data.
+      </div>
+    );
+  }
+
+  const currentStatementData = 
+    activeStatementTab === 'quarterly' ? quarterlyResults :
+    activeStatementTab === 'pnl' ? annualPnL :
+    activeStatementTab === 'balance' ? balanceSheet :
+    cashFlows;
 
   return (
     <div id="financials" className="space-y-6 scroll-mt-20">
@@ -21,7 +95,7 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({
             <h3 className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.08em]">
               Financial Results & Statements
             </h3>
-            <p className="text-[10px] font-mono text-slate-400 mt-1">All historical variables and details are formatted in consolidated cr.</p>
+            <p className="text-[10px] font-mono text-slate-400 mt-1">All historical variables and details are formatted in consolidated millions/crores.</p>
           </div>
 
           {/* Tab buttons switcher - styled as pill toggles */}
@@ -30,8 +104,7 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({
               { id: 'quarterly', label: 'Quarterly Result' },
               { id: 'pnl', label: 'Profit & Loss' },
               { id: 'balance', label: 'Balance Sheet' },
-              { id: 'cash', label: 'Cash Flows' },
-              { id: 'corpAction', label: 'Corp. Actions' }
+              { id: 'cash', label: 'Cash Flows' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -48,261 +121,42 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({
           </div>
         </div>
 
-        {/* Table Render Zone with alternating rows and no vertical borders */}
-        {activeStatementTab === 'quarterly' && (
-          <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[#E5E8EF] text-[14.5px] font-sans">
-                <thead>
-                  <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[12.5px] font-bold uppercase tracking-wider">
-                    <th className="py-3.5 px-4 font-bold text-left">Particulars</th>
-                    {detailData.quarterlyResults[0]?.periods.map((period: string, i: number) => (
-                      <th key={i} className="text-right py-3.5 px-4 font-bold pl-4">{period}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {detailData.quarterlyResults.map((row: any, rIdx: number) => {
-                    const isBoldRow = ['Net Sales', 'Revenue', 'Gross Profit', 'Operating Profit', 'Operating Profit (EBITDA)', 'Profit After Tax', 'Net Profit / Net Income', 'Total Income'].includes(row.particulars);
-                    const isEven = rIdx % 2 === 1;
-                    return (
-                      <tr key={rIdx} className={`${isBoldRow ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/30' : isEven ? 'bg-slate-50/20' : 'bg-white'} hover:bg-slate-50/50 transition`}>
-                        <td className="py-3.5 px-4 font-sans font-medium text-slate-800 flex items-center gap-1.5">
-                          <span>{row.particulars}</span>
-                          <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-650 cursor-pointer shrink-0" />
-                        </td>
-                        {row.values[0]?.map((value: any, vIdx: number) => (
-                          <td key={vIdx} className="text-right py-3.5 px-4 pl-4 font-sans font-medium">{value}</td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+        {/* Table Render Zone */}
+        {currentStatementData.length === 0 ? (
+          <div className="py-12 text-center font-mono text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            {activeStatementTab === 'quarterly' 
+              ? 'Quarterly data unavailable for this company' 
+              : 'Annual financial statement data unavailable for this company'}
           </div>
-        )}
-
-        {activeStatementTab === 'pnl' && (
-          <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[#E5E8EF] text-[14.5px] font-sans">
-                <thead>
-                  <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[12.5px] font-bold uppercase tracking-wider">
-                    <th className="py-3.5 px-4 font-bold text-left">Particulars</th>
-                    {detailData.annualPnL[0]?.periods.map((period: string, i: number) => (
-                      <th key={i} className="text-right py-3.5 px-4 font-bold pl-4">{period}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {detailData.annualPnL.map((row: any, rIdx: number) => {
-                    const isBoldRow = ['Net Sales', 'Revenue', 'Gross Profit', 'Operating Profit', 'Operating Profit (EBITDA)', 'Net Profit', 'Net Profit / Net Income', 'Total Revenue'].includes(row.particulars);
-                    const isEven = rIdx % 2 === 1;
-                    return (
-                      <tr key={rIdx} className={`${isBoldRow ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/30' : isEven ? 'bg-slate-50/20' : 'bg-white'} hover:bg-slate-50/50 transition`}>
-                        <td className="py-3.5 px-4 font-sans font-medium text-slate-800 flex items-center gap-1.5">
-                          <span>{row.particulars}</span>
-                          <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-650 cursor-pointer shrink-0" />
-                        </td>
-                        {row.values[0]?.map((value: any, vIdx: number) => (
-                          <td key={vIdx} className="text-right py-3.5 px-4 pl-4 font-sans font-medium">{value}</td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeStatementTab === 'balance' && (
-          <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[#E5E8EF] text-[14.5px] font-sans">
-                <thead>
-                  <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[12.5px] font-bold uppercase tracking-wider">
-                    <th className="py-3.5 px-4 font-bold text-left">Particulars</th>
-                    {detailData.balanceSheet[0]?.periods.map((period: string, i: number) => (
-                      <th key={i} className="text-right py-3.5 px-4 font-bold pl-4">{period}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {detailData.balanceSheet.map((row: any, rIdx: number) => {
-                    const isBoldRow = ['Total Reserves', 'Total Shareholders\' Equity', 'Total Debt (Borrowings)', 'Total Liabilities', 'Total Assets'].includes(row.particulars);
-                    const isEven = rIdx % 2 === 1;
-                    return (
-                      <tr key={rIdx} className={`${isBoldRow ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/30' : isEven ? 'bg-slate-50/20' : 'bg-white'} hover:bg-slate-50/50 transition`}>
-                        <td className="py-3.5 px-4 font-sans font-medium text-slate-800 flex items-center gap-1.5">
-                          <span>{row.particulars}</span>
-                          <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-650 cursor-pointer shrink-0" />
-                        </td>
-                        {row.values[0]?.map((value: any, vIdx: number) => (
-                          <td key={vIdx} className="text-right py-3.5 px-4 pl-4 font-sans font-medium">{value}</td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeStatementTab === 'cash' && (
-          <div className="space-y-4">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[#E5E8EF] text-[14.5px] font-sans">
-                <thead>
-                  <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[12.5px] font-bold uppercase tracking-wider">
-                    <th className="py-3.5 px-4 font-bold text-left">Particulars</th>
-                    {detailData.cashFlows[0]?.periods.map((period: string, i: number) => (
-                      <th key={i} className="text-right py-3.5 px-4 font-bold pl-4">{period}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {detailData.cashFlows.map((row: any, rIdx: number) => {
-                    const isBoldRow = ['Operating Cash Flow', 'Net Cash Flow', 'Free Cash Flow (FCF)'].includes(row.particulars);
-                    const isEven = rIdx % 2 === 1;
-                    return (
-                      <tr key={rIdx} className={`${isBoldRow ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/30' : isEven ? 'bg-slate-50/20' : 'bg-white'} hover:bg-slate-50/50 transition`}>
-                        <td className="py-3.5 px-4 font-sans font-medium text-slate-800 flex items-center gap-1.5">
-                          <span>{row.particulars}</span>
-                          <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-650 cursor-pointer shrink-0" />
-                        </td>
-                        {row.values[0]?.map((value: any, vIdx: number) => (
-                          <td key={vIdx} className="text-right py-3.5 px-4 pl-4 font-sans font-medium">{value}</td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeStatementTab === 'corpAction' && (
-          <div className="space-y-5">
-            {/* Sub-tabs switchers */}
-            <div className="flex bg-slate-50 p-1 rounded-lg border border-[#E5E8EF] max-w-sm gap-1">
-              {[
-                { id: 'dividend', label: 'Dividend' },
-                { id: 'bonus', label: 'Bonus' },
-                { id: 'rights', label: 'Rights' },
-                { id: 'splits', label: 'Splits' }
-              ].map((subTab) => (
-                <button
-                  key={subTab.id}
-                  onClick={() => setActiveCorpActionSubTab(subTab.id as any)}
-                  className={`flex-1 px-3 py-1.5 font-sans text-xs font-semibold rounded-md transition-all cursor-pointer ${
-                    activeCorpActionSubTab === subTab.id 
-                      ? 'bg-[#059669] text-white shadow-sm font-bold' 
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  {subTab.label}
-                </button>
-              ))}
-            </div>
-
-            {activeCorpActionSubTab === 'dividend' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
-                  <thead>
-                    <tr className="text-slate-500 font-bold text-left border-b border-[#E5E8EF] text-[11.5px] uppercase tracking-wider">
-                      <th className="py-2 font-bold text-left">EX DATE</th>
-                      <th className="py-2 font-bold">RECORD DATE</th>
-                      <th className="py-2 text-center font-bold">DIVIDEND %</th>
-                      <th className="py-2 text-right font-bold">
-                        AMOUNT <span className="text-[#94A3B8] text-[9.5px] font-normal lowercase normal-case ml-0.5">{currencySuffixLabel}</span>
-                      </th>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-[#E5E8EF] text-[14.5px] font-sans">
+              <thead>
+                <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[12.5px] font-bold uppercase tracking-wider">
+                  <th className="py-3.5 px-4 font-bold text-left">Particulars</th>
+                  {currentStatementData[0]?.periods.map((period: string, i: number) => (
+                    <th key={i} className="text-right py-3.5 px-4 font-bold pl-4">{period}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {currentStatementData.map((row: any, rIdx: number) => {
+                  const isBoldRow = ['Revenue', 'Gross Profit', 'Net Profit / Net Income', 'Total Assets', 'Total Liabilities', 'Shareholders\' Equity', 'Operating Cash Flow'].includes(row.particulars);
+                  const isEven = rIdx % 2 === 1;
+                  return (
+                    <tr key={rIdx} className={`${isBoldRow ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/30' : isEven ? 'bg-slate-50/20' : 'bg-white'} hover:bg-slate-50/50 transition`}>
+                      <td className="py-3.5 px-4 font-sans font-medium text-slate-800 flex items-center gap-1.5">
+                        <span>{row.particulars}</span>
+                        <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-650 cursor-pointer shrink-0" />
+                      </td>
+                      {row.values[0]?.map((value: any, vIdx: number) => (
+                        <td key={vIdx} className="text-right py-3.5 px-4 pl-4 font-sans font-medium">{value}</td>
+                      ))}
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {detailData.corporateActions.dividend.length > 0 ? (
-                      detailData.corporateActions.dividend.map((row: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 transition">
-                          <td className="py-2.5 font-bold text-slate-950">{row.exDate}</td>
-                          <td className="py-2.5 text-slate-600">{row.recordDate}</td>
-                          <td className="py-2.5 text-center font-semibold text-slate-800">{row.divPct}%</td>
-                          <td className="py-2.5 text-right font-bold text-[#16A34A] font-mono">{row.amount}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="py-4 text-center text-slate-400">No recent dividends reported.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {activeCorpActionSubTab === 'bonus' && (
-              <div className="overflow-x-auto animate-in fade-in duration-100">
-                <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
-                  <thead>
-                    <tr className="text-slate-500 font-bold text-left border-b border-[#E5E8EF] text-[11.5px] uppercase tracking-wider">
-                      <th className="py-2 font-bold text-left">EX DATE</th>
-                      <th className="py-2 text-right font-bold">RATIO</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {detailData.corporateActions.bonus.length > 0 ? (
-                      detailData.corporateActions.bonus.map((row: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 transition">
-                          <td className="py-2.5 font-bold text-slate-950">{row.exDate}</td>
-                          <td className="py-2.5 text-right font-bold text-[#16A34A]">{row.ratio}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={2} className="py-4 text-center text-slate-400">No recent bonus declarations.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {activeCorpActionSubTab === 'rights' && (
-              <div className="overflow-x-auto animate-in fade-in duration-100">
-                <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
-                  <thead>
-                    <tr className="text-slate-500 font-bold text-left border-b border-[#E5E8EF] text-[11.5px] uppercase tracking-wider">
-                      <th className="py-2 font-bold text-left">EX DATE</th>
-                      <th className="py-2 text-center font-bold">RATIO</th>
-                      <th className="py-2 text-right font-bold">PRICE</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-slate-700">
-                    {detailData.corporateActions.rights.length > 0 ? (
-                      detailData.corporateActions.rights.map((row: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-slate-50/50 transition">
-                          <td className="py-2.5 font-semibold text-slate-950">{row.exDate}</td>
-                          <td className="py-2.5 text-center font-bold text-slate-800">{row.ratio}</td>
-                          <td className="py-2.5 text-right font-bold text-[#059669] font-mono">₹ {row.price}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="py-4 text-center text-slate-400">No active rights operations.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {activeCorpActionSubTab === 'splits' && (
-              <div className="py-4 text-center text-slate-400 text-xs font-mono animate-in fade-in duration-100">
-                No stock split data reported for this asset.
-              </div>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
