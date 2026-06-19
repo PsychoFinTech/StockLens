@@ -597,7 +597,17 @@ function matchesEnd(lines: string[], idx: number, item: string): boolean {
 }
 
 function extractSectionText(html: string, itemName: string): string[] {
-  let text = html.replace(/<\/?(?:div|p|tr|h1|h2|h3|h4|h5|h6|br)[^>]*>/gi, '\n');
+  // Pre-process td and th cells to replace internal divs/ps/spans with spaces
+  let text = html.replace(/(<(?:td|th)[^>]*>)([\s\S]*?)(<\/(?:td|th)>)/gi, (match, open, content, close) => {
+    const cleanContent = content.replace(/<\/?(?:div|p|br|span)[^>]*>/gi, ' ');
+    return open + cleanContent + close;
+  });
+  
+  // Replace cell closing tags with a separator pipe to keep tabular numbers on the same line
+  text = text.replace(/<\/(?:td|th)>/gi, ' | ');
+  
+  // Replace block tags with newlines
+  text = text.replace(/<\/?(?:div|p|tr|h1|h2|h3|h4|h5|h6|br)[^>]*>/gi, '\n');
   text = text.replace(/<[^>]+>/g, ' '); // Strip all other tags
   text = text.replace(/&nbsp;/g, ' ')
              .replace(/&#160;/g, ' ')

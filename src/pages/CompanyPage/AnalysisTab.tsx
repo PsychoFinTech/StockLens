@@ -474,41 +474,41 @@ export const AnalysisTab: React.FC<AnalysisTabProps> = ({
           <table className="min-w-full divide-y divide-[#E5E8EF] text-[14.5px] font-sans">
             <thead>
               <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[12.5px] font-bold uppercase tracking-wider">
-                <th className="py-3.5 px-4 font-bold text-left">Company</th>
-                <th className="text-right py-3.5 px-4 font-bold">
+                <th className="py-3.5 px-4 font-bold text-left whitespace-nowrap">Company</th>
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">
                   Price <span className="text-[#94A3B8] text-[10.5px] font-normal lowercase normal-case ml-0.5">{currencySuffixLabel}</span>
                 </th>
-                <th className="text-right py-3.5 px-4 font-bold">
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">
                   MCAP <span className="text-[#94A3B8] text-[10.5px] font-normal lowercase normal-case ml-0.5">{mcapSuffixLabel}</span>
                 </th>
-                <th className="text-right py-3.5 px-4 font-bold">P/B</th>
-                <th className="text-right py-3.5 px-4 font-bold">P/E</th>
-                <th className="text-right py-3.5 px-4 font-bold">
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">P/B</th>
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">P/E</th>
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">
                   EPS <span className="text-[#94A3B8] text-[10.5px] font-normal lowercase normal-case ml-0.5">{currencySuffixLabel}</span>
                 </th>
-                <th className="text-right py-3.5 px-4 font-bold">ROE %</th>
-                <th className="text-right py-3.5 px-4 font-bold">ROCE %</th>
-                <th className="text-right py-3.5 px-4 font-bold">P/S</th>
-                <th className="text-right py-3.5 px-4 font-bold">EV/EBITDA</th>
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">ROE %</th>
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">ROCE %</th>
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">P/S</th>
+                <th className="text-right py-3.5 px-4 font-bold whitespace-nowrap">EV/EBITDA</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E8EF] text-slate-700 bg-white">
               {/* Highlight current ticker row (AAPL) with a solid contiguous border and bg-[#F0F5FF]/50 */}
               <tr className="bg-[#F0F5FF]/40 text-slate-900 font-bold">
-                <td className="py-3.5 px-4 text-[#059669] border-y-2 border-l-2 border-slate-900 font-bold">{profile.name} (This Ticker)</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold">{formatPrice(livePriceVal, profile.exchange)}</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold">{formatMarketCap(ratios?.market_cap, profile.exchange)}</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold">{ratios?.pb || '—'}</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold">{ratios?.pe || '—'}</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold">{ratios?.eps || '—'}</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold text-[#16A34A]">{ratios?.roe || '—'}</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold text-[#16A34A]">{ratios?.roce || '—'}</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold">3.56</td>
-                <td className="text-right py-3.5 px-4 border-y-2 border-r-2 border-slate-900 font-bold">24.63</td>
+                <td className="py-3.5 px-4 text-[#059669] border-y-2 border-l-2 border-slate-900 font-bold whitespace-nowrap">{profile.name} (This Ticker)</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold whitespace-nowrap">{formatPrice(livePriceVal, profile.exchange)}</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold whitespace-nowrap">{formatMarketCap(ratios?.market_cap, profile.exchange)}</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold whitespace-nowrap">{ratios?.pb || '—'}</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold whitespace-nowrap">{ratios?.pe || '—'}</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold whitespace-nowrap">{ratios?.eps || '—'}</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold text-[#16A34A] whitespace-nowrap">{ratios?.roe || '—'}</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold text-[#16A34A] whitespace-nowrap">{ratios?.roce || '—'}</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-slate-900 font-bold whitespace-nowrap">3.56</td>
+                <td className="text-right py-3.5 px-4 border-y-2 border-r-2 border-slate-900 font-bold whitespace-nowrap">24.63</td>
               </tr>
               {isPeersPending ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-slate-400 animate-pulse">Loading competitors...</td>
+                  <td colSpan={10} className="py-8 text-center text-slate-400 animate-pulse whitespace-nowrap">Loading competitors...</td>
                 </tr>
               ) : peers && peers.length > 0 ? (
                 peers.filter(p => p.symbol !== upperSymbol).slice(0, 5).map((p, pIdx) => {
@@ -520,7 +520,7 @@ export const AnalysisTab: React.FC<AnalysisTabProps> = ({
                       className={`${isEven ? 'bg-[#F8F9FB]' : 'bg-white'} hover:bg-slate-50/70 transition cursor-pointer text-slate-700`} 
                       onClick={() => handlePeerClick(p.symbol)}
                     >
-                      <td className="py-3.5 px-4 font-sans font-semibold text-[#059669]">
+                      <td className="py-3.5 px-4 font-sans font-semibold text-[#059669] whitespace-nowrap">
                         <div className="flex items-center justify-between gap-1.5">
                           <span className="hover:underline">{p.name}</span>
                           <button
@@ -534,15 +534,15 @@ export const AnalysisTab: React.FC<AnalysisTabProps> = ({
                           </button>
                         </div>
                       </td>
-                      <td className="text-right py-3.5 px-4 font-medium">{formatPrice(p.price, p.exchange)}</td>
-                      <td className="text-right py-3.5 px-4">{formatMarketCap(p.mcap, p.exchange)}</td>
-                      <td className="text-right py-3.5 px-4">{p.pb}</td>
-                      <td className="text-right py-3.5 px-4">{p.pe}</td>
-                      <td className="text-right py-3.5 px-4">{formatPrice(p.price * 0.08, p.exchange)}</td>
-                      <td className="text-right py-3.5 px-4 text-[#16A34A] font-semibold">{p.roe}</td>
-                      <td className="text-right py-3.5 px-4 text-[#16A34A] font-semibold">{(p.pe * 0.18).toFixed(2)}%</td>
-                      <td className="text-right py-3.5 px-4">0.25</td>
-                      <td className="text-right py-3.5 px-4">4.10</td>
+                      <td className="text-right py-3.5 px-4 font-medium whitespace-nowrap">{formatPrice(p.price, p.exchange)}</td>
+                      <td className="text-right py-3.5 px-4 whitespace-nowrap">{formatMarketCap(p.mcap, p.exchange)}</td>
+                      <td className="text-right py-3.5 px-4 whitespace-nowrap">{p.pb}</td>
+                      <td className="text-right py-3.5 px-4 whitespace-nowrap">{p.pe}</td>
+                      <td className="text-right py-3.5 px-4 whitespace-nowrap">{formatPrice(p.price * 0.08, p.exchange)}</td>
+                      <td className="text-right py-3.5 px-4 text-[#16A34A] font-semibold whitespace-nowrap">{p.roe}</td>
+                      <td className="text-right py-3.5 px-4 text-[#16A34A] font-semibold whitespace-nowrap">{(p.pe * 0.18).toFixed(2)}%</td>
+                      <td className="text-right py-3.5 px-4 whitespace-nowrap">0.25</td>
+                      <td className="text-right py-3.5 px-4 whitespace-nowrap">4.10</td>
                     </tr>
                   );
                 })

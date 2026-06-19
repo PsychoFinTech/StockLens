@@ -285,15 +285,15 @@ export const SECTab: React.FC<SECTabProps> = ({
                     <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
                       <thead>
                         <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[11px] font-bold uppercase tracking-wider">
-                          <th className="py-3 px-4 font-bold">Standardized Item (USD in Millions)</th>
+                          <th className="py-3 px-4 font-bold whitespace-nowrap">Standardized Item (USD in Millions)</th>
                           {secComparePeer ? (
                             years.flatMap(year => [
-                              <th key={`${upperSymbol}-${year}`} className="py-3 px-4 text-right font-bold bg-[#E6F0FF]/30">{upperSymbol} ({year})</th>,
-                              <th key={`${secComparePeer}-${year}`} className="py-3 px-4 text-right font-bold bg-[#EEF2FF]/40">{secComparePeer} ({year})</th>
+                              <th key={`${upperSymbol}-${year}`} className="py-3 px-4 text-right font-bold whitespace-nowrap bg-[#E6F0FF]/30">{upperSymbol} ({year})</th>,
+                              <th key={`${secComparePeer}-${year}`} className="py-3 px-4 text-right font-bold whitespace-nowrap bg-[#EEF2FF]/40">{secComparePeer} ({year})</th>
                             ])
                           ) : (
                             years.map(year => (
-                              <th key={year} className="py-3 px-4 text-right font-bold">FY {year}</th>
+                              <th key={year} className="py-3 px-4 text-right font-bold whitespace-nowrap">FY {year}</th>
                             ))
                           )}
                         </tr>
@@ -325,15 +325,15 @@ export const SECTab: React.FC<SECTabProps> = ({
                                     : 'bg-white'
                               } hover:bg-slate-50/40 transition`}
                             >
-                              <td className="py-3 px-4 font-sans font-medium text-slate-800">{row.label}</td>
+                              <td className="py-3 px-4 font-sans font-medium text-slate-800 whitespace-nowrap">{row.label}</td>
                               {secComparePeer ? (
                                 years.flatMap(year => [
-                                  <td key={`${upperSymbol}-${year}`} className="py-3 px-4 text-right font-semibold bg-[#E6F0FF]/15 text-slate-900">{formatVal(row.values[year])}</td>,
-                                  <td key={`${secComparePeer}-${year}`} className="py-3 px-4 text-right text-slate-650 bg-[#EEF2FF]/20">{formatVal(peerRow?.values[year])}</td>
+                                  <td key={`${upperSymbol}-${year}`} className="py-3 px-4 text-right font-semibold bg-[#E6F0FF]/15 text-slate-900 whitespace-nowrap">{formatVal(row.values[year])}</td>,
+                                  <td key={`${secComparePeer}-${year}`} className="py-3 px-4 text-right text-slate-650 bg-[#EEF2FF]/20 whitespace-nowrap">{formatVal(peerRow?.values[year])}</td>
                                 ])
                               ) : (
                                 years.map((year, idx) => (
-                                  <td key={year} className={`py-3 px-4 text-right ${idx === 0 ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
+                                  <td key={year} className={`py-3 px-4 text-right whitespace-nowrap ${idx === 0 ? 'font-semibold text-slate-900' : 'text-slate-600'}`}>
                                     {formatVal(row.values[year])}
                                   </td>
                                 ))
@@ -374,14 +374,14 @@ export const SECTab: React.FC<SECTabProps> = ({
                 <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
                   <thead>
                     <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[11px] font-bold uppercase tracking-wider">
-                      <th className="py-3 px-4 font-bold">Insider Name</th>
-                      <th className="py-3 px-4 font-bold">Relationship / Role</th>
-                      <th className="py-3 px-4 font-bold">Filing Date</th>
-                      <th className="py-3 px-4 text-center font-bold">Action</th>
-                      <th className="py-3 px-4 text-right font-bold">Shares</th>
-                      <th className="py-3 px-4 text-right font-bold">Price</th>
-                      <th className="py-3 px-4 text-right font-bold">Total Value</th>
-                      <th className="py-3 px-4 text-center font-bold">Source</th>
+                      <th className="py-3 px-4 font-bold whitespace-nowrap">Insider Name</th>
+                      <th className="py-3 px-4 font-bold whitespace-nowrap">Relationship / Role</th>
+                      <th className="py-3 px-4 font-bold whitespace-nowrap">Filing Date</th>
+                      <th className="py-3 px-4 text-center font-bold whitespace-nowrap">Action</th>
+                      <th className="py-3 px-4 text-right font-bold whitespace-nowrap">Shares</th>
+                      <th className="py-3 px-4 text-right font-bold whitespace-nowrap">Price</th>
+                      <th className="py-3 px-4 text-right font-bold whitespace-nowrap">Total Value</th>
+                      <th className="py-3 px-4 text-center font-bold whitespace-nowrap">Source</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700 bg-white">
@@ -393,18 +393,18 @@ export const SECTab: React.FC<SECTabProps> = ({
 
                       return (
                         <tr key={tIdx} className="hover:bg-slate-50/50 transition">
-                          <td className="py-3 px-4 font-semibold text-slate-900">{tx.name}</td>
-                          <td className="py-3 px-4 text-slate-600">{tx.relationship}</td>
-                          <td className="py-3 px-4 font-mono font-medium text-slate-500">{formatDate(tx.date)}</td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">{tx.name}</td>
+                          <td className="py-3 px-4 text-slate-600 whitespace-nowrap">{tx.relationship}</td>
+                          <td className="py-3 px-4 font-mono font-medium text-slate-500 whitespace-nowrap">{formatDate(tx.date)}</td>
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}>
                               {tx.action} ({tx.code})
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-800">{tx.shares.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-600">${tx.price.toFixed(2)}</td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">${tx.value.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-800 whitespace-nowrap">{tx.shares.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600 whitespace-nowrap">${tx.price.toFixed(2)}</td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">${tx.value.toLocaleString()}</td>
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
                             <a
                               href={tx.secLink}
                               target="_blank"
@@ -511,12 +511,12 @@ export const SECTab: React.FC<SECTabProps> = ({
                   <table className="min-w-full divide-y divide-[#E5E8EF] text-[13.5px] font-sans">
                     <thead>
                       <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[11px] font-bold uppercase tracking-wider">
-                        <th className="py-3 px-4 font-bold">Ticker</th>
-                        <th className="py-3 px-4 font-bold">Issuer Company Name</th>
-                        <th className="py-3 px-4 text-right font-bold">Value (USD in Thousands)</th>
-                        <th className="py-3 px-4 text-right font-bold">Shares Held</th>
-                        <th className="py-3 px-4 text-center font-bold">Option Status</th>
-                        <th className="py-3 px-4 text-right font-bold">QoQ Change</th>
+                        <th className="py-3 px-4 font-bold whitespace-nowrap">Ticker</th>
+                        <th className="py-3 px-4 font-bold whitespace-nowrap">Issuer Company Name</th>
+                        <th className="py-3 px-4 text-right font-bold whitespace-nowrap">Value (USD in Thousands)</th>
+                        <th className="py-3 px-4 text-right font-bold whitespace-nowrap">Shares Held</th>
+                        <th className="py-3 px-4 text-center font-bold whitespace-nowrap">Option Status</th>
+                        <th className="py-3 px-4 text-right font-bold whitespace-nowrap">QoQ Change</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -534,11 +534,11 @@ export const SECTab: React.FC<SECTabProps> = ({
 
                           return (
                             <tr key={hIdx} className="hover:bg-slate-50/50 transition">
-                              <td className="py-3 px-4 font-mono font-bold text-[#059669]">{hold.ticker}</td>
-                              <td className="py-3 px-4 font-semibold text-slate-800">{hold.name}</td>
-                              <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">${hold.value.toLocaleString()}</td>
-                              <td className="py-3 px-4 text-right font-mono text-slate-650">{hold.shares.toLocaleString()}</td>
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-3 px-4 font-mono font-bold text-[#059669] whitespace-nowrap">{hold.ticker}</td>
+                              <td className="py-3 px-4 font-semibold text-slate-800 whitespace-nowrap">{hold.name}</td>
+                              <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">${hold.value.toLocaleString()}</td>
+                              <td className="py-3 px-4 text-right font-mono text-slate-655 whitespace-nowrap">{hold.shares.toLocaleString()}</td>
+                              <td className="py-3 px-4 text-center whitespace-nowrap">
                                 {isCall ? (
                                   <span className="px-2 py-0.5 rounded bg-teal-50 text-teal-650 border border-teal-150 text-[10px] font-bold uppercase tracking-wide">Call</span>
                                 ) : isPut ? (
@@ -547,7 +547,7 @@ export const SECTab: React.FC<SECTabProps> = ({
                                   <span className="text-slate-350">—</span>
                                 )}
                               </td>
-                              <td className="py-3 px-4 text-right font-mono">
+                              <td className="py-3 px-4 text-right font-mono whitespace-nowrap">
                                 <span className={changeColor}>
                                   {hold.qoqChange === 'New' ? (
                                     <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-[#059669] border border-blue-150 text-[9px] font-bold uppercase tracking-wide">NEW</span>

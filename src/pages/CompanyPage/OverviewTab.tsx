@@ -349,7 +349,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           }
                         ].map((row, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/50 transition">
-                            <td className="px-4 py-3 font-mono font-bold text-slate-900 w-1/4 border-r border-[#E5E8EF] text-right bg-slate-50/10">
+                            <td className="px-4 py-3 font-mono font-bold text-slate-900 w-1/4 border-r border-[#E5E8EF] text-right bg-slate-50/10 whitespace-nowrap">
                               {row.value}
                             </td>
                             <td className="px-4 py-3 text-slate-650 font-medium">
@@ -371,12 +371,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-[#E5E8EF] text-xs font-sans text-left">
                         <thead>
-                          <tr className="bg-[rgba(5,150,105,0.04)] text-[#059669] border-b border-[#E5E8EF] text-[10.5px] font-bold uppercase tracking-wider">
-                            <th className="py-3 px-4 font-bold text-left">Holder</th>
-                            <th className="py-3 px-4 font-bold text-right">Shares</th>
-                            <th className="py-3 px-4 font-bold text-center">Date Reported</th>
-                            <th className="py-3 px-4 font-bold text-right">% Out</th>
-                            <th className="py-3 px-4 font-bold text-right">Value</th>
+                          <tr className="bg-[rgba(5,150,105,0.04)] text-[#059669] border-b border-[#E5E8EF] text-[10.5px] font-bold uppercase tracking-wider whitespace-nowrap">
+                            <th className="py-3 px-4 font-bold text-left whitespace-nowrap">Holder</th>
+                            <th className="py-3 px-4 font-bold text-right whitespace-nowrap">Shares</th>
+                            <th className="py-3 px-4 font-bold text-center whitespace-nowrap">Date Reported</th>
+                            <th className="py-3 px-4 font-bold text-right whitespace-nowrap">% Out</th>
+                            <th className="py-3 px-4 font-bold text-right whitespace-nowrap">Value</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E5E8EF] text-slate-700 bg-white">
@@ -388,13 +388,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               : '—';
                             return (
                               <tr key={idx} className={`${isEven ? 'bg-[#F8F9FB]/40' : 'bg-white'} hover:bg-slate-50/50 transition`}>
-                                <td className="py-3 px-4 font-bold text-slate-900">{item.organization}</td>
-                                <td className="py-3 px-4 text-right font-mono font-medium">{item.position ? formatShares(item.position, profile.exchange, profile.symbol) : '—'}</td>
-                                <td className="py-3 px-4 text-center font-mono text-slate-600">{item.reportDate ? formatDate(item.reportDate) : '—'}</td>
-                                <td className="py-3 px-4 text-right font-mono text-slate-600">
+                                <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">{item.organization}</td>
+                                <td className="py-3 px-4 text-right font-mono font-medium whitespace-nowrap">{item.position ? formatShares(item.position, profile.exchange, profile.symbol) : '—'}</td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-600 whitespace-nowrap">{item.reportDate ? formatDate(item.reportDate) : '—'}</td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-600 whitespace-nowrap">
                                   {item.pctHeld !== null ? `${(item.pctHeld * 100).toFixed(2)}%` : '—'}
                                 </td>
-                                <td className="py-3 px-4 text-right font-mono font-medium">{valFormatted}</td>
+                                <td className="py-3 px-4 text-right font-mono font-medium whitespace-nowrap">{valFormatted}</td>
                               </tr>
                             );
                           })}
@@ -413,12 +413,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-[#E5E8EF] text-xs font-sans text-left">
                         <thead>
-                          <tr className="bg-[rgba(5,150,105,0.04)] text-[#059669] border-b border-[#E5E8EF] text-[10.5px] font-bold uppercase tracking-wider">
-                            <th className="py-3 px-4 font-bold text-left">Holder</th>
-                            <th className="py-3 px-4 font-bold text-right">Shares</th>
-                            <th className="py-3 px-4 font-bold text-center">Date Reported</th>
-                            <th className="py-3 px-4 font-bold text-right">% Out</th>
-                            <th className="py-3 px-4 font-bold text-right">Value</th>
+                          <tr className="bg-[rgba(5,150,105,0.04)] text-[#059669] border-b border-[#E5E8EF] text-[10.5px] font-bold uppercase tracking-wider whitespace-nowrap">
+                            <th className="py-3 px-4 font-bold text-left whitespace-nowrap">Holder</th>
+                            <th className="py-3 px-4 font-bold text-right whitespace-nowrap">Shares</th>
+                            <th className="py-3 px-4 font-bold text-center whitespace-nowrap">Date Reported</th>
+                            <th className="py-3 px-4 font-bold text-right whitespace-nowrap">% Out</th>
+                            <th className="py-3 px-4 font-bold text-right whitespace-nowrap">Value</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#E5E8EF] text-slate-700 bg-white">
@@ -430,13 +430,13 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                               : '—';
                             return (
                               <tr key={idx} className={`${isEven ? 'bg-[#F8F9FB]/40' : 'bg-white'} hover:bg-slate-50/50 transition`}>
-                                <td className="py-3 px-4 font-bold text-slate-900">{item.organization}</td>
-                                <td className="py-3 px-4 text-right font-mono font-medium">{item.position ? formatShares(item.position, profile.exchange, profile.symbol) : '—'}</td>
-                                <td className="py-3 px-4 text-center font-mono text-slate-600">{item.reportDate ? formatDate(item.reportDate) : '—'}</td>
-                                <td className="py-3 px-4 text-right font-mono text-slate-600">
+                                <td className="py-3 px-4 font-bold text-slate-900 whitespace-nowrap">{item.organization}</td>
+                                <td className="py-3 px-4 text-right font-mono font-medium whitespace-nowrap">{item.position ? formatShares(item.position, profile.exchange, profile.symbol) : '—'}</td>
+                                <td className="py-3 px-4 text-center font-mono text-slate-600 whitespace-nowrap">{item.reportDate ? formatDate(item.reportDate) : '—'}</td>
+                                <td className="py-3 px-4 text-right font-mono text-slate-600 whitespace-nowrap">
                                   {item.pctHeld !== null ? `${(item.pctHeld * 100).toFixed(2)}%` : '—'}
                                 </td>
-                                <td className="py-3 px-4 text-right font-mono font-medium">{valFormatted}</td>
+                                <td className="py-3 px-4 text-right font-mono font-medium whitespace-nowrap">{valFormatted}</td>
                               </tr>
                             );
                           })}

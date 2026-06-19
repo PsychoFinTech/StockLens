@@ -133,9 +133,9 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({
             <table className="min-w-full divide-y divide-[#E5E8EF] text-[14.5px] font-sans">
               <thead>
                 <tr className="bg-[rgba(5,150,105,0.06)] text-[#059669] border-b border-[#E5E8EF] text-left text-[12.5px] font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-4 font-bold text-left">Particulars</th>
+                  <th className="py-3.5 px-4 font-bold text-left whitespace-nowrap">Particulars</th>
                   {currentStatementData[0]?.periods.map((period: string, i: number) => (
-                    <th key={i} className="text-right py-3.5 px-4 font-bold pl-4">{period}</th>
+                    <th key={i} className="text-right py-3.5 px-4 font-bold pl-4 whitespace-nowrap">{period}</th>
                   ))}
                 </tr>
               </thead>
@@ -145,12 +145,12 @@ export const FinancialsTab: React.FC<FinancialsTabProps> = ({
                   const isEven = rIdx % 2 === 1;
                   return (
                     <tr key={rIdx} className={`${isBoldRow ? 'font-bold text-slate-900 bg-[rgba(5,150,105,0.06)]/30' : isEven ? 'bg-slate-50/20' : 'bg-white'} hover:bg-slate-50/50 transition`}>
-                      <td className="py-3.5 px-4 font-sans font-medium text-slate-800 flex items-center gap-1.5">
+                      <td className="py-3.5 px-4 font-sans font-medium text-slate-800 flex items-center gap-1.5 whitespace-nowrap">
                         <span>{row.particulars}</span>
-                        <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-650 cursor-pointer shrink-0" />
+                        <HelpCircle className="h-3.5 w-3.5 text-slate-400 hover:text-slate-655 cursor-pointer shrink-0" />
                       </td>
                       {row.values[0]?.map((value: any, vIdx: number) => (
-                        <td key={vIdx} className="text-right py-3.5 px-4 pl-4 font-sans font-medium">{value}</td>
+                        <td key={vIdx} className="text-right py-3.5 px-4 pl-4 font-sans font-medium whitespace-nowrap">{value}</td>
                       ))}
                     </tr>
                   );
