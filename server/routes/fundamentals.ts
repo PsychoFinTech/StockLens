@@ -295,46 +295,42 @@ router.get('/peers/:symbol', apiLimiter, async (req, res, next) => {
     }
 
     // Construct pricing grid elements for Peers Comparison table in UI
-    const peersMetrics = peers.slice(0, 8).map(peerSymbol => {
-      // Find name / exchange in SQLite
-      let profileStmt: any;
-      try {
-        profileStmt = db.prepare('SELECT name, sector, exchange FROM stocks WHERE symbol = ?').get(peerSymbol);
-      } catch (e) {}
-
-      // Try to get cached/live metrics if available
-      const qStmt = db.prepare('SELECT price FROM quotes WHERE symbol = ?');
-      const quoteRow = qStmt.get(peerSymbol) as { price: number } | undefined;
-
-      const fStmt = db.prepare('SELECT data FROM fundamentals WHERE symbol = ?');
-      const fundRow = fStmt.get(peerSymbol) as { data: string } | undefined;
-      
-      let fundData: any = null;
-      if (fundRow) {
+    const peersMetrics = await Promise.all(
+      peers.slice(0, 8).map(async (peerSymbol) => {
+        // Find name / exchange in SQLite
+        let profileStmt: any;
         try {
-          fundData = JSON.parse(fundRow.data);
+          profileStmt = db.prepare('SELECT name, sector, exchange FROM stocks WHERE symbol = ?').get(peerSymbol);
         } catch (e) {}
-      }
 
-      // Check basic financials node cache
-      const cachedRatios = cacheService.get<any>(`yahoo:basic:${peerSymbol}`);
+        let price: number | null = null;
+        try {
+          const q = await yahooService.getQuote(peerSymbol);
+          price = q?.price ?? null;
+        } catch (e) {}
 
-      const pe = cachedRatios?.metric?.peAnnual ?? null;
-      const pb = cachedRatios?.metric?.pbAnnual ?? null;
-      const roe = cachedRatios?.metric?.roeTTM ? `${Number(cachedRatios.metric.roeTTM).toFixed(2)}%` : (fundData?.ratios?.returnOnEquity ? `${(fundData.ratios.returnOnEquity * 100).toFixed(2)}%` : null);
-      const mcap = cachedRatios?.metric?.marketCapitalization ? cachedRatios.metric.marketCapitalization * 1000000 : null;
+        let cachedRatios: any = null;
+        try {
+          cachedRatios = await yahooService.getBasicFinancials(peerSymbol);
+        } catch (e) {}
 
-      return {
-        symbol: peerSymbol,
-        name: profileStmt?.name || `${peerSymbol} Corp`,
-        price: quoteRow ? quoteRow.price : null,
-        mcap: mcap,
-        pe: pe,
-        pb: pb,
-        roe: roe,
-        exchange: profileStmt?.exchange || 'NYSE'
-      };
-    });
+        const pe = cachedRatios?.metric?.peAnnual ?? null;
+        const pb = cachedRatios?.metric?.pbAnnual ?? null;
+        const roe = cachedRatios?.metric?.roeTTM ? `${Number(cachedRatios.metric.roeTTM).toFixed(2)}%` : null;
+        const mcap = cachedRatios?.metric?.marketCapitalization ? cachedRatios.metric.marketCapitalization * 1000000 : null;
+
+        return {
+          symbol: peerSymbol,
+          name: profileStmt?.name || `${peerSymbol} Corp`,
+          price: price,
+          mcap: mcap,
+          pe: pe ? Number(pe).toFixed(2) : '—',
+          pb: pb ? Number(pb).toFixed(2) : '—',
+          roe: roe || '—',
+          exchange: profileStmt?.exchange || 'NYSE'
+        };
+      })
+    );
 
     res.json(peersMetrics);
   } catch (error) {
