@@ -110,11 +110,16 @@ export const SECTab: React.FC<SECTabProps> = ({
   const isParagraphHeader = (p: string): boolean => {
     const trimmed = p.trim();
     if (trimmed.length === 0 || trimmed.length > 90) return false;
+    
+    // Ignore pure numbers (page numbers) and navigation labels
+    if (/^\d+$/.test(trimmed)) return false;
+    const lower = trimmed.toLowerCase();
+    if (lower === 'table of contents') return false;
+
     // Don't format as header if it ends with punctuation like periods
     const lastChar = trimmed[trimmed.length - 1];
     if (lastChar === '.' || lastChar === '?' || lastChar === '!') return false;
     // Common header indicators: starts with Item, Note, Table, Part, or contains standard sections
-    const lower = trimmed.toLowerCase();
     if (lower.startsWith('item ') || lower.startsWith('note ') || lower.startsWith('part ') || lower.startsWith('section ') || lower.startsWith('risks related ')) {
       return true;
     }
