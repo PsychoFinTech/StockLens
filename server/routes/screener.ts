@@ -5,11 +5,45 @@ import { cacheService } from '../services/cache.js';
 
 const router = Router();
 
+// Translation mappings for user-friendly frontend labels to database values
+const SECTOR_MAP: Record<string, string[]> = {
+  'Technology': ['Technology', 'Information Technology'],
+  'Healthcare': ['Healthcare', 'Health Care'],
+  'Financial Services': ['Financial Services', 'Financials', 'Financial'],
+  'Consumer Cyclical': ['Consumer Cyclical', 'Consumer Discretionary'],
+  'Consumer Defensive': ['Consumer Defensive', 'Consumer Staples'],
+  'Basic Materials': ['Basic Materials', 'Materials']
+};
+
+const EXCHANGE_MAP: Record<string, string[]> = {
+  'TSE': ['TSE', 'Tokyo']
+};
+
 // GET /api/screener -> Filter our seeded S&P 500 and global equities
 router.get('/', apiLimiter, (req, res, next) => {
   try {
-    const exchangeFilter = req.query.exchange ? req.query.exchange.toString().trim() : '';
-    const sectorFilter = req.query.sector ? req.query.sector.toString().trim() : '';
+    console.log('[SCREENER] Received query:', req.query);
+    const rawExchange = req.query.exchange ? req.query.exchange.toString().trim() : '';
+    const rawSector = req.query.sector ? req.query.sector.toString().trim() : '';
+    const searchQuery = req.query.q ? req.query.q.toString().trim().toUpperCase() : '';
+
+    let exchangeFilter: string[] = [];
+    if (rawExchange && rawExchange !== 'ALL') {
+      const parts = rawExchange.split(',').map(s => s.trim()).filter(Boolean);
+      for (const ex of parts) {
+        const mapped = EXCHANGE_MAP[ex] || [ex];
+        exchangeFilter.push(...mapped);
+      }
+    }
+
+    let sectorFilter: string[] = [];
+    if (rawSector && rawSector !== 'ALL') {
+      const parts = rawSector.split(',').map(s => s.trim()).filter(Boolean);
+      for (const sec of parts) {
+        const mapped = SECTOR_MAP[sec] || [sec];
+        sectorFilter.push(...mapped);
+      }
+    }
 
     const minMcap = req.query.minMcap ? Number(req.query.minMcap) : null;
     const maxMcap = req.query.maxMcap ? Number(req.query.maxMcap) : null;
@@ -55,14 +89,21 @@ router.get('/', apiLimiter, (req, res, next) => {
     let sql = 'SELECT symbol, name, exchange, sector, industry, country FROM stocks WHERE 1=1';
     const params: any[] = [];
 
-    if (exchangeFilter && exchangeFilter !== 'ALL') {
-      sql += ' AND exchange = ?';
-      params.push(exchangeFilter);
+    if (exchangeFilter.length > 0) {
+      const placeholders = exchangeFilter.map(() => '?').join(',');
+      sql += ` AND exchange IN (${placeholders})`;
+      params.push(...exchangeFilter);
     }
 
-    if (sectorFilter && sectorFilter !== 'ALL') {
-      sql += ' AND sector = ?';
-      params.push(sectorFilter);
+    if (sectorFilter.length > 0) {
+      const placeholders = sectorFilter.map(() => '?').join(',');
+      sql += ` AND sector IN (${placeholders})`;
+      params.push(...sectorFilter);
+    }
+
+    if (searchQuery) {
+      sql += ' AND (UPPER(symbol) LIKE ? OR UPPER(name) LIKE ?)';
+      params.push(`%${searchQuery}%`, `%${searchQuery}%`);
     }
 
     const stmt = db.prepare(sql);
@@ -74,23 +115,48 @@ router.get('/', apiLimiter, (req, res, next) => {
       industry: string;
       country: string;
     }>;
+    console.log('[SCREENER] Matched base stocks count:', matchedStocks.length);
 
     // 2. Decorate each matched stock with real cached metrics or null
+    const symbols = matchedStocks.map(s => s.symbol);
+    const quoteMap = new Map<string, { price: number; change_pct: number }>();
+    const fundMap = new Map<string, string>();
+
+    if (symbols.length > 0) {
+      const placeholders = symbols.map(() => '?').join(',');
+      try {
+        const quoteRows = db.prepare(
+          `SELECT symbol, price, change_pct FROM quotes WHERE symbol IN (${placeholders})`
+        ).all(...symbols) as Array<{ symbol: string; price: number; change_pct: number }>;
+        for (const r of quoteRows) {
+          quoteMap.set(r.symbol, r);
+        }
+      } catch (e) {
+        console.error('[SCREENER DB ERROR] Failed fetching quote rows', e);
+      }
+
+      try {
+        const fundRows = db.prepare(
+          `SELECT symbol, data FROM fundamentals WHERE symbol IN (${placeholders})`
+        ).all(...symbols) as Array<{ symbol: string; data: string }>;
+        for (const r of fundRows) {
+          fundMap.set(r.symbol, r.data);
+        }
+      } catch (e) {
+        console.error('[SCREENER DB ERROR] Failed fetching fundamental rows', e);
+      }
+    }
+
     const decorated = matchedStocks.map(stock => {
       const sym = stock.symbol;
       
-      // Check if real cached quote exists
-      const qStmt = db.prepare('SELECT price, change_pct FROM quotes WHERE symbol = ?');
-      const realQuote = qStmt.get(sym) as { price: number, change_pct: number } | undefined;
-
-      // Check if real cached fundamentals exist
-      const fStmt = db.prepare('SELECT data FROM fundamentals WHERE symbol = ?');
-      const realFund = fStmt.get(sym) as { data: string } | undefined;
+      const realQuote = quoteMap.get(sym);
+      const realFundData = fundMap.get(sym);
 
       let fundData: any = null;
-      if (realFund) {
+      if (realFundData) {
         try {
-          fundData = JSON.parse(realFund.data);
+          fundData = JSON.parse(realFundData);
         } catch (e) {}
       }
 
@@ -199,6 +265,7 @@ router.get('/', apiLimiter, (req, res, next) => {
 
       return passMcap && passPeTrailing && passPeForward && passPeg && passPb && passPs && passDiv && passRoe && passRoa && passDe && passCurrentRatio && passRevGrowth && passEpsGrowth && passGrossMargin && passOpMargin && passNetMargin && passFcf && passTotalDebt;
     });
+    console.log('[SCREENER] Final filtered matches count:', filtered.length);
 
     // 4. Order and pagination
     const sortBy = req.query.sortBy ? req.query.sortBy.toString() : 'market_cap';

@@ -1,12 +1,50 @@
 import YahooFinance from 'yahoo-finance2';
 import { cacheService, CACHE_TTLS } from './cache.js';
+import { z } from 'zod';
+import CircuitBreaker from 'opossum';
 
 // ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
 let YahooFinanceClass: any = YahooFinance;
 if (YahooFinanceClass && typeof YahooFinanceClass.default === 'function') {
   YahooFinanceClass = YahooFinanceClass.default;
 }
-const yahooFinance = new YahooFinanceClass();
+
+// Caps concurrency globally at client level to avoid rate limits
+const yahooFinance = new YahooFinanceClass({
+  queue: { concurrency: 4 }
+});
+
+// Request Coalescing Map and Helper
+const inFlight = new Map<string, Promise<any>>();
+
+async function dedupedFetch<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  if (inFlight.has(key)) {
+    return inFlight.get(key)!;
+  }
+  const promise = fn().finally(() => inFlight.delete(key));
+  inFlight.set(key, promise);
+  return promise;
+}
+
+// Zod Schema Validation for quotes
+const QuoteSchema = z.object({
+  price: z.number().positive(),
+  change: z.number(),
+  change_pct: z.number().min(-100).max(1000),
+}).passthrough();
+
+// Circuit Breaker configuration
+const breakerOptions = {
+  timeout: 8000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 30000
+};
+
+const quoteBreaker = new CircuitBreaker((sym: string) => yahooFinance.quote(sym), breakerOptions);
+const quoteSummaryBreaker = new CircuitBreaker((sym: string, options: any) => yahooFinance.quoteSummary(sym, options), breakerOptions);
+const recommendationsBreaker = new CircuitBreaker((sym: string) => yahooFinance.recommendationsBySymbol(sym), breakerOptions);
+const searchBreaker = new CircuitBreaker((query: string) => yahooFinance.search(query), breakerOptions);
+const chartBreaker = new CircuitBreaker((sym: string, options: any) => yahooFinance.chart(sym, options), breakerOptions);
 
 export const yahooService = {
   // Fetch historical financial data (5 years of Annual statements)
@@ -23,45 +61,48 @@ export const yahooService = {
 
     console.log(`[YAHOO] Fetching quoteSummary for: ${rawSymbol}`);
     try {
-      // Disabling some auto-parsing issues that could throw, call quoteSummary directly
-      const result: any = await yahooFinance.quoteSummary(rawSymbol, {
-        modules: [
-          'incomeStatementHistory',
-          'balanceSheetHistory',
-          'cashflowStatementHistory',
-          'financialData',
-          'defaultKeyStatistics'
-        ]
-      });
+      const financialsObj = await dedupedFetch(cacheKey, async () => {
+        const result: any = await quoteSummaryBreaker.fire(rawSymbol, {
+          modules: [
+            'incomeStatementHistory',
+            'balanceSheetHistory',
+            'cashflowStatementHistory',
+            'financialData',
+            'defaultKeyStatistics'
+          ]
+        });
 
-      if (!result) {
-        throw new Error('No quoteSummary results found');
-      }
-
-      // Extract and map into standardized schema
-      const financialsObj = {
-        incomeStatement: result.incomeStatementHistory?.incomeStatementHistory || [],
-        balanceSheet: result.balanceSheetHistory?.balanceSheetStatements || [],
-        cashFlow: result.cashflowStatementHistory?.cashflowStatements || [],
-        ratios: {
-          recommendationKey: result.financialData?.recommendationKey || '—',
-          targetMeanPrice: result.financialData?.targetMeanPrice || null,
-          profitMargins: result.financialData?.profitMargins || null,
-          operatingMargins: result.financialData?.operatingMargins || null,
-          returnOnAssets: result.financialData?.returnOnAssets || null,
-          returnOnEquity: result.financialData?.returnOnEquity || null,
-          debtToEquity: result.financialData?.debtToEquity || null,
-          currentRatio: result.financialData?.currentRatio || null,
-          dividendYield: result.defaultKeyStatistics?.dividendYield || null,
-          pegRatio: result.defaultKeyStatistics?.pegRatio || null,
-          priceToBook: result.defaultKeyStatistics?.priceToBook || null,
-          enterpriseToEquity: result.defaultKeyStatistics?.enterpriseToRevenue || null
+        if (!result) {
+          throw new Error('No quoteSummary results found');
         }
-      };
 
-      // Set node-cache & save backend SQLite persistent backup
-      cacheService.set(cacheKey, financialsObj, CACHE_TTLS.FUNDAMENTALS);
-      cacheService.saveFundamentalsBackup(rawSymbol, financialsObj, 'YAHOO');
+        // Extract and map into standardized schema
+        const mapped = {
+          incomeStatement: result.incomeStatementHistory?.incomeStatementHistory || [],
+          balanceSheet: result.balanceSheetHistory?.balanceSheetStatements || [],
+          cashFlow: result.cashflowStatementHistory?.cashflowStatements || [],
+          ratios: {
+            recommendationKey: result.financialData?.recommendationKey || '—',
+            targetMeanPrice: result.financialData?.targetMeanPrice || null,
+            profitMargins: result.financialData?.profitMargins || null,
+            operatingMargins: result.financialData?.operatingMargins || null,
+            returnOnAssets: result.financialData?.returnOnAssets || null,
+            returnOnEquity: result.financialData?.returnOnEquity || null,
+            debtToEquity: result.financialData?.debtToEquity || null,
+            currentRatio: result.financialData?.currentRatio || null,
+            dividendYield: result.defaultKeyStatistics?.dividendYield || null,
+            pegRatio: result.defaultKeyStatistics?.pegRatio || null,
+            priceToBook: result.defaultKeyStatistics?.priceToBook || null,
+            enterpriseToEquity: result.defaultKeyStatistics?.enterpriseToRevenue || null
+          }
+        };
+
+        // Set node-cache & save backend SQLite persistent backup
+        cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
+        cacheService.saveFundamentalsBackup(rawSymbol, mapped, 'YAHOO');
+
+        return mapped;
+      });
 
       return financialsObj;
     } catch (error: any) {
@@ -89,19 +130,23 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching web-scraped quote for Index: ${rawSymbol}`);
-      const result: any = await yahooFinance.quote(rawSymbol);
-      if (result) {
-        const mapped = {
-          price: result.regularMarketPrice,
-          change: result.regularMarketChange,
-          change_pct: result.regularMarketChangePercent,
-          high: result.regularMarketDayHigh || result.regularMarketPrice,
-          low: result.regularMarketDayLow || result.regularMarketPrice,
-          prev_close: result.regularMarketPreviousClose || result.regularMarketPrice
-        };
-        cacheService.set(cacheKey, mapped, CACHE_TTLS.QUOTE); // 5 min TTL
-        return mapped;
-      }
+      const mapped = await dedupedFetch(cacheKey, async () => {
+        const result: any = await quoteBreaker.fire(rawSymbol);
+        if (result) {
+          const quoteObj = {
+            price: result.regularMarketPrice,
+            change: result.regularMarketChange,
+            change_pct: result.regularMarketChangePercent,
+            high: result.regularMarketDayHigh || result.regularMarketPrice,
+            low: result.regularMarketDayLow || result.regularMarketPrice,
+            prev_close: result.regularMarketPreviousClose || result.regularMarketPrice
+          };
+          cacheService.set(cacheKey, quoteObj, CACHE_TTLS.QUOTE); // 5 min TTL
+          return quoteObj;
+        }
+        throw new Error('No index quote result found');
+      });
+      return mapped;
     } catch (error: any) {
       console.error(`[YAHOO INDEX ERROR] Failed index fetch for ${rawSymbol}`, error.message);
     }
@@ -122,26 +167,42 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching real-time quote for: ${rawSymbol}`);
-      const result: any = await yahooFinance.quote(rawSymbol);
-      if (result) {
-        const mapped = {
-          price: result.regularMarketPrice,
-          change: result.regularMarketChange ?? 0,
-          change_pct: result.regularMarketChangePercent ?? 0,
-          high: result.regularMarketDayHigh || result.regularMarketPrice,
-          low: result.regularMarketDayLow || result.regularMarketPrice,
-          open: result.regularMarketOpen || result.regularMarketPrice,
-          prev_close: result.regularMarketPreviousClose || result.regularMarketPrice,
-          high_52w: result.fiftyTwoWeekHigh || null,
-          low_52w: result.fiftyTwoWeekLow || null,
-          volume: result.regularMarketVolume || null,
-          avg_volume: result.averageDailyVolume3Month || null
-        };
-        cacheService.set(cacheKey, mapped, CACHE_TTLS.QUOTE);
-        cacheService.saveQuoteBackup(rawSymbol, mapped);
-        return mapped;
-      }
-      return null;
+      const mapped = await dedupedFetch(cacheKey, async () => {
+        const result: any = await quoteBreaker.fire(rawSymbol);
+        if (result) {
+          const quoteObj = {
+            price: result.regularMarketPrice,
+            change: result.regularMarketChange ?? 0,
+            change_pct: result.regularMarketChangePercent ?? 0,
+            high: result.regularMarketDayHigh || result.regularMarketPrice,
+            low: result.regularMarketDayLow || result.regularMarketPrice,
+            open: result.regularMarketOpen || result.regularMarketPrice,
+            prev_close: result.regularMarketPreviousClose || result.regularMarketPrice,
+            high_52w: result.fiftyTwoWeekHigh || null,
+            low_52w: result.fiftyTwoWeekLow || null,
+            volume: result.regularMarketVolume || null,
+            avg_volume: result.averageDailyVolume3Month || null
+          };
+
+          // Zod validation before caching/SQLite write
+          const parsed = QuoteSchema.safeParse(quoteObj);
+          if (!parsed.success) {
+            console.error(`[YAHOO VALIDATION] Rejected bad quote for ${rawSymbol}`, parsed.error.flatten());
+            const backup = cacheService.getQuoteBackup(rawSymbol);
+            if (backup) {
+              console.log(`[YAHOO VALIDATION FALLBACK] Using backup quote for ${rawSymbol}`);
+              return backup;
+            }
+            throw new Error('Quote failed validation and no backup available');
+          }
+
+          cacheService.set(cacheKey, quoteObj, CACHE_TTLS.QUOTE);
+          cacheService.saveQuoteBackup(rawSymbol, quoteObj);
+          return quoteObj;
+        }
+        throw new Error('No quote results found');
+      });
+      return mapped;
     } catch (error: any) {
       console.error(`[YAHOO QUOTE ERROR] Failed to fetch quote for ${rawSymbol}`, error.message);
       const backup = cacheService.getQuoteBackup(rawSymbol);
@@ -166,35 +227,39 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching profile for: ${rawSymbol}`);
-      const result: any = await yahooFinance.quoteSummary(rawSymbol, {
-        modules: ['assetProfile', 'price']
+      const profileObj = await dedupedFetch(cacheKey, async () => {
+        const result: any = await quoteSummaryBreaker.fire(rawSymbol, {
+          modules: ['assetProfile', 'price']
+        });
+
+        if (!result) {
+          throw new Error('No quoteSummary results found for profile');
+        }
+
+        const website = result.assetProfile?.website || '';
+        let logoUrl = '';
+        if (website) {
+          try {
+            const urlObj = new URL(website);
+            logoUrl = `https://logo.clearbit.com/${urlObj.hostname}`;
+          } catch (_) {}
+        }
+
+        const mapped = {
+          name: result.price?.longName || result.price?.shortName || rawSymbol,
+          logo: logoUrl,
+          finnhubIndustry: result.assetProfile?.industry || 'Miscellaneous Industries',
+          exchange: result.price?.exchangeName || result.price?.exchange || 'OTC Market',
+          country: result.assetProfile?.country || 'US',
+          weburl: website,
+          ipo: '—',
+          description: result.assetProfile?.longBusinessSummary || `${rawSymbol} is a leading global enterprise.`
+        };
+
+        cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
+        return mapped;
       });
 
-      if (!result) {
-        throw new Error('No quoteSummary results found for profile');
-      }
-
-      const website = result.assetProfile?.website || '';
-      let logoUrl = '';
-      if (website) {
-        try {
-          const urlObj = new URL(website);
-          logoUrl = `https://logo.clearbit.com/${urlObj.hostname}`;
-        } catch (_) {}
-      }
-
-      const profileObj = {
-        name: result.price?.longName || result.price?.shortName || rawSymbol,
-        logo: logoUrl,
-        finnhubIndustry: result.assetProfile?.industry || 'Miscellaneous Industries',
-        exchange: result.price?.exchangeName || result.price?.exchange || 'OTC Market',
-        country: result.assetProfile?.country || 'US',
-        weburl: website,
-        ipo: '—',
-        description: result.assetProfile?.longBusinessSummary || `${rawSymbol} is a leading global enterprise.`
-      };
-
-      cacheService.set(cacheKey, profileObj, CACHE_TTLS.FUNDAMENTALS);
       return profileObj;
     } catch (error: any) {
       console.error(`[YAHOO PROFILE ERROR] Failed to fetch profile for ${rawSymbol}`, error.message);
@@ -237,57 +302,61 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching basic financials for: ${rawSymbol}`);
-      const summary = await yahooFinance.quoteSummary(rawSymbol, {
-        modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail']
+      const basicObj = await dedupedFetch(cacheKey, async () => {
+        const summary: any = await quoteSummaryBreaker.fire(rawSymbol, {
+          modules: ['financialData', 'defaultKeyStatistics', 'summaryDetail']
+        });
+
+        const fd = (summary?.financialData || {}) as any;
+        const ks = (summary?.defaultKeyStatistics || {}) as any;
+        const sd = (summary?.summaryDetail || {}) as any;
+
+        const mapped = {
+          metric: {
+            // Valuation
+            peTrailing: ks.trailingPE || sd.trailingPE || null,
+            peForward: ks.forwardPE || sd.forwardPE || null,
+            pegRatio: ks.pegRatio || null,
+            priceToBook: ks.priceToBook || null,
+            priceToSales: sd.priceToSalesTrailing12Months || null,
+            dividendYield: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
+
+            // Ratios
+            roeTTM: fd.returnOnEquity ? fd.returnOnEquity * 100 : null,
+            roaTTM: fd.returnOnAssets ? fd.returnOnAssets * 100 : null,
+            debtEquityAnnual: fd.debtToEquity || null,
+            currentRatio: fd.currentRatio || null,
+
+            // Income Statement
+            revenueGrowth: fd.revenueGrowth ? fd.revenueGrowth * 100 : null,
+            earningsGrowth: fd.earningsGrowth ? fd.earningsGrowth * 100 : null,
+            grossMargins: fd.grossMargins ? fd.grossMargins * 100 : null,
+            operatingMargins: fd.operatingMargins ? fd.operatingMargins * 100 : null,
+            profitMargins: fd.profitMargins ? fd.profitMargins * 100 : null,
+
+            // Balance Sheet & Popular
+            freeCashflow: fd.freeCashflow || null,
+            totalDebt: fd.totalDebt || null,
+            marketCapitalization: ks.marketCap ? ks.marketCap / 1000000 : (ks.enterpriseValue ? ks.enterpriseValue / 1000000 : null),
+
+            // Keep backwards-compatible fields
+            peAnnual: ks.trailingPE || ks.forwardPE || null,
+            pbAnnual: ks.priceToBook || null,
+            roicTTM: fd.returnOnAssets ? fd.returnOnAssets * 100 : null,
+            epsBasicExclExtraItemsTTM: ks.trailingEps || ks.forwardEps || null,
+            dividendYieldIndicated: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
+            enterpriseValue: ks.enterpriseValue || null,
+            sharesOutstanding: ks.sharesOutstanding || null,
+            bookValue: ks.bookValue || null,
+            totalCash: fd.totalCash || null
+          }
+        };
+
+        cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
+        cacheService.saveRatiosBackup(rawSymbol, mapped);
+        return mapped;
       });
 
-      const fd = (summary?.financialData || {}) as any;
-      const ks = (summary?.defaultKeyStatistics || {}) as any;
-      const sd = (summary?.summaryDetail || {}) as any;
-
-      const basicObj = {
-        metric: {
-          // Valuation
-          peTrailing: ks.trailingPE || sd.trailingPE || null,
-          peForward: ks.forwardPE || sd.forwardPE || null,
-          pegRatio: ks.pegRatio || null,
-          priceToBook: ks.priceToBook || null,
-          priceToSales: sd.priceToSalesTrailing12Months || null,
-          dividendYield: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
-
-          // Ratios
-          roeTTM: fd.returnOnEquity ? fd.returnOnEquity * 100 : null,
-          roaTTM: fd.returnOnAssets ? fd.returnOnAssets * 100 : null,
-          debtEquityAnnual: fd.debtToEquity || null,
-          currentRatio: fd.currentRatio || null,
-
-          // Income Statement
-          revenueGrowth: fd.revenueGrowth ? fd.revenueGrowth * 100 : null,
-          earningsGrowth: fd.earningsGrowth ? fd.earningsGrowth * 100 : null,
-          grossMargins: fd.grossMargins ? fd.grossMargins * 100 : null,
-          operatingMargins: fd.operatingMargins ? fd.operatingMargins * 100 : null,
-          profitMargins: fd.profitMargins ? fd.profitMargins * 100 : null,
-
-          // Balance Sheet & Popular
-          freeCashflow: fd.freeCashflow || null,
-          totalDebt: fd.totalDebt || null,
-          marketCapitalization: ks.marketCap ? ks.marketCap / 1000000 : (ks.enterpriseValue ? ks.enterpriseValue / 1000000 : null),
-
-          // Keep backwards-compatible fields
-          peAnnual: ks.trailingPE || ks.forwardPE || null,
-          pbAnnual: ks.priceToBook || null,
-          roicTTM: fd.returnOnAssets ? fd.returnOnAssets * 100 : null,
-          epsBasicExclExtraItemsTTM: ks.trailingEps || ks.forwardEps || null,
-          dividendYieldIndicated: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
-          enterpriseValue: ks.enterpriseValue || null,
-          sharesOutstanding: ks.sharesOutstanding || null,
-          bookValue: ks.bookValue || null,
-          totalCash: fd.totalCash || null
-        }
-      };
-
-      cacheService.set(cacheKey, basicObj, CACHE_TTLS.FUNDAMENTALS);
-      cacheService.saveRatiosBackup(rawSymbol, basicObj);
       return basicObj;
     } catch (error: any) {
       console.error(`[YAHOO BASIC ERROR] Failed to fetch basic financials for ${rawSymbol}`, error.message);
@@ -326,9 +395,12 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching peers for: ${rawSymbol}`);
-      const recs = await yahooFinance.recommendationsBySymbol(rawSymbol);
-      const peers = (recs?.recommendedSymbols || []).map((r: any) => r.symbol);
-      cacheService.set(cacheKey, peers, CACHE_TTLS.PEERS);
+      const peers = await dedupedFetch(cacheKey, async () => {
+        const recs: any = await recommendationsBreaker.fire(rawSymbol);
+        const mappedPeers = (recs?.recommendedSymbols || []).map((r: any) => r.symbol);
+        cacheService.set(cacheKey, mappedPeers, CACHE_TTLS.PEERS);
+        return mappedPeers;
+      });
       return peers;
     } catch (error: any) {
       console.error(`[YAHOO PEERS ERROR] Failed to fetch peers for ${rawSymbol}`, error.message);
@@ -349,16 +421,19 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching news for symbol: ${rawSymbol}`);
-      const searchResult = await yahooFinance.search(rawSymbol);
-      const mappedNews = (searchResult.news || []).map((item: any) => ({
-        id: item.uuid,
-        headline: item.title,
-        summary: item.summary || item.title,
-        source: item.publisher,
-        datetime: item.providerPublishTime ? Math.floor(Date.parse(item.providerPublishTime) / 1000) : Math.floor(Date.now() / 1000),
-        url: item.link
-      }));
-      cacheService.set(cacheKey, mappedNews, CACHE_TTLS.NEWS);
+      const mappedNews = await dedupedFetch(cacheKey, async () => {
+        const searchResult: any = await searchBreaker.fire(rawSymbol);
+        const newsArr = (searchResult.news || []).map((item: any) => ({
+          id: item.uuid,
+          headline: item.title,
+          summary: item.summary || item.title,
+          source: item.publisher,
+          datetime: item.providerPublishTime ? Math.floor(Date.parse(item.providerPublishTime) / 1000) : Math.floor(Date.now() / 1000),
+          url: item.link
+        }));
+        cacheService.set(cacheKey, newsArr, CACHE_TTLS.NEWS);
+        return newsArr;
+      });
       return mappedNews;
     } catch (error: any) {
       console.error(`[YAHOO NEWS ERROR] Failed to fetch news for ${rawSymbol}`, error.message);
@@ -377,16 +452,19 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching general market news`);
-      const searchResult = await yahooFinance.search('market');
-      const mappedNews = (searchResult.news || []).map((item: any) => ({
-        id: item.uuid,
-        headline: item.title,
-        summary: item.summary || item.title,
-        source: item.publisher,
-        datetime: item.providerPublishTime ? Math.floor(Date.parse(item.providerPublishTime) / 1000) : Math.floor(Date.now() / 1000),
-        url: item.link
-      }));
-      cacheService.set(cacheKey, mappedNews, CACHE_TTLS.NEWS);
+      const mappedNews = await dedupedFetch(cacheKey, async () => {
+        const searchResult: any = await searchBreaker.fire('market');
+        const newsArr = (searchResult.news || []).map((item: any) => ({
+          id: item.uuid,
+          headline: item.title,
+          summary: item.summary || item.title,
+          source: item.publisher,
+          datetime: item.providerPublishTime ? Math.floor(Date.parse(item.providerPublishTime) / 1000) : Math.floor(Date.now() / 1000),
+          url: item.link
+        }));
+        cacheService.set(cacheKey, newsArr, CACHE_TTLS.NEWS);
+        return newsArr;
+      });
       return mappedNews;
     } catch (error: any) {
       console.error(`[YAHOO MARKET NEWS ERROR] Failed to fetch general market news`, error.message);
@@ -398,7 +476,7 @@ export const yahooService = {
   searchSymbol: async (query: string) => {
     try {
       console.log(`[YAHOO] Searching for query: ${query}`);
-      const searchResult = await yahooFinance.search(query);
+      const searchResult: any = await searchBreaker.fire(query);
       const mappedResult = {
         result: (searchResult.quotes || [])
           .filter((q: any) => q && q.symbol)
@@ -428,7 +506,7 @@ export const yahooService = {
 
     try {
       console.log(`[YAHOO] Fetching chart candles for ${rawSymbol} (Interval: ${interval})`);
-      const chartResult = await yahooFinance.chart(rawSymbol, {
+      const chartResult: any = await chartBreaker.fire(rawSymbol, {
         period1: new Date(from * 1000),
         period2: new Date(to * 1000),
         interval
@@ -489,46 +567,50 @@ export const yahooService = {
 
     console.log(`[YAHOO] Fetching shareholding quoteSummary for: ${rawSymbol}`);
     try {
-      const result: any = await yahooFinance.quoteSummary(rawSymbol, {
-        modules: ['majorHoldersBreakdown', 'institutionOwnership', 'fundOwnership']
+      const payload = await dedupedFetch(cacheKey, async () => {
+        const result: any = await quoteSummaryBreaker.fire(rawSymbol, {
+          modules: ['majorHoldersBreakdown', 'institutionOwnership', 'fundOwnership']
+        });
+
+        if (!result) {
+          throw new Error('No quoteSummary results found for shareholding');
+        }
+
+        const majorHolders = {
+          insidersPercentHeld: result.majorHoldersBreakdown?.insidersPercentHeld ?? null,
+          institutionsPercentHeld: result.majorHoldersBreakdown?.institutionsPercentHeld ?? null,
+          institutionsFloatPercentHeld: result.majorHoldersBreakdown?.institutionsFloatPercentHeld ?? null,
+          institutionsCount: result.majorHoldersBreakdown?.institutionsCount ?? null
+        };
+
+        const institutionalHolders = (result.institutionOwnership?.ownershipList || []).map((item: any) => ({
+          organization: item.organization || '—',
+          position: item.position || null,
+          reportDate: item.reportDate || null,
+          pctHeld: item.pctHeld || null,
+          value: item.value || null
+        }));
+
+        const mutualFundHolders = (result.fundOwnership?.ownershipList || []).map((item: any) => ({
+          organization: item.organization || '—',
+          position: item.position || null,
+          reportDate: item.reportDate || null,
+          pctHeld: item.pctHeld || null,
+          value: item.value || null
+        }));
+
+        const mappedPayload = {
+          majorHolders,
+          institutionalHolders,
+          mutualFundHolders
+        };
+
+        // Set node-cache & save backend SQLite persistent backup
+        cacheService.set(cacheKey, mappedPayload, CACHE_TTLS.FUNDAMENTALS);
+        cacheService.saveShareholdingBackup(rawSymbol, mappedPayload);
+
+        return mappedPayload;
       });
-
-      if (!result) {
-        throw new Error('No quoteSummary results found for shareholding');
-      }
-
-      const majorHolders = {
-        insidersPercentHeld: result.majorHoldersBreakdown?.insidersPercentHeld ?? null,
-        institutionsPercentHeld: result.majorHoldersBreakdown?.institutionsPercentHeld ?? null,
-        institutionsFloatPercentHeld: result.majorHoldersBreakdown?.institutionsFloatPercentHeld ?? null,
-        institutionsCount: result.majorHoldersBreakdown?.institutionsCount ?? null
-      };
-
-      const institutionalHolders = (result.institutionOwnership?.ownershipList || []).map((item: any) => ({
-        organization: item.organization || '—',
-        position: item.position || null,
-        reportDate: item.reportDate || null,
-        pctHeld: item.pctHeld || null,
-        value: item.value || null
-      }));
-
-      const mutualFundHolders = (result.fundOwnership?.ownershipList || []).map((item: any) => ({
-        organization: item.organization || '—',
-        position: item.position || null,
-        reportDate: item.reportDate || null,
-        pctHeld: item.pctHeld || null,
-        value: item.value || null
-      }));
-
-      const payload = {
-        majorHolders,
-        institutionalHolders,
-        mutualFundHolders
-      };
-
-      // Set node-cache & save backend SQLite persistent backup
-      cacheService.set(cacheKey, payload, CACHE_TTLS.FUNDAMENTALS);
-      cacheService.saveShareholdingBackup(rawSymbol, payload);
 
       return payload;
     } catch (error: any) {

@@ -2,6 +2,8 @@ import cron from 'node-cron';
 import { yahooService } from './yahoo.js';
 import db from './db.js';
 import { warmAllRatios } from './ratiosWarmer.js';
+import pLimit from 'p-limit';
+import { SEED_STOCKS } from './seeds.js';
 
 const WARM_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'RELIANCE.NS', 'BP.L', 'SAP.DE', '9984.T'];
 
@@ -32,5 +34,21 @@ export const initCronJobs = () => {
   cron.schedule('30 9 * * *', async () => {
     console.log('[CRON] Starting daily full-universe ratios warm-up...');
     await warmAllRatios();
+  });
+
+  // Every 5 minutes during market hours (9 AM - 4 PM), Monday to Friday: warm quotes for the screener universe
+  cron.schedule('*/5 9-16 * * 1-5', async () => {
+    console.log('[CRON] Starting 5-minute quote prewarmer loop during market hours...');
+    const limit = pLimit(4);
+    await Promise.all(
+      SEED_STOCKS.map(stock => limit(async () => {
+        try {
+          await yahooService.getQuote(stock.symbol);
+        } catch (e: any) {
+          console.warn(`[QUOTE WARMER] ${stock.symbol}:`, e.message);
+        }
+      }))
+    );
+    console.log('[CRON] 5-minute quote prewarmer complete.');
   });
 };

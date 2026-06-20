@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCompanyData } from './hooks/useCompanyData.js';
 import { formatPrice, formatMarketCap, formatShares } from '../../utils/formatters.js';
-import { getStockDetailedData } from '../../utils/stockDetailsRegistry.js';
 import { 
   Star, ArrowLeft, ExternalLink, Check, Loader2, RefreshCw, 
-  SearchX, ShieldAlert, LayoutDashboard, TrendingUp, Building2, FileText, Users
+  SearchX, ShieldAlert, LayoutDashboard, TrendingUp, Building2, FileText
 } from 'lucide-react';
 import { CompanyPageSkeleton } from '../../components/Skeleton.jsx';
 
@@ -229,7 +228,7 @@ export const CompanyPage: React.FC = () => {
   const isUp = liveChangePercent >= 0;
 
   // Fetch fully customized and structured visual data model
-  const detailData = getStockDetailedData(upperSymbol, livePriceVal, ratios, profile.exchange);
+  const detailData = {} as any;
 
   // Format real financials to registry format
   const formattedFin = formatRealFinancialsToRegistry(financials);
@@ -303,19 +302,11 @@ export const CompanyPage: React.FC = () => {
 
             <div className="flex items-center gap-2.5 flex-wrap text-[12.5px] font-semibold">
               <span className="font-mono text-[#059669] bg-[#059669]/10 border border-[#059669]/15 px-2.5 py-0.5 rounded-md">
-                {detailData.exchangeCode}
-              </span>
-              <span className="font-mono text-slate-650 bg-slate-50 border border-[#E5E8EF] px-2.5 py-0.5 rounded-md">
-                {detailData.secExchange}
+                {profile.exchange || 'Unknown exchange'}
               </span>
               <span className="text-[#E5E8EF] font-sans px-1">|</span>
               <span className="text-slate-500 font-sans flex items-center gap-1">
                 Sector: <span className="font-bold text-[#059669] hover:underline cursor-pointer">{profile.sector}</span>
-              </span>
-              <span className="text-[#E5E8EF] font-sans px-1">|</span>
-              <span className="text-slate-500 font-sans flex items-center gap-1">
-                <Users className="h-3.5 w-3.5 text-slate-450" />
-                <span className="font-bold text-slate-855">{detailData.followers} Followers</span>
               </span>
             </div>
           </div>

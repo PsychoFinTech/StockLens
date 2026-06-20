@@ -159,6 +159,7 @@ const METRIC_REGISTRY: Metric[] = [
       'Healthcare',
       'Financial Services',
       'Consumer Cyclical',
+      'Consumer Defensive',
       'Industrials',
       'Energy',
       'Utilities',
@@ -479,7 +480,7 @@ const OPERATORS: { id: Operator; label: string }[] = [
 ];
 
 function parseAbbreviatedNumber(valStr: string): number | null {
-  const clean = valStr.toUpperCase().trim();
+  const clean = valStr.toUpperCase().replace(/[$,]/g, '').trim();
   if (!clean) return null;
   const num = parseFloat(clean);
   if (isNaN(num)) return null;
@@ -496,7 +497,7 @@ function getApiParamsFromFilters(filters: FilterState): URLSearchParams {
   // Exchange
   const exchangeVal = filters['exchange'] as CategoricalFilterValue | undefined;
   if (exchangeVal && exchangeVal.selected.length > 0) {
-    params.append('exchange', exchangeVal.selected[0]);
+    params.append('exchange', exchangeVal.selected.join(','));
   } else {
     params.append('exchange', 'ALL');
   }
@@ -504,7 +505,7 @@ function getApiParamsFromFilters(filters: FilterState): URLSearchParams {
   // Sector
   const sectorVal = filters['sector'] as CategoricalFilterValue | undefined;
   if (sectorVal && sectorVal.selected.length > 0) {
-    params.append('sector', sectorVal.selected[0]);
+    params.append('sector', sectorVal.selected.join(','));
   } else {
     params.append('sector', 'ALL');
   }
@@ -584,8 +585,12 @@ function getApiParamsFromFilters(filters: FilterState): URLSearchParams {
       }
     } else if (fVal.custom) {
       const { operator, value1, value2 } = fVal.custom;
-      const num1 = isCurrency ? parseAbbreviatedNumber(value1) : parseFloat(value1);
-      const num2 = isCurrency ? parseAbbreviatedNumber(value2) : parseFloat(value2);
+      const cleanFloat = (v: string) => {
+        const clean = v.replace(/[$,%]/g, '').trim();
+        return clean ? parseFloat(clean) : NaN;
+      };
+      const num1 = isCurrency ? parseAbbreviatedNumber(value1) : cleanFloat(value1);
+      const num2 = isCurrency ? parseAbbreviatedNumber(value2) : cleanFloat(value2);
       if (operator === 'more' && num1 !== null && !isNaN(num1)) params.append(minParam, num1.toString());
       else if (operator === 'less' && num1 !== null && !isNaN(num1)) params.append(maxParam, num1.toString());
       else if (operator === 'equal' && num1 !== null && !isNaN(num1)) {

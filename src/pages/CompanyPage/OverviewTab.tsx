@@ -455,24 +455,6 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
 
-      {/* Brands Panel */}
-      {detailData.brands && detailData.brands.length > 0 && (
-        <div className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-3.5">
-          <h3 className="text-[12px] font-semibold text-slate-500 uppercase tracking-[0.08em] border-b border-slate-100 pb-2">
-            Affiliated Corporate Brands
-          </h3>
-          <div className="flex flex-wrap gap-2 pt-1">
-            {detailData.brands.map((pName: string, idx: number) => (
-              <span 
-                key={idx} 
-                className="px-3 py-1 bg-white text-slate-700 hover:text-[#059669] hover:bg-[#059669]/5 border border-[#E5E8EF] hover:border-[#059669]/30 rounded-lg font-sans text-xs transition select-none cursor-default font-medium"
-              >
-                {pName}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
