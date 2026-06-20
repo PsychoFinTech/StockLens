@@ -902,7 +902,7 @@ export const ScreenerPage: React.FC = () => {
           <span className={`inline-flex items-center gap-0.5 font-mono text-xs font-bold px-1.5 py-0.5 rounded ${
             isUp ? 'text-emerald-700 bg-emerald-50 border border-emerald-150' : 'text-rose-700 bg-rose-50 border border-rose-150'
           }`}>
-            {isUp ? '+' : ''}{formatPercentChange(row.change_pct)}
+            {formatPercentChange(row.change_pct)}
           </span>
         );
       }
