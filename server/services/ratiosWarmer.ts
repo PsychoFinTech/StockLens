@@ -1,11 +1,86 @@
 import pLimit from 'p-limit';
 import { SEED_STOCKS } from './seeds.js';
-import { yahooService } from './yahoo.js';
+import { yahooService, resetYahooSession } from './yahoo.js';
+
+// ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
+let pLimitFn: any = pLimit;
+if (pLimitFn && typeof pLimitFn.default === 'function') {
+  pLimitFn = pLimitFn.default;
+}
 
 const CONCURRENCY = 3;
 const DELAY_MS = 400;
 
+// If this many calls in a row fail, assume the Yahoo cookie/crumb session
+// has died mid-run (a known yahoo-finance2 failure mode - see
+// github.com/gadicc/yahoo-finance2 issues #741 and #764) and force a fresh
+// session before continuing, rather than letting the rest of the batch fail.
+const FAILURE_STREAK_RESET_THRESHOLD = 5;
+
+// How many times to retry symbols that failed on the previous pass.
+const MAX_RETRY_PASSES = 2;
+
 let isWarming = false;
+
+interface WarmResult {
+  succeeded: string[];
+  failed: string[];
+}
+
+async function warmBatch(symbols: string[], passLabel: string): Promise<WarmResult> {
+  const limit = pLimitFn(CONCURRENCY);
+  const succeeded: string[] = [];
+  const failed: string[] = [];
+
+  let consecutiveFailures = 0;
+  let done = 0;
+
+  const tasks = symbols.map((symbol) =>
+    limit(async () => {
+      try {
+        const data = await yahooService.getBasicFinancials(symbol);
+
+        // getBasicFinancials() swallows its own errors and returns a
+        // metric object full of nulls on failure (see yahoo.ts catch
+        // block) instead of throwing. Treat an "all nulls" result the
+        // same as a thrown error so it gets retried, instead of being
+        // silently counted as a success.
+        const hasAnyData = data?.metric && Object.values(data.metric).some(
+          (v) => v !== null && v !== undefined
+        );
+
+        if (!hasAnyData) {
+          throw new Error('Empty metric payload (likely session/auth failure)');
+        }
+
+        succeeded.push(symbol);
+        consecutiveFailures = 0;
+      } catch (err: any) {
+        failed.push(symbol);
+        consecutiveFailures++;
+        console.warn(`[RATIOS WARMER:${passLabel}] Failed for ${symbol}:`, err?.message);
+
+        if (consecutiveFailures >= FAILURE_STREAK_RESET_THRESHOLD) {
+          console.warn(
+            `[RATIOS WARMER:${passLabel}] ${consecutiveFailures} consecutive failures - ` +
+            `forcing a fresh Yahoo session before continuing.`
+          );
+          resetYahooSession();
+          consecutiveFailures = 0;
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+      }
+      done++;
+      if (done % 50 === 0) {
+        console.log(`[RATIOS WARMER:${passLabel}] Progress: ${done}/${symbols.length}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
+    })
+  );
+
+  await Promise.all(tasks);
+  return { succeeded, failed };
+}
 
 export async function warmAllRatios(): Promise<void> {
   if (isWarming) {
@@ -14,29 +89,42 @@ export async function warmAllRatios(): Promise<void> {
   }
   isWarming = true;
 
-  const limit = pLimit(CONCURRENCY);
-  console.log(`[RATIOS WARMER] Starting warm-up for ${SEED_STOCKS.length} symbols...`);
+  try {
+    const allSymbols = SEED_STOCKS.map((s) => s.symbol);
+    console.log(`[RATIOS WARMER] Starting warm-up for ${allSymbols.length} symbols...`);
 
-  let done = 0;
-  let failed = 0;
+    let pending = allSymbols;
+    let totalSucceeded = 0;
+    const overallFailed = new Set<string>(pending);
 
-  const tasks = SEED_STOCKS.map((stock) =>
-    limit(async () => {
-      try {
-        await yahooService.getBasicFinancials(stock.symbol);
-      } catch (err: any) {
-        failed++;
-        console.warn(`[RATIOS WARMER] Failed for ${stock.symbol}:`, err?.message);
+    for (let pass = 0; pass <= MAX_RETRY_PASSES && pending.length > 0; pass++) {
+      const label = pass === 0 ? 'PASS1' : `RETRY${pass}`;
+      if (pass > 0) {
+        console.log(
+          `[RATIOS WARMER] Retry pass ${pass}/${MAX_RETRY_PASSES} for ${pending.length} ` +
+          `symbols that failed previously...`
+        );
+        resetYahooSession();
+        await new Promise((resolve) => setTimeout(resolve, 2000 * pass));
       }
-      done++;
-      if (done % 50 === 0) {
-        console.log(`[RATIOS WARMER] Progress: ${done}/${SEED_STOCKS.length}`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
-    })
-  );
 
-  await Promise.all(tasks);
-  isWarming = false;
-  console.log(`[RATIOS WARMER] Completed. ${done - failed}/${SEED_STOCKS.length} succeeded.`);
+      const { succeeded, failed } = await warmBatch(pending, label);
+      totalSucceeded += succeeded.length;
+      for (const sym of succeeded) overallFailed.delete(sym);
+      pending = failed;
+    }
+
+    console.log(
+      `[RATIOS WARMER] Completed. ${totalSucceeded}/${allSymbols.length} succeeded, ` +
+      `${overallFailed.size} permanently failed after ${MAX_RETRY_PASSES} retries.`
+    );
+    if (overallFailed.size > 0) {
+      console.warn(
+        `[RATIOS WARMER] Permanently failed symbols (will retry on next scheduled run): ` +
+        `${Array.from(overallFailed).join(', ')}`
+      );
+    }
+  } finally {
+    isWarming = false;
+  }
 }

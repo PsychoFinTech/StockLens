@@ -5,6 +5,12 @@ import path from 'path';
 import pLimit from 'p-limit';
 import * as cheerio from 'cheerio';
 
+// ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
+let pLimitFn: any = pLimit;
+if (pLimitFn && typeof pLimitFn.default === 'function') {
+  pLimitFn = pLimitFn.default;
+}
+
 // ─── LAYER 1: In-memory hot cache (fast, lost on restart) ────────────────────
 const memCache = new NodeCache({ stdTTL: 3600 });
 
@@ -753,7 +759,7 @@ export const edgarService = {
         }
         
         const rawTransactions: any[] = [];
-        const limit = pLimit(4);
+        const limit = pLimitFn(4);
         await Promise.all(
           form4Indices.map((idx) => limit(async () => {
             try {

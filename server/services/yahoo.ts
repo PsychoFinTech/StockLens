@@ -10,9 +10,22 @@ if (YahooFinanceClass && typeof YahooFinanceClass.default === 'function') {
 }
 
 // Caps concurrency globally at client level to avoid rate limits
-const yahooFinance = new YahooFinanceClass({
+let yahooFinance = new YahooFinanceClass({
   queue: { concurrency: 4 }
 });
+
+// yahoo-finance2's cookie/crumb session is known to silently expire during
+// long-running unattended batch jobs (see github.com/gadicc/yahoo-finance2
+// issues #741 and #764). When that happens, every subsequent call in a batch
+// fails until the process restarts. This helper forces a brand-new client
+// instance (fresh cookie/crumb handshake on the next call) without requiring
+// a server restart.
+export function resetYahooSession(): void {
+  console.warn('[YAHOO] Resetting client session (fresh cookie/crumb on next request)...');
+  yahooFinance = new YahooFinanceClass({
+    queue: { concurrency: 4 }
+  });
+}
 
 // Request Coalescing Map and Helper
 const inFlight = new Map<string, Promise<any>>();
@@ -37,7 +50,8 @@ const QuoteSchema = z.object({
 const breakerOptions = {
   timeout: 8000,
   errorThresholdPercentage: 50,
-  resetTimeout: 30000
+  resetTimeout: 30000,
+  volumeThreshold: 10
 };
 
 const quoteBreaker = new CircuitBreaker((sym: string) => yahooFinance.quote(sym), breakerOptions);

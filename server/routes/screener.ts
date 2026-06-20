@@ -2,6 +2,7 @@ import { Router } from 'express';
 import db from '../services/db.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 import { cacheService } from '../services/cache.js';
+import { warmAllRatios } from '../services/ratiosWarmer.js';
 
 const router = Router();
 
@@ -299,6 +300,56 @@ router.get('/', apiLimiter, (req, res, next) => {
       totalPages: Math.ceil(filtered.length / limit)
     });
 
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/screener/cache-status -> Diagnostic: how many seeded symbols
+// currently have ratios data in the SQLite ratios_cache table, and how
+// stale that data is.
+router.get('/cache-status', apiLimiter, (req, res, next) => {
+  try {
+    const totalStocks = (db.prepare('SELECT COUNT(*) as c FROM stocks').get() as { c: number }).c;
+    const totalRatios = (db.prepare('SELECT COUNT(*) as c FROM ratios_cache').get() as { c: number }).c;
+
+    const staleCutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const freshRatios = (
+      db.prepare('SELECT COUNT(*) as c FROM ratios_cache WHERE updated_at >= ?').get(staleCutoff) as { c: number }
+    ).c;
+
+    const missing = (
+      db.prepare(`
+        SELECT s.symbol FROM stocks s
+        LEFT JOIN ratios_cache r ON s.symbol = r.symbol
+        WHERE r.symbol IS NULL
+        LIMIT 50
+      `).all() as Array<{ symbol: string }>
+    ).map(r => r.symbol);
+
+    res.json({
+      totalSeededStocks: totalStocks,
+      symbolsWithAnyRatiosData: totalRatios,
+      symbolsWithFreshRatiosData: freshRatios,
+      coveragePct: totalStocks > 0 ? Math.round((totalRatios / totalStocks) * 100) : 0,
+      freshCoveragePct: totalStocks > 0 ? Math.round((freshRatios / totalStocks) * 100) : 0,
+      sampleMissingSymbols: missing,
+      note: 'If coveragePct is low, the ratiosWarmer has not successfully completed for most of the universe. Trigger POST /api/screener/warm-cache to force a run, then check this endpoint again in a few minutes.'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/screener/warm-cache -> Manually trigger the full-universe ratios
+// warm-up immediately instead of waiting for the 9:30AM cron job.
+router.post('/warm-cache', apiLimiter, async (req, res, next) => {
+  try {
+    warmAllRatios().catch((err) => console.error('[MANUAL WARM TRIGGER ERROR]', err));
+    res.json({
+      status: 'started',
+      note: 'Warming has been triggered in the background. This can take several minutes for the full universe. Poll GET /api/screener/cache-status to track progress.'
+    });
   } catch (error) {
     next(error);
   }

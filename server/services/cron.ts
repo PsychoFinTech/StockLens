@@ -5,6 +5,12 @@ import { warmAllRatios } from './ratiosWarmer.js';
 import pLimit from 'p-limit';
 import { SEED_STOCKS } from './seeds.js';
 
+// ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
+let pLimitFn: any = pLimit;
+if (pLimitFn && typeof pLimitFn.default === 'function') {
+  pLimitFn = pLimitFn.default;
+}
+
 const WARM_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'RELIANCE.NS', 'BP.L', 'SAP.DE', '9984.T'];
 
 export const initCronJobs = () => {
@@ -39,7 +45,7 @@ export const initCronJobs = () => {
   // Every 5 minutes during market hours (9 AM - 4 PM), Monday to Friday: warm quotes for the screener universe
   cron.schedule('*/5 9-16 * * 1-5', async () => {
     console.log('[CRON] Starting 5-minute quote prewarmer loop during market hours...');
-    const limit = pLimit(4);
+    const limit = pLimitFn(4);
     await Promise.all(
       SEED_STOCKS.map(stock => limit(async () => {
         try {
