@@ -247,21 +247,42 @@ export const yahooService = {
 
       const basicObj = {
         metric: {
+          // Valuation
+          peTrailing: ks.trailingPE || sd.trailingPE || null,
+          peForward: ks.forwardPE || sd.forwardPE || null,
+          pegRatio: ks.pegRatio || null,
+          priceToBook: ks.priceToBook || null,
+          priceToSales: sd.priceToSalesTrailing12Months || null,
+          dividendYield: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
+
+          // Ratios
+          roeTTM: fd.returnOnEquity ? fd.returnOnEquity * 100 : null,
+          roaTTM: fd.returnOnAssets ? fd.returnOnAssets * 100 : null,
+          debtEquityAnnual: fd.debtToEquity || null,
+          currentRatio: fd.currentRatio || null,
+
+          // Income Statement
+          revenueGrowth: fd.revenueGrowth ? fd.revenueGrowth * 100 : null,
+          earningsGrowth: fd.earningsGrowth ? fd.earningsGrowth * 100 : null,
+          grossMargins: fd.grossMargins ? fd.grossMargins * 100 : null,
+          operatingMargins: fd.operatingMargins ? fd.operatingMargins * 100 : null,
+          profitMargins: fd.profitMargins ? fd.profitMargins * 100 : null,
+
+          // Balance Sheet & Popular
+          freeCashflow: fd.freeCashflow || null,
+          totalDebt: fd.totalDebt || null,
+          marketCapitalization: ks.marketCap ? ks.marketCap / 1000000 : (ks.enterpriseValue ? ks.enterpriseValue / 1000000 : null),
+
+          // Keep backwards-compatible fields
           peAnnual: ks.trailingPE || ks.forwardPE || null,
           pbAnnual: ks.priceToBook || null,
-          roeTTM: fd.returnOnEquity ? fd.returnOnEquity * 100 : null,
           roicTTM: fd.returnOnAssets ? fd.returnOnAssets * 100 : null,
-          debtEquityAnnual: fd.debtToEquity || null,
           epsBasicExclExtraItemsTTM: ks.trailingEps || ks.forwardEps || null,
-          marketCapitalization: ks.enterpriseValue ? ks.enterpriseValue / 1000000 : null,
           dividendYieldIndicated: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
           enterpriseValue: ks.enterpriseValue || null,
           sharesOutstanding: ks.sharesOutstanding || null,
           bookValue: ks.bookValue || null,
-          totalCash: fd.totalCash || null,
-          totalDebt: fd.totalDebt || null,
-          revenueGrowth: fd.revenueGrowth ? fd.revenueGrowth * 100 : null,
-          earningsGrowth: fd.earningsGrowth ? fd.earningsGrowth * 100 : null
+          totalCash: fd.totalCash || null
         }
       };
 

@@ -10,17 +10,46 @@ router.get('/', apiLimiter, (req, res, next) => {
   try {
     const exchangeFilter = req.query.exchange ? req.query.exchange.toString().trim() : '';
     const sectorFilter = req.query.sector ? req.query.sector.toString().trim() : '';
-    const hasMcapFilter = req.query.minMcap !== undefined || req.query.maxMcap !== undefined;
-    const hasPeFilter = req.query.minPe !== undefined || req.query.maxPe !== undefined;
-    const hasRoeFilter = req.query.minRoe !== undefined;
-    const hasDeFilter = req.query.maxDe !== undefined;
 
-    const minMcap = req.query.minMcap ? Number(req.query.minMcap) : 0;
-    const maxMcap = req.query.maxMcap ? Number(req.query.maxMcap) : 3000000; // in millions ($3T)
-    const minPe = req.query.minPe ? Number(req.query.minPe) : 0;
-    const maxPe = req.query.maxPe ? Number(req.query.maxPe) : 150;
-    const minRoe = req.query.minRoe ? Number(req.query.minRoe) : 0; // % gauge
-    const maxDe = req.query.maxDe ? Number(req.query.maxDe) : 5.0; // debt to equity limit
+    const minMcap = req.query.minMcap ? Number(req.query.minMcap) : null;
+    const maxMcap = req.query.maxMcap ? Number(req.query.maxMcap) : null;
+    const minPeTrailing = req.query.minPeTrailing ? Number(req.query.minPeTrailing) : null;
+    const maxPeTrailing = req.query.maxPeTrailing ? Number(req.query.maxPeTrailing) : null;
+    const minPeForward = req.query.minPeForward ? Number(req.query.minPeForward) : null;
+    const maxPeForward = req.query.maxPeForward ? Number(req.query.maxPeForward) : null;
+    const minPeg = req.query.minPeg ? Number(req.query.minPeg) : null;
+    const maxPeg = req.query.maxPeg ? Number(req.query.maxPeg) : null;
+    const minPb = req.query.minPb ? Number(req.query.minPb) : null;
+    const maxPb = req.query.maxPb ? Number(req.query.maxPb) : null;
+    const minPs = req.query.minPs ? Number(req.query.minPs) : null;
+    const maxPs = req.query.maxPs ? Number(req.query.maxPs) : null;
+    const minDiv = req.query.minDiv ? Number(req.query.minDiv) : null;
+    const maxDiv = req.query.maxDiv ? Number(req.query.maxDiv) : null;
+
+    const minRoe = req.query.minRoe ? Number(req.query.minRoe) : null;
+    const maxRoe = req.query.maxRoe ? Number(req.query.maxRoe) : null;
+    const minRoa = req.query.minRoa ? Number(req.query.minRoa) : null;
+    const maxRoa = req.query.maxRoa ? Number(req.query.maxRoa) : null;
+    const minDe = req.query.minDe ? Number(req.query.minDe) : null;
+    const maxDe = req.query.maxDe ? Number(req.query.maxDe) : null;
+    const minCurrentRatio = req.query.minCurrentRatio ? Number(req.query.minCurrentRatio) : null;
+    const maxCurrentRatio = req.query.maxCurrentRatio ? Number(req.query.maxCurrentRatio) : null;
+
+    const minRevGrowth = req.query.minRevGrowth ? Number(req.query.minRevGrowth) : null;
+    const maxRevGrowth = req.query.maxRevGrowth ? Number(req.query.maxRevGrowth) : null;
+    const minEpsGrowth = req.query.minEpsGrowth ? Number(req.query.minEpsGrowth) : null;
+    const maxEpsGrowth = req.query.maxEpsGrowth ? Number(req.query.maxEpsGrowth) : null;
+    const minGrossMargin = req.query.minGrossMargin ? Number(req.query.minGrossMargin) : null;
+    const maxGrossMargin = req.query.maxGrossMargin ? Number(req.query.maxGrossMargin) : null;
+    const minOpMargin = req.query.minOpMargin ? Number(req.query.minOpMargin) : null;
+    const maxOpMargin = req.query.maxOpMargin ? Number(req.query.maxOpMargin) : null;
+    const minNetMargin = req.query.minNetMargin ? Number(req.query.minNetMargin) : null;
+    const maxNetMargin = req.query.maxNetMargin ? Number(req.query.maxNetMargin) : null;
+
+    const minFcf = req.query.minFcf ? Number(req.query.minFcf) : null;
+    const maxFcf = req.query.maxFcf ? Number(req.query.maxFcf) : null;
+    const minTotalDebt = req.query.minTotalDebt ? Number(req.query.minTotalDebt) : null;
+    const maxTotalDebt = req.query.maxTotalDebt ? Number(req.query.maxTotalDebt) : null;
 
     // 1. Fetch matching base stock records from SQLite stocks table
     let sql = 'SELECT symbol, name, exchange, sector, industry, country FROM stocks WHERE 1=1';
@@ -77,10 +106,30 @@ router.get('/', apiLimiter, (req, res, next) => {
       const price = realQuote ? realQuote.price : null;
       const changePct = realQuote ? realQuote.change_pct : null;
 
-      const pe = cachedRatios?.metric?.peAnnual !== undefined ? cachedRatios.metric.peAnnual : null;
-      const roe = cachedRatios?.metric?.roeTTM !== undefined ? cachedRatios.metric.roeTTM : (fundData?.ratios?.returnOnEquity ? fundData.ratios.returnOnEquity * 100 : null);
-      const de = cachedRatios?.metric?.debtEquityAnnual !== undefined ? cachedRatios.metric.debtEquityAnnual : (fundData?.ratios?.debtToEquity ? fundData.ratios.debtToEquity : null);
-      const market_cap = cachedRatios?.metric?.marketCapitalization ? cachedRatios.metric.marketCapitalization * 1000000 : null;
+      const m = cachedRatios?.metric || {};
+
+      // Retrieve all 20 metrics
+      const peTrailing = m.peTrailing !== undefined ? m.peTrailing : (m.peAnnual || null);
+      const peForward = m.peForward !== undefined ? m.peForward : null;
+      const peg = m.pegRatio !== undefined ? m.pegRatio : (fundData?.ratios?.pegRatio || null);
+      const pb = m.priceToBook !== undefined ? m.priceToBook : (fundData?.ratios?.priceToBook || null);
+      const ps = m.priceToSales !== undefined ? m.priceToSales : null;
+      const dividend = m.dividendYield !== undefined ? m.dividendYield : (fundData?.ratios?.dividendYield ? fundData.ratios.dividendYield * 100 : null);
+      
+      const roe = m.roeTTM !== undefined ? m.roeTTM : (fundData?.ratios?.returnOnEquity ? fundData.ratios.returnOnEquity * 100 : null);
+      const roa = m.roaTTM !== undefined ? m.roaTTM : (fundData?.ratios?.returnOnAssets ? fundData.ratios.returnOnAssets * 100 : null);
+      const de = m.debtEquityAnnual !== undefined ? m.debtEquityAnnual : (fundData?.ratios?.debtToEquity ? fundData.ratios.debtToEquity : null);
+      const current_ratio = m.currentRatio !== undefined ? m.currentRatio : (fundData?.ratios?.currentRatio || null);
+      
+      const rev_growth = m.revenueGrowth !== undefined ? m.revenueGrowth : null;
+      const eps_growth = m.earningsGrowth !== undefined ? m.earningsGrowth : null;
+      const gross_margin = m.grossMargins !== undefined ? m.grossMargins : null;
+      const operating_margin = m.operatingMargins !== undefined ? m.operatingMargins : null;
+      const net_margin = m.profitMargins !== undefined ? m.profitMargins : (fundData?.ratios?.profitMargins ? fundData.ratios.profitMargins * 100 : null);
+      
+      const fcf = m.freeCashflow !== undefined ? m.freeCashflow : null;
+      const total_debt = m.totalDebt !== undefined ? m.totalDebt : null;
+      const market_cap = m.marketCapitalization ? m.marketCapitalization * 1000000 : null;
       
       // Return payload elements
       return {
@@ -93,9 +142,31 @@ router.get('/', apiLimiter, (req, res, next) => {
         price,
         change_pct: changePct,
         market_cap,
-        pe,
+
+        // Valuation
+        peTrailing,
+        peForward,
+        peg,
+        pb,
+        ps,
+        dividend,
+
+        // Ratios
         roe,
-        debt_equity: de
+        roa,
+        debt_equity: de,
+        current_ratio,
+
+        // Income Statement
+        rev_growth,
+        eps_growth,
+        gross_margin,
+        operating_margin,
+        net_margin,
+
+        // Balance Sheet
+        fcf,
+        total_debt
       };
     });
 
@@ -103,12 +174,30 @@ router.get('/', apiLimiter, (req, res, next) => {
     const filtered = decorated.filter(item => {
       const mcapM = item.market_cap !== null ? item.market_cap / 1000000 : null;
       
-      const passMcap = !hasMcapFilter || (mcapM !== null && mcapM >= minMcap && mcapM <= maxMcap);
-      const passPe = !hasPeFilter || (item.pe !== null && item.pe >= minPe && item.pe <= maxPe);
-      const passRoe = !hasRoeFilter || (item.roe !== null && item.roe >= minRoe);
-      const passDe = !hasDeFilter || (item.debt_equity !== null && item.debt_equity <= maxDe);
+      const passMcap = (minMcap === null || (mcapM !== null && mcapM >= minMcap)) && (maxMcap === null || (mcapM !== null && mcapM <= maxMcap));
+      
+      const passPeTrailing = (minPeTrailing === null || (item.peTrailing !== null && item.peTrailing >= minPeTrailing)) && (maxPeTrailing === null || (item.peTrailing !== null && item.peTrailing <= maxPeTrailing));
+      const passPeForward = (minPeForward === null || (item.peForward !== null && item.peForward >= minPeForward)) && (maxPeForward === null || (item.peForward !== null && item.peForward <= maxPeForward));
+      const passPeg = (minPeg === null || (item.peg !== null && item.peg >= minPeg)) && (maxPeg === null || (item.peg !== null && item.peg <= maxPeg));
+      const passPb = (minPb === null || (item.pb !== null && item.pb >= minPb)) && (maxPb === null || (item.pb !== null && item.pb <= maxPb));
+      const passPs = (minPs === null || (item.ps !== null && item.ps >= minPs)) && (maxPs === null || (item.ps !== null && item.ps <= maxPs));
+      const passDiv = (minDiv === null || (item.dividend !== null && item.dividend >= minDiv)) && (maxDiv === null || (item.dividend !== null && item.dividend <= maxDiv));
 
-      return passMcap && passPe && passRoe && passDe;
+      const passRoe = (minRoe === null || (item.roe !== null && item.roe >= minRoe)) && (maxRoe === null || (item.roe !== null && item.roe <= maxRoe));
+      const passRoa = (minRoa === null || (item.roa !== null && item.roa >= minRoa)) && (maxRoa === null || (item.roa !== null && item.roa <= maxRoa));
+      const passDe = (minDe === null || (item.debt_equity !== null && item.debt_equity >= minDe)) && (maxDe === null || (item.debt_equity !== null && item.debt_equity <= maxDe));
+      const passCurrentRatio = (minCurrentRatio === null || (item.current_ratio !== null && item.current_ratio >= minCurrentRatio)) && (maxCurrentRatio === null || (item.current_ratio !== null && item.current_ratio <= maxCurrentRatio));
+
+      const passRevGrowth = (minRevGrowth === null || (item.rev_growth !== null && item.rev_growth >= minRevGrowth)) && (maxRevGrowth === null || (item.rev_growth !== null && item.rev_growth <= maxRevGrowth));
+      const passEpsGrowth = (minEpsGrowth === null || (item.eps_growth !== null && item.eps_growth >= minEpsGrowth)) && (maxEpsGrowth === null || (item.eps_growth !== null && item.eps_growth <= maxEpsGrowth));
+      const passGrossMargin = (minGrossMargin === null || (item.gross_margin !== null && item.gross_margin >= minGrossMargin)) && (maxGrossMargin === null || (item.gross_margin !== null && item.gross_margin <= maxGrossMargin));
+      const passOpMargin = (minOpMargin === null || (item.operating_margin !== null && item.operating_margin >= minOpMargin)) && (maxOpMargin === null || (item.operating_margin !== null && item.operating_margin <= maxOpMargin));
+      const passNetMargin = (minNetMargin === null || (item.net_margin !== null && item.net_margin >= minNetMargin)) && (maxNetMargin === null || (item.net_margin !== null && item.net_margin <= maxNetMargin));
+
+      const passFcf = (minFcf === null || (item.fcf !== null && item.fcf >= minFcf)) && (maxFcf === null || (item.fcf !== null && item.fcf <= maxFcf));
+      const passTotalDebt = (minTotalDebt === null || (item.total_debt !== null && item.total_debt >= minTotalDebt)) && (maxTotalDebt === null || (item.total_debt !== null && item.total_debt <= maxTotalDebt));
+
+      return passMcap && passPeTrailing && passPeForward && passPeg && passPb && passPs && passDiv && passRoe && passRoa && passDe && passCurrentRatio && passRevGrowth && passEpsGrowth && passGrossMargin && passOpMargin && passNetMargin && passFcf && passTotalDebt;
     });
 
     // 4. Order and pagination

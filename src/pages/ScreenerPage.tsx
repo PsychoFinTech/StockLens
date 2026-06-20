@@ -13,9 +13,10 @@ import {
   Star,
   Percent,
   Wallet,
+  Building2,
+  TrendingUp,
   ChevronLeft,
   Layers,
-  Filter,
   SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
@@ -34,9 +35,31 @@ interface ScreenerStock {
   price: number | null;
   change_pct: number | null;
   market_cap: number | null;
-  pe: number | null;
+  
+  // Valuation
+  peTrailing: number | null;
+  peForward: number | null;
+  peg: number | null;
+  pb: number | null;
+  ps: number | null;
+  dividend: number | null;
+
+  // Ratios
   roe: number | null;
+  roa: number | null;
   debt_equity: number | null;
+  current_ratio: number | null;
+
+  // Income Statement
+  rev_growth: number | null;
+  eps_growth: number | null;
+  gross_margin: number | null;
+  operating_margin: number | null;
+  net_margin: number | null;
+
+  // Balance Sheet
+  fcf: number | null;
+  total_debt: number | null;
 }
 
 interface SectorStat {
@@ -84,12 +107,20 @@ interface CategoricalFilterValue {
 type FilterValue = NumericFilterValue | CategoricalFilterValue;
 type FilterState = Record<string, FilterValue>;
 
-const CATEGORIES = ['Popular', 'Valuation', 'Ratios'] as const;
+const CATEGORIES = [
+  'Popular',
+  'Valuation',
+  'Ratios',
+  'Financials - Income Statement',
+  'Financials - Balance Sheet',
+] as const;
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Popular: Star,
   Valuation: Wallet,
   Ratios: Percent,
+  'Financials - Income Statement': TrendingUp,
+  'Financials - Balance Sheet': Building2,
 };
 
 const METRIC_REGISTRY: Metric[] = [
@@ -154,6 +185,81 @@ const METRIC_REGISTRY: Metric[] = [
       { id: 'above80', label: 'Above 80' },
     ],
   },
+  {
+    id: 'forward_pe',
+    name: 'Forward P/E',
+    category: 'Valuation',
+    description: 'P/E ratio using analyst-estimated earnings for the next 12 months.',
+    type: 'numeric',
+    unit: 'x',
+    placeholder: 'e.g. 18',
+    presets: [
+      { id: 'below0', label: 'Below 0' },
+      { id: '0to15', label: '0 to 15' },
+      { id: '15to30', label: '15 to 30' },
+      { id: 'above30', label: 'Above 30' },
+    ],
+  },
+  {
+    id: 'peg_ratio',
+    name: 'PEG Ratio',
+    category: 'Valuation',
+    description: 'P/E ratio divided by expected earnings growth rate.',
+    type: 'numeric',
+    unit: 'x',
+    placeholder: 'e.g. 1.5',
+    presets: [
+      { id: 'below1', label: 'Below 1' },
+      { id: '1to2', label: '1 to 2' },
+      { id: '2to3', label: '2 to 3' },
+      { id: 'above3', label: 'Above 3' },
+    ],
+  },
+  {
+    id: 'price_book',
+    name: 'Price / Book Value (P/B)',
+    category: 'Valuation',
+    description: 'Share price relative to book value per share.',
+    type: 'numeric',
+    unit: 'x',
+    placeholder: 'e.g. 3',
+    presets: [
+      { id: 'below1', label: 'Below 1' },
+      { id: '1to3', label: '1 to 3' },
+      { id: '3to6', label: '3 to 6' },
+      { id: 'above6', label: 'Above 6' },
+    ],
+  },
+  {
+    id: 'price_sales',
+    name: 'Price / Sales (P/S)',
+    category: 'Valuation',
+    description: 'Share price relative to revenue per share.',
+    type: 'numeric',
+    unit: 'x',
+    placeholder: 'e.g. 4',
+    presets: [
+      { id: 'below1', label: 'Below 1' },
+      { id: '1to5', label: '1 to 5' },
+      { id: '5to10', label: '5 to 10' },
+      { id: 'above10', label: 'Above 10' },
+    ],
+  },
+  {
+    id: 'dividend_yield',
+    name: 'Dividend Yield',
+    category: 'Valuation',
+    description: 'Annual dividends paid per share as a percent of share price.',
+    type: 'numeric',
+    unit: '%',
+    placeholder: 'e.g. 2',
+    presets: [
+      { id: 'none', label: 'No Dividend' },
+      { id: '0to2', label: '0% to 2%' },
+      { id: '2to4', label: '2% to 4%' },
+      { id: 'above4', label: 'Above 4%' },
+    ],
+  },
 
   // --- Ratios ---------------------------------------------------------
   {
@@ -172,6 +278,21 @@ const METRIC_REGISTRY: Metric[] = [
     ],
   },
   {
+    id: 'roa',
+    name: 'Return on Assets (ROA)',
+    category: 'Ratios',
+    description: 'Net income as a percent of total assets.',
+    type: 'numeric',
+    unit: '%',
+    placeholder: 'e.g. 8',
+    presets: [
+      { id: 'below0', label: 'Below 0%' },
+      { id: '0to5', label: '0% to 5%' },
+      { id: '5to10', label: '5% to 10%' },
+      { id: 'above10', label: 'Above 10%' },
+    ],
+  },
+  {
     id: 'debt_equity',
     name: 'Total Debt / Equity',
     category: 'Ratios',
@@ -184,6 +305,130 @@ const METRIC_REGISTRY: Metric[] = [
       { id: '0.5to1', label: '0.5 to 1' },
       { id: '1to2', label: '1 to 2' },
       { id: 'above2', label: 'Above 2' },
+    ],
+  },
+  {
+    id: 'current_ratio',
+    name: 'Current Ratio',
+    category: 'Ratios',
+    description: 'Current assets divided by current liabilities; short-term liquidity.',
+    type: 'numeric',
+    unit: 'x',
+    placeholder: 'e.g. 2',
+    presets: [
+      { id: 'below1', label: 'Below 1' },
+      { id: '1to2', label: '1 to 2' },
+      { id: '2to3', label: '2 to 3' },
+      { id: 'above3', label: 'Above 3' },
+    ],
+  },
+
+  // --- Financials - Income Statement -------------------------------------
+  {
+    id: 'revenue_growth',
+    name: 'Revenue Growth (YoY)',
+    category: 'Financials - Income Statement',
+    description: 'Year-over-year change in total revenue.',
+    type: 'numeric',
+    unit: '%',
+    placeholder: 'e.g. 10',
+    presets: [
+      { id: 'negative', label: 'Negative' },
+      { id: '0to10', label: '0% to 10%' },
+      { id: '10to25', label: '10% to 25%' },
+      { id: 'above25', label: 'Above 25%' },
+    ],
+  },
+  {
+    id: 'eps_growth',
+    name: 'EPS Growth (YoY)',
+    category: 'Financials - Income Statement',
+    description: 'Year-over-year change in earnings per share.',
+    type: 'numeric',
+    unit: '%',
+    placeholder: 'e.g. 15',
+    presets: [
+      { id: 'negative', label: 'Negative' },
+      { id: '0to10', label: '0% to 10%' },
+      { id: '10to25', label: '10% to 25%' },
+      { id: 'above25', label: 'Above 25%' },
+    ],
+  },
+  {
+    id: 'gross_margin',
+    name: 'Gross Margin',
+    category: 'Financials - Income Statement',
+    description: 'Gross profit as a percent of total revenue.',
+    type: 'numeric',
+    unit: '%',
+    placeholder: 'e.g. 45',
+    presets: [
+      { id: 'below20', label: 'Below 20%' },
+      { id: '20to40', label: '20% to 40%' },
+      { id: '40to60', label: '40% to 60%' },
+      { id: 'above60', label: 'Above 60%' },
+    ],
+  },
+  {
+    id: 'operating_margin',
+    name: 'Operating Margin',
+    category: 'Financials - Income Statement',
+    description: 'Operating income as a percent of total revenue.',
+    type: 'numeric',
+    unit: '%',
+    placeholder: 'e.g. 18',
+    presets: [
+      { id: 'below0', label: 'Below 0%' },
+      { id: '0to10', label: '0% to 10%' },
+      { id: '10to20', label: '10% to 20%' },
+      { id: 'above20', label: 'Above 20%' },
+    ],
+  },
+  {
+    id: 'net_margin',
+    name: 'Net Income Margin',
+    category: 'Financials - Income Statement',
+    description: 'Net income as a percent of total revenue.',
+    type: 'numeric',
+    unit: '%',
+    placeholder: 'e.g. 12',
+    presets: [
+      { id: 'below0', label: 'Below 0%' },
+      { id: '0to10', label: '0% to 10%' },
+      { id: '10to20', label: '10% to 20%' },
+      { id: 'above20', label: 'Above 20%' },
+    ],
+  },
+
+  // --- Financials - Balance Sheet -------------------------------------
+  {
+    id: 'free_cash_flow',
+    name: 'Free Cash Flow (TTM)',
+    category: 'Financials - Balance Sheet',
+    description: 'Cash generated after capital expenditures, trailing 12 months.',
+    type: 'numeric',
+    unit: '$',
+    placeholder: 'e.g. 500M',
+    presets: [
+      { id: 'negative', label: 'Negative' },
+      { id: '0to100m', label: '$0 to $100M' },
+      { id: '100mto1b', label: '$100M to $1B' },
+      { id: 'above1b', label: 'Above $1B' },
+    ],
+  },
+  {
+    id: 'total_debt',
+    name: 'Total Debt',
+    category: 'Financials - Balance Sheet',
+    description: 'Sum of short- and long-term debt on the balance sheet.',
+    type: 'numeric',
+    unit: '$',
+    placeholder: 'e.g. 1B',
+    presets: [
+      { id: 'under100m', label: 'Under $100M' },
+      { id: '100mto1b', label: '$100M to $1B' },
+      { id: '1bto10b', label: '$1B to $10B' },
+      { id: 'above10b', label: 'Above $10B' },
     ],
   },
 ];
@@ -264,103 +509,117 @@ function getApiParamsFromFilters(filters: FilterState): URLSearchParams {
     params.append('sector', 'ALL');
   }
 
-  // Market Cap
-  const mcapVal = filters['market_cap'] as NumericFilterValue | undefined;
-  if (mcapVal) {
-    if (mcapVal.preset) {
-      if (mcapVal.preset === 'small') params.append('maxMcap', '2000');
-      else if (mcapVal.preset === 'mid') {
-        params.append('minMcap', '2000');
-        params.append('maxMcap', '10000');
-      } else if (mcapVal.preset === 'large') {
-        params.append('minMcap', '10000');
-        params.append('maxMcap', '200000');
-      } else if (mcapVal.preset === 'mega') params.append('minMcap', '200000');
-    } else if (mcapVal.custom) {
-      const { operator, value1, value2 } = mcapVal.custom;
-      const num1 = parseAbbreviatedNumber(value1);
-      const num2 = parseAbbreviatedNumber(value2);
-      if (operator === 'more' && num1 !== null) params.append('minMcap', num1.toString());
-      else if (operator === 'less' && num1 !== null) params.append('maxMcap', num1.toString());
-      else if (operator === 'equal' && num1 !== null) {
-        params.append('minMcap', num1.toString());
-        params.append('maxMcap', num1.toString());
+  // Helper numeric serializer
+  const serializeNumeric = (fieldId: string, minParam: string, maxParam: string, isPercent = false, isCurrency = false) => {
+    const fVal = filters[fieldId] as NumericFilterValue | undefined;
+    if (!fVal) return;
+
+    if (fVal.preset) {
+      if (fieldId === 'market_cap') {
+        if (fVal.preset === 'small') params.append(maxParam, '2000');
+        else if (fVal.preset === 'mid') { params.append(minParam, '2000'); params.append(maxParam, '10000'); }
+        else if (fVal.preset === 'large') { params.append(minParam, '10000'); params.append(maxParam, '200000'); }
+        else if (fVal.preset === 'mega') params.append(minParam, '200000');
+      } else if (fieldId === 'trailing_pe' || fieldId === 'forward_pe') {
+        if (fVal.preset === 'below0') params.append(maxParam, '0');
+        else if (fVal.preset === '0to20') { params.append(minParam, '0'); params.append(maxParam, '20'); }
+        else if (fVal.preset === '0to15') { params.append(minParam, '0'); params.append(maxParam, '15'); }
+        else if (fVal.preset === '15to30') { params.append(minParam, '15'); params.append(maxParam, '30'); }
+        else if (fVal.preset === '20to50') { params.append(minParam, '20'); params.append(maxParam, '50'); }
+        else if (fVal.preset === '50to80') { params.append(minParam, '50'); params.append(maxParam, '80'); }
+        else if (fVal.preset === 'above80') params.append(minParam, '80');
+        else if (fVal.preset === 'above30') params.append(minParam, '30');
+      } else if (fieldId === 'peg_ratio' || fieldId === 'price_book' || fieldId === 'price_sales') {
+        if (fVal.preset === 'below1') params.append(maxParam, '1');
+        else if (fVal.preset === '1to2') { params.append(minParam, '1'); params.append(maxParam, '2'); }
+        else if (fVal.preset === '1to3') { params.append(minParam, '1'); params.append(maxParam, '3'); }
+        else if (fVal.preset === '1to5') { params.append(minParam, '1'); params.append(maxParam, '5'); }
+        else if (fVal.preset === '2to3') { params.append(minParam, '2'); params.append(maxParam, '3'); }
+        else if (fVal.preset === '3to6') { params.append(minParam, '3'); params.append(maxParam, '6'); }
+        else if (fVal.preset === '5to10') { params.append(minParam, '5'); params.append(maxParam, '10'); }
+        else if (fVal.preset === 'above3') params.append(minParam, '3');
+        else if (fVal.preset === 'above6') params.append(minParam, '6');
+        else if (fVal.preset === 'above10') params.append(minParam, '10');
+      } else if (fieldId === 'dividend_yield') {
+        if (fVal.preset === 'none') params.append(maxParam, '0');
+        else if (fVal.preset === '0to2') { params.append(minParam, '0'); params.append(maxParam, '2'); }
+        else if (fVal.preset === '2to4') { params.append(minParam, '2'); params.append(maxParam, '4'); }
+        else if (fVal.preset === 'above4') params.append(minParam, '4');
+      } else if (fieldId === 'roe' || fieldId === 'roa') {
+        if (fVal.preset === 'below0') params.append(maxParam, '0');
+        else if (fVal.preset === '0to10') { params.append(minParam, '0'); params.append(maxParam, '10'); }
+        else if (fVal.preset === '0to5') { params.append(minParam, '0'); params.append(maxParam, '5'); }
+        else if (fVal.preset === '5to10') { params.append(minParam, '5'); params.append(maxParam, '10'); }
+        else if (fVal.preset === '10to20') { params.append(minParam, '10'); params.append(maxParam, '20'); }
+        else if (fVal.preset === 'above10') params.append(minParam, '10');
+        else if (fVal.preset === 'above20') params.append(minParam, '20');
+      } else if (fieldId === 'debt_equity' || fieldId === 'current_ratio') {
+        if (fVal.preset === 'below0.5') params.append(maxParam, '0.5');
+        else if (fVal.preset === 'below1') params.append(maxParam, '1.0');
+        else if (fVal.preset === '0.5to1') { params.append(minParam, '0.5'); params.append(maxParam, '1.0'); }
+        else if (fVal.preset === '1to2') { params.append(minParam, '1.0'); params.append(maxParam, '2.0'); }
+        else if (fVal.preset === '2to3') { params.append(minParam, '2.0'); params.append(maxParam, '3.0'); }
+        else if (fVal.preset === 'above2') params.append(minParam, '2.0');
+        else if (fVal.preset === 'above3') params.append(minParam, '3.0');
+      } else if (fieldId === 'revenue_growth' || fieldId === 'eps_growth' || fieldId === 'gross_margin' || fieldId === 'operating_margin' || fieldId === 'net_margin') {
+        if (fVal.preset === 'negative') params.append(maxParam, '0');
+        else if (fVal.preset === 'below0') params.append(maxParam, '0');
+        else if (fVal.preset === 'below20') params.append(maxParam, '20');
+        else if (fVal.preset === '0to10') { params.append(minParam, '0'); params.append(maxParam, '10'); }
+        else if (fVal.preset === '10to25') { params.append(minParam, '10'); params.append(maxParam, '25'); }
+        else if (fVal.preset === '20to40') { params.append(minParam, '20'); params.append(maxParam, '40'); }
+        else if (fVal.preset === '10to20') { params.append(minParam, '10'); params.append(maxParam, '20'); }
+        else if (fVal.preset === '40to60') { params.append(minParam, '40'); params.append(maxParam, '60'); }
+        else if (fVal.preset === 'above25') params.append(minParam, '25');
+        else if (fVal.preset === 'above20') params.append(minParam, '20');
+        else if (fVal.preset === 'above60') params.append(minParam, '60');
+      } else if (fieldId === 'free_cash_flow' || fieldId === 'total_debt') {
+        if (fVal.preset === 'negative') params.append(maxParam, '0');
+        else if (fVal.preset === 'under100m') params.append(maxParam, '100');
+        else if (fVal.preset === '0to100m') { params.append(minParam, '0'); params.append(maxParam, '100'); }
+        else if (fVal.preset === '100mto1b') { params.append(minParam, '100'); params.append(maxParam, '1000'); }
+        else if (fVal.preset === '1bto10b') { params.append(minParam, '1000'); params.append(maxParam, '10000'); }
+        else if (fVal.preset === 'above1b') params.append(minParam, '1000');
+        else if (fVal.preset === 'above10b') params.append(minParam, '10000');
+      }
+    } else if (fVal.custom) {
+      const { operator, value1, value2 } = fVal.custom;
+      const num1 = isCurrency ? parseAbbreviatedNumber(value1) : parseFloat(value1);
+      const num2 = isCurrency ? parseAbbreviatedNumber(value2) : parseFloat(value2);
+      if (operator === 'more' && num1 !== null && !isNaN(num1)) params.append(minParam, num1.toString());
+      else if (operator === 'less' && num1 !== null && !isNaN(num1)) params.append(maxParam, num1.toString());
+      else if (operator === 'equal' && num1 !== null && !isNaN(num1)) {
+        params.append(minParam, num1.toString());
+        params.append(maxParam, num1.toString());
       } else if (operator === 'between') {
-        if (num1 !== null) params.append('minMcap', num1.toString());
-        if (num2 !== null) params.append('maxMcap', num2.toString());
+        if (num1 !== null && !isNaN(num1)) params.append(minParam, num1.toString());
+        if (num2 !== null && !isNaN(num2)) params.append(maxParam, num2.toString());
       }
     }
-  }
+  };
 
-  // Trailing PE
-  const peVal = filters['trailing_pe'] as NumericFilterValue | undefined;
-  if (peVal) {
-    if (peVal.preset) {
-      if (peVal.preset === 'below0') params.append('maxPe', '0');
-      else if (peVal.preset === '0to20') {
-        params.append('minPe', '0');
-        params.append('maxPe', '20');
-      } else if (peVal.preset === '20to50') {
-        params.append('minPe', '20');
-        params.append('maxPe', '50');
-      } else if (peVal.preset === '50to80') {
-        params.append('minPe', '50');
-        params.append('maxPe', '80');
-      } else if (peVal.preset === 'above80') params.append('minPe', '80');
-    } else if (peVal.custom) {
-      const { operator, value1, value2 } = peVal.custom;
-      const num1 = parseFloat(value1);
-      const num2 = parseFloat(value2);
-      if (operator === 'more' && !isNaN(num1)) params.append('minPe', num1.toString());
-      else if (operator === 'less' && !isNaN(num1)) params.append('maxPe', num1.toString());
-      else if (operator === 'equal' && !isNaN(num1)) {
-        params.append('minPe', num1.toString());
-        params.append('maxPe', num1.toString());
-      } else if (operator === 'between') {
-        if (!isNaN(num1)) params.append('minPe', num1.toString());
-        if (!isNaN(num2)) params.append('maxPe', num2.toString());
-      }
-    }
-  }
+  // Map all 20 metrics parameters
+  serializeNumeric('market_cap', 'minMcap', 'maxMcap', false, true);
+  serializeNumeric('trailing_pe', 'minPeTrailing', 'maxPeTrailing');
+  serializeNumeric('forward_pe', 'minPeForward', 'maxPeForward');
+  serializeNumeric('peg_ratio', 'minPeg', 'maxPeg');
+  serializeNumeric('price_book', 'minPb', 'maxPb');
+  serializeNumeric('price_sales', 'minPs', 'maxPs');
+  serializeNumeric('dividend_yield', 'minDiv', 'maxDiv', true);
 
-  // ROE
-  const roeVal = filters['roe'] as NumericFilterValue | undefined;
-  if (roeVal) {
-    if (roeVal.preset) {
-      if (roeVal.preset === 'below0') {
-        params.append('maxRoe', '0');
-      } else if (roeVal.preset === '0to10') {
-        params.append('minRoe', '0');
-      } else if (roeVal.preset === '10to20') {
-        params.append('minRoe', '10');
-      } else if (roeVal.preset === 'above20') {
-        params.append('minRoe', '20');
-      }
-    } else if (roeVal.custom) {
-      const { operator, value1 } = roeVal.custom;
-      const num1 = parseFloat(value1);
-      if (operator === 'more' && !isNaN(num1)) params.append('minRoe', num1.toString());
-      else if (operator === 'between' && !isNaN(num1)) params.append('minRoe', num1.toString());
-    }
-  }
+  serializeNumeric('roe', 'minRoe', 'maxRoe', true);
+  serializeNumeric('roa', 'minRoa', 'maxRoa', true);
+  serializeNumeric('debt_equity', 'minDe', 'maxDe');
+  serializeNumeric('current_ratio', 'minCurrentRatio', 'maxCurrentRatio');
 
-  // Debt to Equity
-  const deVal = filters['debt_equity'] as NumericFilterValue | undefined;
-  if (deVal) {
-    if (deVal.preset) {
-      if (deVal.preset === 'below0.5') params.append('maxDe', '0.5');
-      else if (deVal.preset === '0.5to1') params.append('maxDe', '1.0');
-      else if (deVal.preset === '1to2') params.append('maxDe', '2.0');
-      else if (deVal.preset === 'above2') {
-        params.append('minDe', '2.0');
-      }
-    } else if (deVal.custom) {
-      const { operator, value1 } = deVal.custom;
-      const num1 = parseFloat(value1);
-      if (operator === 'less' && !isNaN(num1)) params.append('maxDe', num1.toString());
-      else if (operator === 'between' && !isNaN(num1)) params.append('maxDe', num1.toString());
-    }
-  }
+  serializeNumeric('revenue_growth', 'minRevGrowth', 'maxRevGrowth', true);
+  serializeNumeric('eps_growth', 'minEpsGrowth', 'maxEpsGrowth', true);
+  serializeNumeric('gross_margin', 'minGrossMargin', 'maxGrossMargin', true);
+  serializeNumeric('operating_margin', 'minOpMargin', 'maxOpMargin', true);
+  serializeNumeric('net_margin', 'minNetMargin', 'maxNetMargin', true);
+
+  serializeNumeric('free_cash_flow', 'minFcf', 'maxFcf', false, true);
+  serializeNumeric('total_debt', 'minTotalDebt', 'maxTotalDebt', false, true);
 
   return params;
 }
@@ -584,13 +843,13 @@ export const ScreenerPage: React.FC = () => {
       )
     },
     {
-      key: 'pe',
-      label: 'P/E',
+      key: 'peTrailing',
+      label: 'P/E (TTM)',
       align: 'right',
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-gray-950">
-          {row.pe !== null ? `${row.pe.toFixed(1)}x` : '—'}
+        <span className="font-mono font-bold text-gray-955">
+          {row.peTrailing !== null ? `${row.peTrailing.toFixed(1)}x` : '—'}
         </span>
       )
     },
@@ -600,7 +859,7 @@ export const ScreenerPage: React.FC = () => {
       align: 'right',
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-gray-950">
+        <span className="font-mono font-bold text-gray-955">
           {row.roe !== null ? `${row.roe.toFixed(1)}%` : '—'}
         </span>
       )
@@ -611,7 +870,7 @@ export const ScreenerPage: React.FC = () => {
       align: 'right',
       sortable: true,
       render: (row) => (
-        <span className="font-mono font-bold text-gray-950">
+        <span className="font-mono font-bold text-gray-955">
           {row.debt_equity !== null ? `${row.debt_equity.toFixed(2)}x` : '—'}
         </span>
       )
@@ -748,7 +1007,7 @@ export const ScreenerPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Filter Builder</span>
               <span className="rounded-full bg-emerald-100/70 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
-                Multi-Factor Screen
+                20-Factor Curated Screen
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -772,7 +1031,7 @@ export const ScreenerPage: React.FC = () => {
           </div>
 
           {/* Three Panes Splitter Layout */}
-          <div className="flex flex-col md:flex-row h-[320px] overflow-hidden">
+          <div className="flex flex-col md:flex-row h-[360px] overflow-hidden">
             {/* L1: Categories (25%) */}
             <div className="w-full md:w-1/4 border-r border-gray-100 bg-gray-50/40 p-2 overflow-y-auto">
               <nav className="space-y-1">
@@ -854,7 +1113,7 @@ export const ScreenerPage: React.FC = () => {
             {/* L3: Editors (40%) */}
             <div className="w-full md:w-[40%] bg-white p-4 overflow-y-auto flex flex-col justify-between">
               <div>
-                <h4 className="text-xs font-bold text-gray-950">{activeMetric.name}</h4>
+                <h4 className="text-xs font-bold text-gray-955">{activeMetric.name}</h4>
                 <p className="mt-1 text-[11px] leading-relaxed text-gray-400 font-medium">
                   {activeMetric.description}
                 </p>
@@ -1014,7 +1273,7 @@ function CategoricalEditor({
         )}
       </div>
 
-      <div className="max-h-[120px] space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-1">
+      <div className="max-h-[160px] space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-1">
         {filteredOptions.length === 0 && (
           <p className="px-2 py-3 text-center text-xs text-gray-450">No matches found.</p>
         )}
@@ -1023,7 +1282,7 @@ function CategoricalEditor({
           return (
             <label
               key={option}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1 text-xs text-gray-750 hover:bg-gray-50"
+              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1 text-xs text-gray-755 hover:bg-gray-50"
             >
               <input
                 type="checkbox"
