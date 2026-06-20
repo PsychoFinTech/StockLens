@@ -645,6 +645,73 @@ export const ScreenerPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const itemsPerPage = 20;
 
+  // Activity state
+  const [activeActivityTab, setActiveActivityTab] = useState<'most_active' | 'trending' | 'gainers' | 'losers' | 'highs_52w' | 'lows_52w'>('most_active');
+
+  const ACTIVITY_TABS = [
+    { id: 'most_active', label: 'Most Active' },
+    { id: 'trending', label: 'Trending Now' },
+    { id: 'gainers', label: 'Top Gainers' },
+    { id: 'losers', label: 'Top Losers' },
+    { id: 'highs_52w', label: '52 Week Gainers' },
+    { id: 'lows_52w', label: '52 Week Losers' }
+  ] as const;
+
+  // Helper to render a visual mini-chart sparkline using inline SVG
+  const renderSparkline = (symbol: string, isUp: boolean) => {
+    if (!symbol) return null;
+    let hash = 0;
+    for (let i = 0; i < symbol.length; i++) {
+      hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const seed = Math.abs(hash);
+
+    const points: number[] = [];
+    let currentVal = 50;
+    points.push(currentVal);
+
+    const changeDir = isUp ? 1 : -1;
+    for (let i = 1; i <= 8; i++) {
+      const step = Math.sin(seed + i) * 15;
+      const trend = (i / 8) * 18 * changeDir;
+      points.push(currentVal + step + trend);
+    }
+
+    const min = Math.min(...points);
+    const max = Math.max(...points);
+    const range = max - min || 1;
+    
+    const width = 80;
+    const height = 24;
+    const padding = 2;
+    
+    const coords = points.map((p, idx) => {
+      const x = (idx / (points.length - 1)) * width;
+      const y = height - padding - ((p - min) / range) * (height - 2 * padding);
+      return { x, y };
+    });
+
+    const linePath = coords.map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+    const fillPath = `${linePath} L ${width} ${height} L 0 ${height} Z`;
+    
+    const strokeColor = isUp ? '#10b981' : '#ef4444'; // emerald-500 or rose-500
+    const gradientId = `spark-grad-${symbol.replace(/[^a-zA-Z0-9]/g, '')}-${isUp ? 'up' : 'down'}`;
+
+    return (
+      <svg width={width} height={height} className="overflow-visible select-none pointer-events-none mx-auto">
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.2" />
+            <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={fillPath} fill={`url(#${gradientId})`} />
+        <path d={linePath} fill="none" stroke={strokeColor} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={coords[coords.length - 1].x} cy={coords[coords.length - 1].y} r="2" fill={strokeColor} />
+      </svg>
+    );
+  };
+
   // Editor states
   const [activeCategory, setActiveCategory] = useState<string>(CATEGORIES[0]);
   const [activeMetricId, setActiveMetricId] = useState<string>(
@@ -674,6 +741,22 @@ export const ScreenerPage: React.FC = () => {
     queryFn: async () => {
       const resp = await apiClient.get('/market/sectors');
       return resp.data || [];
+    }
+  });
+
+  // Fetch Movers for Stock Activity Widget
+  const { data: moversData, isPending: isMoversPending } = useQuery<{
+    most_active: any[];
+    trending: any[];
+    gainers: any[];
+    losers: any[];
+    highs_52w: any[];
+    lows_52w: any[];
+  }>({
+    queryKey: ['marketMovers'],
+    queryFn: async () => {
+      const resp = await apiClient.get('/market/movers');
+      return resp.data || { most_active: [], trending: [], gainers: [], losers: [], highs_52w: [], lows_52w: [] };
     }
   });
 
@@ -1001,6 +1084,125 @@ export const ScreenerPage: React.FC = () => {
               );
             })
           )}
+        </div>
+      </div>
+
+      {/* 1.5. Stock Activity Widget */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+          <h3 className="font-sans text-sm font-bold text-gray-955 flex items-center gap-1.5">
+            <span>Stock Activity</span>
+            <span className="text-[10px] font-mono text-gray-400 font-semibold normal-case">
+              (Top market dynamics and breakouts)
+            </span>
+          </h3>
+        </div>
+
+        {/* Tab switcher bar */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1.5 border-b border-gray-100 scrollbar-none">
+          {ACTIVITY_TABS.map((tab) => {
+            const isActive = activeActivityTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveActivityTab(tab.id)}
+                className={`whitespace-nowrap px-4 py-2 text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer ${
+                  isActive
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/50 shadow-3xs'
+                    : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Table showing stocks for the active tab in a vertical list layout */}
+        <div className="overflow-x-auto rounded-xl border border-gray-150 bg-white shadow-3xs">
+          <table className="min-w-full divide-y divide-gray-150 border-collapse">
+            <thead className="bg-gray-50/75 border-b border-gray-150 text-left">
+              <tr>
+                <th className="w-24 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-150">Symbol</th>
+                <th className="px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="w-24 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-center">Trend</th>
+                <th className="w-28 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Price</th>
+                <th className="w-28 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Change %</th>
+                <th className="w-32 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Market Cap</th>
+                <th className="w-32 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">P/E Ratio (TTM)</th>
+                <th className="w-36 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">52 Wk Change %</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-150 bg-white">
+              {isMoversPending ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="w-24 px-4 py-3 border-r border-gray-150 bg-gray-50/50 h-10" />
+                    <td className="px-4 py-3 bg-white h-10" />
+                    <td className="w-24 px-4 py-3 bg-white h-10" />
+                    <td className="w-28 px-4 py-3 bg-white h-10" />
+                    <td className="w-28 px-4 py-3 bg-white h-10" />
+                    <td className="w-32 px-4 py-3 bg-white h-10" />
+                    <td className="w-32 px-4 py-3 bg-white h-10" />
+                    <td className="w-36 px-4 py-3 bg-white h-10" />
+                  </tr>
+                ))
+              ) : (
+                (() => {
+                  const list = moversData?.[activeActivityTab] || [];
+                  if (list.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-xs text-gray-405 font-medium">
+                          No active stocks found for this category.
+                        </td>
+                      </tr>
+                    );
+                  }
+                  return list.map((stock: any) => {
+                    const isUp = (stock.change_pct ?? 0) >= 0;
+                    const is52wUp = (stock.change_52w ?? 0) >= 0;
+                    return (
+                      <tr 
+                        key={stock.symbol}
+                        onClick={() => navigate(`/company/${encodeURIComponent(stock.symbol.toUpperCase())}`)}
+                        className="hover:bg-slate-50/70 cursor-pointer transition-colors group"
+                      >
+                        <td className="w-24 px-4 py-3 border-r border-gray-150 font-sans font-bold text-sm text-blue-600 hover:underline group-hover:text-blue-700 select-none text-left">
+                          {stock.symbol}
+                        </td>
+                        <td className="px-4 py-3 text-xs sm:text-sm text-gray-800 truncate max-w-[150px] sm:max-w-md font-sans">
+                          {stock.name}
+                        </td>
+                        <td className="w-24 px-4 py-3 text-center">
+                          {renderSparkline(stock.symbol, isUp)}
+                        </td>
+                        <td className="w-28 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold text-gray-955">
+                          {formatPrice(stock.price, stock.exchange)}
+                        </td>
+                        <td className={`w-28 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold ${
+                          isUp ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                          {formatPercentChange(stock.change_pct)}
+                        </td>
+                        <td className="w-32 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold text-gray-955">
+                          {typeof stock.market_cap === 'number' ? formatMarketCap(stock.market_cap, stock.exchange) : '—'}
+                        </td>
+                        <td className="w-32 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold text-gray-955">
+                          {typeof stock.pe_ratio === 'number' ? `${stock.pe_ratio.toFixed(2)}` : '—'}
+                        </td>
+                        <td className={`w-36 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold ${
+                          is52wUp ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                          {typeof stock.change_52w === 'number' ? `${stock.change_52w >= 0 ? '+' : ''}${stock.change_52w.toFixed(2)}%` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

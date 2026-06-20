@@ -61,6 +61,86 @@ const searchBreaker = new CircuitBreaker((query: string) => yahooFinance.search(
 const chartBreaker = new CircuitBreaker((sym: string, options: any) => yahooFinance.chart(sym, options), breakerOptions);
 
 export const yahooService = {
+  // Predefined playlists from Yahoo Finance native global screener
+  getMarketPlaylist: async (scrId: string) => {
+    const cacheKey = `yahoo:playlist:${scrId}`;
+    const cached = cacheService.get<any>(cacheKey);
+    if (cached) {
+      cacheService.logHit('playlist', scrId, 'MEMCACHE_PLAYLIST');
+      return cached;
+    }
+
+    try {
+      console.log(`[YAHOO] Fetching native playlist for: ${scrId}`);
+      const result: any = await dedupedFetch(cacheKey, async () => {
+        const raw = await yahooFinance.screener({ scrIds: scrId, count: 25 }, {}, { validateResult: false });
+        const quotes = raw.quotes || [];
+        return quotes.map((q: any) => ({
+          symbol: q.symbol,
+          name: q.displayName || q.longName || q.shortName || q.symbol,
+          price: q.regularMarketPrice ?? null,
+          change: q.regularMarketChange ?? null,
+          change_pct: q.regularMarketChangePercent ?? null,
+          high_52w: q.fiftyTwoWeekHigh ?? null,
+          low_52w: q.fiftyTwoWeekLow ?? null,
+          exchange: q.fullExchangeName || q.exchange || null,
+          market_cap: q.marketCap ?? null,
+          pe_ratio: q.trailingPE ?? null,
+          change_52w: q.fiftyTwoWeekChangePercent ?? null
+        }));
+      });
+
+      cacheService.set(cacheKey, result, 600); // 10 min TTL
+      return result;
+    } catch (error: any) {
+      console.error(`[YAHOO PLAYLIST ERROR] Failed to fetch playlist ${scrId}:`, error.message);
+      return [];
+    }
+  },
+
+  // Trending symbols from Yahoo Finance
+  getTrendingSymbols: async (country: string) => {
+    const cacheKey = `yahoo:trending:${country}`;
+    const cached = cacheService.get<any>(cacheKey);
+    if (cached) {
+      cacheService.logHit('trending', country, 'MEMCACHE_TRENDING');
+      return cached;
+    }
+
+    try {
+      console.log(`[YAHOO] Fetching native trending symbols for: ${country}`);
+      const result: any = await dedupedFetch(cacheKey, async () => {
+        const raw = await yahooFinance.trendingSymbols(country);
+        const quotes = raw.quotes || [];
+        const symbols = quotes.map((q: any) => q.symbol).filter(Boolean);
+        
+        if (symbols.length === 0) return [];
+        
+        // Fetch detailed quotes for these symbols to normalize them
+        const detailedQuotes = await yahooFinance.quote(symbols);
+        return detailedQuotes.map((q: any) => ({
+          symbol: q.symbol,
+          name: q.displayName || q.longName || q.shortName || q.symbol,
+          price: q.regularMarketPrice ?? null,
+          change: q.regularMarketChange ?? null,
+          change_pct: q.regularMarketChangePercent ?? null,
+          high_52w: q.fiftyTwoWeekHigh ?? null,
+          low_52w: q.fiftyTwoWeekLow ?? null,
+          exchange: q.fullExchangeName || q.exchange || null,
+          market_cap: q.marketCap ?? null,
+          pe_ratio: q.trailingPE ?? null,
+          change_52w: q.fiftyTwoWeekChangePercent ?? null
+        }));
+      });
+
+      cacheService.set(cacheKey, result, 600); // 10 min TTL
+      return result;
+    } catch (error: any) {
+      console.error(`[YAHOO TRENDING ERROR] Failed to fetch trending symbols for ${country}:`, error.message);
+      return [];
+    }
+  },
+
   // Fetch historical financial data (5 years of Annual statements)
   getFinancials: async (symbol: string) => {
     const rawSymbol = symbol.toUpperCase();

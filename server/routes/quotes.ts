@@ -1,67 +1,76 @@
 import { Router } from 'express';
 import { yahooService } from '../services/yahoo.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
-import db from '../services/db.js';
+import { cacheService, CACHE_TTLS } from '../services/cache.js';
 
 const router = Router();
+
+// Helper to format/scrub the response object for the client
+function formatClientQuote(symbol: string, data: any) {
+  return {
+    symbol: symbol.toUpperCase(),
+    price: data?.price !== undefined && data?.price !== null ? Number(data.price) : null,
+    high: data?.high !== undefined && data?.high !== null ? Number(data.high) : null,
+    low: data?.low !== undefined && data?.low !== null ? Number(data.low) : null,
+    open: data?.open !== undefined && data?.open !== null ? Number(data.open) : null,
+    prev_close: data?.prev_close !== undefined && data?.prev_close !== null ? Number(data.prev_close) : null,
+    high_52w: data?.high_52w !== undefined && data?.high_52w !== null ? Number(data.high_52w) : null,
+    low_52w: data?.low_52w !== undefined && data?.low_52w !== null ? Number(data.low_52w) : null,
+    updated_at: data?.updated_at ? Number(data.updated_at) : Date.now()
+  };
+}
 
 // GET /api/quote/:symbol -> real-time price info
 router.get('/:symbol', apiLimiter, async (req, res, next) => {
   const symbol = req.params.symbol.toUpperCase();
+  const cacheKey = `yahoo:quote:${symbol}`;
 
   try {
-    let quoteData: any = null;
-
-    // --- LAYER 1: YAHOO ---
-    try {
-      quoteData = await yahooService.getQuote(symbol);
-    } catch (err: any) {
-      console.warn(`[QUOTE ROUTE] Yahoo quote query failed for ${symbol}:`, err.message);
+    // 1. Layer 1 (Memory Lookup)
+    const cached = cacheService.get<any>(cacheKey);
+    if (cached) {
+      cacheService.logHit('quote', symbol, 'MEMORY');
+      return res.json(formatClientQuote(symbol, cached));
     }
 
-    // Standardize return payload
-    const payload = {
-      symbol,
-      price: quoteData?.price || null,
-      change: quoteData?.change ?? 0,
-      change_pct: quoteData?.change_pct ?? 0,
-      high: quoteData?.high || null,
-      low: quoteData?.low || null,
-      open: quoteData?.open || null,
-      prev_close: quoteData?.prev_close || null,
-      high_52w: quoteData?.high_52w || quoteData?.high || null,
-      low_52w: quoteData?.low_52w || quoteData?.low || null,
-      volume: quoteData?.volume || null,
-      avg_volume: quoteData?.avg_volume || null,
-      updated_at: Date.now()
-    };
+    // 2. Layer 2 (Live Fetch)
+    let liveData: any = null;
+    try {
+      liveData = await yahooService.getQuote(symbol);
+      if (liveData && liveData.price !== null) {
+        // 5. Cache Hydration Safeguard
+        cacheService.set(cacheKey, liveData, CACHE_TTLS.QUOTE);
+        cacheService.saveQuoteBackup(symbol, {
+          price: liveData.price,
+          change: 0,
+          change_pct: 0,
+          high_52w: liveData.high_52w,
+          low_52w: liveData.low_52w
+        });
+      }
+    } catch (err: any) {
+      console.warn(`[QUOTE ROUTE] Yahoo live fetch failed for ${symbol}:`, err.message);
+    }
 
-    // If we have nothing, check SQLite database quotes table as absolute final fallback!
-    if (payload.price === null) {
-      console.log(`[QUOTE FINAL FALLBACK] No quote found for ${symbol}. Inspecting SQLite cache...`);
-      const stmt = dbPrepareQuote(symbol);
-      if (stmt) {
-        payload.price = stmt.price;
-        payload.change = stmt.change;
-        payload.change_pct = stmt.change_pct;
-        payload.updated_at = stmt.updated_at;
+    // 3. Layer 3 (Database Fallback)
+    if (!liveData || liveData.price === null) {
+      const backup = cacheService.getQuoteBackup(symbol);
+      if (backup) {
+        cacheService.logHit('quote', symbol, 'SQLITE_FALLBACK');
+        liveData = backup;
       }
     }
 
-    res.json(payload);
+    // Response formatting and output
+    if (liveData && liveData.price !== null) {
+      return res.json(formatClientQuote(symbol, liveData));
+    }
+
+    // If absolutely nothing was found, return empty fields/null values
+    return res.json(formatClientQuote(symbol, null));
   } catch (error) {
     next(error);
   }
 });
-
-// SQLite lookup helper
-function dbPrepareQuote(symbol: string): any {
-  try {
-    const stmt = db.prepare('SELECT price, change, change_pct, updated_at FROM quotes WHERE symbol = ?');
-    return stmt.get(symbol) as any;
-  } catch (e) {
-    return null;
-  }
-}
 
 export default router;

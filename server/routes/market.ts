@@ -1,8 +1,6 @@
 import { Router } from 'express';
 import { yahooService } from '../services/yahoo.js';
-import db from '../services/db.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
-import { cacheService } from '../services/cache.js';
 
 const router = Router();
 
@@ -22,7 +20,7 @@ router.get('/indices', apiLimiter, async (req, res, next) => {
       Object.entries(indexSymbols).map(async ([name, symbol]) => {
         let quote: any = null;
         try {
-          // Fetch Layer 2 (Yahoo Scraping is perfect for indexes and key globals)
+          // Fetch Layer 2 (Yahoo Scraping is perfect for indices and key globals)
           quote = await yahooService.getIndexQuote(symbol);
         } catch (e) {
           // Mock index quote fallback if scraper blocked
@@ -58,65 +56,32 @@ router.get('/indices', apiLimiter, async (req, res, next) => {
   }
 });
 
-// 2. GET /api/market/movers -> Top 5 gainers / losers
+// 2. GET /api/market/movers -> Top gainers / losers / active / trending / breakouts using Yahoo Finance Native Playlists
 router.get('/movers', apiLimiter, async (req, res, next) => {
   try {
-    const stmt = db.prepare('SELECT symbol, name, exchange FROM stocks');
-    const universe = stmt.all() as Array<{ symbol: string; name: string; exchange: string }>;
-
-    const ranked = universe
-      .map(stock => {
-        const sym = stock.symbol;
-
-        // Try node-cache first
-        const cached = cacheService.get<any>(`yahoo:quote:${sym}`);
-        if (cached) {
-          return {
-            symbol: sym,
-            name: stock.name,
-            exchange: stock.exchange,
-            price: cached.price,
-            change_pct: cached.change_pct,
-            high_52w: cached.high_52w,
-            low_52w: cached.low_52w
-          };
-        }
-
-        // Try SQLite quote backup next
-        const row = cacheService.getQuoteBackup(sym);
-        if (row) {
-          return {
-            symbol: sym,
-            name: stock.name,
-            exchange: stock.exchange,
-            price: row.price,
-            change_pct: row.change_pct,
-            high_52w: row.high_52w,
-            low_52w: row.low_52w
-          };
-        }
-
-        return null;
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null);
-
-    // Sort for Gainers and Losers
-    const sortedGainers = [...ranked].sort((a, b) => b.change_pct - a.change_pct).slice(0, 5);
-    const sortedLosers = [...ranked].sort((a, b) => a.change_pct - b.change_pct).slice(0, 5);
-
-    // 52-week breakout candidates
-    const high52 = ranked
-      .filter(r => r.price !== null && r.high_52w !== null && r.price >= r.high_52w * 0.99)
-      .slice(0, 5);
-    const low52 = ranked
-      .filter(r => r.price !== null && r.low_52w !== null && r.price <= r.low_52w * 1.01)
-      .slice(0, 5);
+    const [
+      trending,
+      gainers,
+      losers,
+      mostActive,
+      highs52w,
+      lows52w
+    ] = await Promise.all([
+      yahooService.getTrendingSymbols('US'),
+      yahooService.getMarketPlaylist('day_gainers'),
+      yahooService.getMarketPlaylist('day_losers'),
+      yahooService.getMarketPlaylist('most_actives'),
+      yahooService.getMarketPlaylist('growth_technology_stocks'),
+      yahooService.getMarketPlaylist('undervalued_growth_stocks')
+    ]);
 
     res.json({
-      gainers: sortedGainers,
-      losers: sortedLosers,
-      highs_52w: high52,
-      lows_52w: low52
+      most_active: mostActive.slice(0, 20),
+      trending: trending.slice(0, 20),
+      gainers: gainers.slice(0, 20),
+      losers: losers.slice(0, 20),
+      highs_52w: highs52w.slice(0, 20),
+      lows_52w: lows52w.slice(0, 20)
     });
   } catch (error) {
     next(error);

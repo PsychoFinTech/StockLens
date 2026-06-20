@@ -258,49 +258,65 @@ export const MarketDashboardPage: React.FC = () => {
 
       </div>
 
-      {/* 4. 52-Week Breakout Channels Dashboard Grid */}
+      {/* 4. 52-Week Breakout Channels Dashboard Grid (Refactored to List Layout) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-2">
-        {/* 52W Breakout Highs */}
+        
+        {/* 52W Breakout Highs - Table List View */}
         <div className="space-y-4 bg-white border border-gray-200/90 rounded-2xl p-5 shadow-3xs">
           <div className="flex items-center gap-2 border-b border-gray-150 pb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
               <Award className="h-4.5 w-4.5" />
             </div>
-            <h3 className="font-sans font-bold text-gray-950 text-base">52-Week Breakouts (Highs)</h3>
+            <h3 className="font-sans font-bold text-gray-955 text-base">52-Week Breakouts (Highs)</h3>
             <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-amber-50 text-amber-750 rounded uppercase ml-auto">
               Resistance Clear
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="divide-y divide-gray-100">
             {isMoversPending ? (
-              [1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-gray-50 rounded" />)
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="py-3 flex justify-between items-center animate-pulse">
+                  <div className="h-4 w-28 bg-gray-100 rounded" />
+                  <div className="h-4 w-16 bg-gray-100 rounded" />
+                </div>
+              ))
             ) : movers?.highs_52w.length === 0 ? (
-              <div className="col-span-2 text-center text-xs text-gray-400 py-6 font-mono">
+              <div className="text-center text-xs text-gray-400 py-6 font-mono">
                 No active 52W resistance breakouts
               </div>
             ) : (
-              movers?.highs_52w.map(h => (
+              movers?.highs_52w.map((h) => (
                 <button
                   key={h.symbol}
                   onClick={() => handleStockClick(h.symbol)}
-                  className="p-3 border border-gray-150 rounded-xl hover:border-amber-450 bg-white text-left transition-all hover:bg-amber-50/10 flex justify-between items-center group"
+                  className="w-full py-3 flex items-center justify-between hover:bg-amber-50/10 px-2 rounded-lg transition-colors group text-left cursor-pointer"
                 >
-                  <div className="min-w-0">
-                    <div className="font-mono font-bold text-sm text-gray-950 group-hover:text-amber-700">
-                      {h.symbol}
-                    </div>
-                    <div className="text-[11px] text-gray-400 font-semibold truncate max-w-[100px]">
-                      {h.name}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={getCountryFlagUrl(h.exchange)}
+                      alt="Exchange flag"
+                      className="h-3 w-4 rounded-sm shrink-0 object-cover shadow-3xs"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-mono font-bold text-sm text-gray-955 group-hover:text-amber-705 transition-colors">
+                        {h.symbol}
+                      </div>
+                      <div className="text-xs text-gray-400 font-semibold truncate max-w-[120px] sm:max-w-xs mt-0.5">
+                        {h.name}
+                      </div>
                     </div>
                   </div>
+
                   <div className="text-right shrink-0">
-                    <span className="font-mono text-xs font-bold text-gray-900 block">
+                    <div className="font-mono font-bold text-sm text-gray-955">
                       {formatPrice(h.price, h.exchange)}
-                    </span>
-                    <span className="font-mono text-[10px] text-emerald-600 font-extrabold">
-                      +{h.change_pct.toFixed(2)}%
-                    </span>
+                    </div>
+                    <div className="font-mono text-xs text-emerald-600 font-extrabold flex items-center justify-end gap-0.5 mt-0.5">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      <span>{formatPercentChange(h.change_pct)}</span>
+                    </div>
                   </div>
                 </button>
               ))
@@ -308,47 +324,62 @@ export const MarketDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 52W Breakout Lows */}
+        {/* 52W Breakout Lows - Table List View */}
         <div className="space-y-4 bg-white border border-gray-200/90 rounded-2xl p-5 shadow-3xs">
           <div className="flex items-center gap-2 border-b border-gray-150 pb-3">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-650">
               <AlertCircle className="h-4.5 w-4.5" />
             </div>
-            <h3 className="font-sans font-bold text-gray-950 text-base">52-Week Breakdown (Lows)</h3>
+            <h3 className="font-sans font-bold text-gray-955 text-base">52-Week Breakdown (Lows)</h3>
             <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded uppercase ml-auto">
               Support Breach
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="divide-y divide-gray-100">
             {isMoversPending ? (
-              [1, 2, 3, 4].map(i => <div key={i} className="h-12 bg-gray-50 rounded" />)
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="py-3 flex justify-between items-center animate-pulse">
+                  <div className="h-4 w-28 bg-gray-100 rounded" />
+                  <div className="h-4 w-16 bg-gray-100 rounded" />
+                </div>
+              ))
             ) : movers?.lows_52w.length === 0 ? (
-              <div className="col-span-2 text-center text-xs text-gray-400 py-6 font-mono">
+              <div className="text-center text-xs text-gray-400 py-6 font-mono">
                 No active 52W breakdown support breach
               </div>
             ) : (
-              movers?.lows_52w.map(l => (
+              movers?.lows_52w.map((l) => (
                 <button
                   key={l.symbol}
                   onClick={() => handleStockClick(l.symbol)}
-                  className="p-3 border border-gray-150 rounded-xl hover:border-indigo-400 bg-white text-left transition-all hover:bg-neutral-50/30 flex justify-between items-center group"
+                  className="w-full py-3 flex items-center justify-between hover:bg-indigo-50/10 px-2 rounded-lg transition-colors group text-left cursor-pointer"
                 >
-                  <div className="min-w-0">
-                    <div className="font-mono font-bold text-sm text-gray-950 group-hover:text-indigo-750">
-                      {l.symbol}
-                    </div>
-                    <div className="text-[11px] text-gray-400 font-semibold truncate max-w-[100px]">
-                      {l.name}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={getCountryFlagUrl(l.exchange)}
+                      alt="Exchange flag"
+                      className="h-3 w-4 rounded-sm shrink-0 object-cover shadow-3xs"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-mono font-bold text-sm text-gray-955 group-hover:text-indigo-705 transition-colors">
+                        {l.symbol}
+                      </div>
+                      <div className="text-xs text-gray-400 font-semibold truncate max-w-[120px] sm:max-w-xs mt-0.5">
+                        {l.name}
+                      </div>
                     </div>
                   </div>
+
                   <div className="text-right shrink-0">
-                    <span className="font-mono text-xs font-bold text-gray-900 block">
+                    <div className="font-mono font-bold text-sm text-gray-955">
                       {formatPrice(l.price, l.exchange)}
-                    </span>
-                    <span className="font-mono text-[10px] text-rose-600 font-extrabold">
-                      {l.change_pct.toFixed(2)}%
-                    </span>
+                    </div>
+                    <div className="font-mono text-xs text-rose-600 font-extrabold flex items-center justify-end gap-0.5 mt-0.5">
+                      <ArrowDownRight className="h-3.5 w-3.5" />
+                      <span>{formatPercentChange(l.change_pct)}</span>
+                    </div>
                   </div>
                 </button>
               ))
