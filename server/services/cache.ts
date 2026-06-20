@@ -137,5 +137,35 @@ export const cacheService = {
     } catch (error) {
       console.error('[DB SHAREHOLDING BACKUP SAVE ERROR]', error);
     }
+  },
+
+  // Retrieve cached basic financials/ratios (PE, ROE, D/E etc.) from SQLite
+  getRatiosBackup: (symbol: string): any | null => {
+    try {
+      const stmt = db.prepare('SELECT data, updated_at FROM ratios_cache WHERE symbol = ?');
+      const row = stmt.get(symbol.toUpperCase()) as { data: string, updated_at: number } | undefined;
+      if (row) {
+        return { data: JSON.parse(row.data), updated_at: row.updated_at };
+      }
+    } catch (error) {
+      console.error('[DB RATIOS BACKUP GET ERROR]', error);
+    }
+    return null;
+  },
+
+  // Save successful basic financials/ratios to SQLite (survives server restarts)
+  saveRatiosBackup: (symbol: string, data: any): void => {
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO ratios_cache (symbol, data, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(symbol) DO UPDATE SET
+          data = excluded.data,
+          updated_at = excluded.updated_at
+      `);
+      stmt.run(symbol.toUpperCase(), JSON.stringify(data), Date.now());
+    } catch (error) {
+      console.error('[DB RATIOS BACKUP SAVE ERROR]', error);
+    }
   }
 };

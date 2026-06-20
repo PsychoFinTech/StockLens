@@ -22,6 +22,7 @@ import macroRouter from './server/routes/macro.js';
 import { initCronJobs } from './server/services/cron.js';
 import { errorHandler } from './server/middleware/errorHandler.js';
 import { prefetchEdgar } from './server/services/edgar.js';
+import { warmAllRatios } from './server/services/ratiosWarmer.js';
 
 async function startServer() {
   const app = express();
@@ -76,6 +77,10 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[SERVER] StockLens is actively listening at http://localhost:${PORT}`);
+
+    setTimeout(() => {
+      warmAllRatios().catch((err) => console.error('[STARTUP RATIOS WARMER ERROR]', err));
+    }, 30000); // 30s after boot
 
     // Pre-warm EDGAR cache for top 25 most-visited stocks.
     // Starts 90s after boot (server is fully ready), staggered 8s apart.

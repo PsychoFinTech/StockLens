@@ -10,6 +10,11 @@ router.get('/', apiLimiter, (req, res, next) => {
   try {
     const exchangeFilter = req.query.exchange ? req.query.exchange.toString().trim() : '';
     const sectorFilter = req.query.sector ? req.query.sector.toString().trim() : '';
+    const hasMcapFilter = req.query.minMcap !== undefined || req.query.maxMcap !== undefined;
+    const hasPeFilter = req.query.minPe !== undefined || req.query.maxPe !== undefined;
+    const hasRoeFilter = req.query.minRoe !== undefined;
+    const hasDeFilter = req.query.maxDe !== undefined;
+
     const minMcap = req.query.minMcap ? Number(req.query.minMcap) : 0;
     const maxMcap = req.query.maxMcap ? Number(req.query.maxMcap) : 3000000; // in millions ($3T)
     const minPe = req.query.minPe ? Number(req.query.minPe) : 0;
@@ -61,7 +66,13 @@ router.get('/', apiLimiter, (req, res, next) => {
       }
 
       // Check basic financials node cache
-      const cachedRatios = cacheService.get<any>(`yahoo:basic:${sym}`);
+      let cachedRatios = cacheService.get<any>(`yahoo:basic:${sym}`);
+      if (!cachedRatios) {
+        const ratiosBackup = cacheService.getRatiosBackup(sym);
+        if (ratiosBackup) {
+          cachedRatios = ratiosBackup.data;
+        }
+      }
 
       const price = realQuote ? realQuote.price : null;
       const changePct = realQuote ? realQuote.change_pct : null;
@@ -92,10 +103,10 @@ router.get('/', apiLimiter, (req, res, next) => {
     const filtered = decorated.filter(item => {
       const mcapM = item.market_cap !== null ? item.market_cap / 1000000 : null;
       
-      const passMcap = mcapM === null || (mcapM >= minMcap && mcapM <= maxMcap);
-      const passPe = item.pe === null || (item.pe >= minPe && item.pe <= maxPe);
-      const passRoe = item.roe === null || (item.roe >= minRoe);
-      const passDe = item.debt_equity === null || (item.debt_equity <= maxDe);
+      const passMcap = !hasMcapFilter || (mcapM !== null && mcapM >= minMcap && mcapM <= maxMcap);
+      const passPe = !hasPeFilter || (item.pe !== null && item.pe >= minPe && item.pe <= maxPe);
+      const passRoe = !hasRoeFilter || (item.roe !== null && item.roe >= minRoe);
+      const passDe = !hasDeFilter || (item.debt_equity !== null && item.debt_equity <= maxDe);
 
       return passMcap && passPe && passRoe && passDe;
     });

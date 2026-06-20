@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { yahooService } from './yahoo.js';
 import db from './db.js';
+import { warmAllRatios } from './ratiosWarmer.js';
 
 const WARM_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'RELIANCE.NS', 'BP.L', 'SAP.DE', '9984.T'];
 
@@ -25,5 +26,11 @@ export const initCronJobs = () => {
       }
     }
     console.log('[CRON] Cache prewarming cycle complete.');
+  });
+
+  // Daily 9:30AM: refresh PE/ROE/D-E for the entire screener universe
+  cron.schedule('30 9 * * *', async () => {
+    console.log('[CRON] Starting daily full-universe ratios warm-up...');
+    await warmAllRatios();
   });
 };

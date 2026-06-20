@@ -227,6 +227,14 @@ export const yahooService = {
       return cached;
     }
 
+    // Try SQLite backup next (if within 24h) - survives server restarts
+    const backup = cacheService.getRatiosBackup(rawSymbol);
+    if (backup && (Date.now() - backup.updated_at < CACHE_TTLS.FUNDAMENTALS * 1000)) {
+      console.log(`[YAHOO] Found fresh SQLite ratios backup for: ${rawSymbol}`);
+      cacheService.set(cacheKey, backup.data, CACHE_TTLS.FUNDAMENTALS);
+      return backup.data;
+    }
+
     try {
       console.log(`[YAHOO] Fetching basic financials for: ${rawSymbol}`);
       const summary = await yahooFinance.quoteSummary(rawSymbol, {
@@ -258,9 +266,17 @@ export const yahooService = {
       };
 
       cacheService.set(cacheKey, basicObj, CACHE_TTLS.FUNDAMENTALS);
+      cacheService.saveRatiosBackup(rawSymbol, basicObj);
       return basicObj;
     } catch (error: any) {
       console.error(`[YAHOO BASIC ERROR] Failed to fetch basic financials for ${rawSymbol}`, error.message);
+      
+      // Fallback to SQLite check (even if expired) before giving up
+      if (backup) {
+        console.log(`[YAHOO BASIC FALLBACK] Returned stale SQLite ratios backup for ${rawSymbol}`);
+        return backup.data;
+      }
+
       return {
         metric: {
           peAnnual: null,
