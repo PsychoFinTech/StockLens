@@ -147,7 +147,36 @@ router.get('/ratios/:symbol', apiLimiter, async (req, res, next) => {
     const pe = m.peAnnual || null;
     const pb = m.pbAnnual || null;
     const roe = m.roeTTM || null;
-    const roce = m.roicTTM || (roe !== null ? roe * 0.95 : null);
+
+    // Calculate real ROCE from fundamentals time series
+    let roce: number | null = null;
+    try {
+      const timeSeries = await yahooService.getFundamentalsTimeSeries(
+        symbol,
+        new Date(Date.now() - 3 * 365 * 24 * 3600 * 1000).toISOString().split('T')[0], // last 3 years
+        new Date().toISOString().split('T')[0]
+      );
+      
+      const sortedStatements = (Array.isArray(timeSeries) ? timeSeries : []).sort((a: any, b: any) => {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      });
+
+      const latest = sortedStatements[0];
+      if (latest) {
+        const ebit = latest.EBIT || latest.operatingIncome || null;
+        const totalAssets = latest.totalAssets || null;
+        const currentLiabilities = latest.currentLiabilities || null;
+        if (ebit !== null && totalAssets !== null && currentLiabilities !== null) {
+          const capEmployed = totalAssets - currentLiabilities;
+          if (capEmployed > 0) {
+            roce = (ebit / capEmployed) * 100;
+          }
+        }
+      }
+    } catch (tsErr: any) {
+      console.warn(`[RATIOS ROUTE] Failed to calculate ROCE from timeseries for ${symbol}:`, tsErr.message);
+    }
+
     const de = m.debtEquityAnnual || null;
     const eps = m.epsBasicExclExtraItemsTTM || null;
     const mcap = m.marketCapitalization || null;
@@ -516,6 +545,26 @@ router.get('/compare', apiLimiter, async (req, res, next) => {
           const fcf = m.freeCashflow || latest.freeCashFlow || null;
           const pFreeCashFlow = fcf && m.marketCapitalization ? (m.marketCapitalization * 1000000) / fcf : null;
 
+          // Calculate real ROIC
+          let calculatedRoic = null;
+          const ebitVal = latest.EBIT || latest.operatingIncome || null;
+          if (ebitVal !== null) {
+            let cap = latest.investedCapital || null;
+            if (cap === null) {
+              const eq = latest.stockholdersEquity || latest.totalEquityGrossMinorityInterest || null;
+              const debt = latest.totalDebt !== undefined ? latest.totalDebt : ((latest.longTermDebt || 0) + (latest.currentDebt || 0));
+              const cashVal = latest.cashCashEquivalentsAndShortTermInvestments || latest.cashAndCashEquivalents || latest.cashFinancial || 0;
+              if (eq !== null) {
+                cap = eq + debt - cashVal;
+              }
+            }
+            if (cap !== null && cap > 0) {
+              const taxRate = latest.taxRateForCalcs !== undefined ? latest.taxRateForCalcs : 0.21;
+              const nopat = ebitVal * (1 - taxRate);
+              calculatedRoic = (nopat / cap) * 100;
+            }
+          }
+
           const payload = {
             symbol,
             profile: {
@@ -583,7 +632,7 @@ router.get('/compare', apiLimiter, async (req, res, next) => {
             equityReturn: {
               roe: m.roeTTM || null,
               roa: m.roaTTM || null,
-              roic: m.roicTTM || null
+              roic: calculatedRoic
             }
           };
 

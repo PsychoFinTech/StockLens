@@ -442,7 +442,7 @@ export const yahooService = {
             // Keep backwards-compatible fields
             peAnnual: ks.trailingPE || ks.forwardPE || null,
             pbAnnual: ks.priceToBook || null,
-            roicTTM: fd.returnOnAssets ? fd.returnOnAssets * 100 : null,
+            roicTTM: null,
             epsBasicExclExtraItemsTTM: ks.trailingEps || ks.forwardEps || null,
             dividendYieldIndicated: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
             enterpriseValue: ks.enterpriseValue || null,
