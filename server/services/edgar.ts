@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import pLimit from 'p-limit';
 import * as cheerio from 'cheerio';
+import { cleanText, parseMoney, isFootnote } from './edgarParsing.js';
 
 // ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
 let pLimitFn: any = pLimit;
@@ -22,6 +23,7 @@ const SQLITE_TTL = {
   section:     7 * 24 * 60 * 60, // 7 days
   risk_diff:   7 * 24 * 60 * 60, // 7 days
   proxy:       7 * 24 * 60 * 60, // 7 days
+  pvp:         7 * 24 * 60 * 60, // 7 days
 };
 
 // Track in-flight fetches to avoid duplicate parallel requests
@@ -126,6 +128,33 @@ export interface EdgarProxyStatement {
     description: string;
     boardRecommendation: string | null;
   }[];
+}
+
+// ─── Pay versus Performance (Item 402(v) / ECD taxonomy) ────────────────────
+export interface EdgarPvPFactValue {
+  fy: number | null;
+  fp: string | null;
+  end: string | null;
+  start: string | null;
+  val: number;
+  accn: string;
+  form: string;
+}
+
+export interface EdgarPvPConcept {
+  tag: string;          // e.g. "PeoTotalCompAmt"
+  label: string;        // SEC-provided human label for this concept
+  unit: string;         // "USD", "USD-per-shares", "pure", etc.
+  values: EdgarPvPFactValue[];
+}
+
+export interface EdgarPayVsPerformance {
+  symbol: string;
+  cik: string;
+  available: boolean;     // false if the filer has no "ecd" facts at all
+  reason?: string;        // populated when available === false
+  concepts: EdgarPvPConcept[];
+  sourceUrl: string;       // link to the raw SEC companyfacts JSON
 }
 
 // ─── SQLite helpers ───────────────────────────────────────────────────────────
@@ -1034,26 +1063,6 @@ export const edgarService = {
         const html = await docRes.text();
         
         const $ = cheerio.load(html);
-        
-        // Helper cleaning functions
-        const cleanText = (txt: string) => {
-          return txt ? txt.trim().replace(/\s+/g, ' ').replace(/[\u200B-\u200D\uFEFF]/g, '') : '';
-        };
-        
-        const parseMoney = (val: string): number | null => {
-          if (!val) return null;
-          const cleaned = val.replace(/[$,\(\)\s—\-]/g, '').trim();
-          if (!cleaned || isNaN(Number(cleaned))) return null;
-          const num = parseFloat(cleaned);
-          if (val.includes('(') || val.includes(')')) return -num;
-          return num;
-        };
-
-        const isFootnote = (txt: string) => {
-          const cleaned = cleanText(txt);
-          if (!cleaned) return false;
-          return /^\s*[\*†‡§#]x?\s*$/i.test(cleaned) || /^\s*\(\s*\d+\s*\)(?:\s*\(\s*\d+\s*\))*\s*$/.test(cleaned);
-        };
 
         // 1. Annual Meeting
         let meetingDate: string | null = null;
@@ -1391,14 +1400,7 @@ export const edgarService = {
           }
         });
 
-        // Fallback standard items if none parsed
-        if (shareholderProposals.length === 0) {
-          shareholderProposals.push(
-            { item: 'Proposal 1', description: 'Election of Directors', boardRecommendation: 'FOR' },
-            { item: 'Proposal 2', description: 'Ratification of Independent Auditor', boardRecommendation: 'FOR' },
-            { item: 'Proposal 3', description: 'Advisory Vote to Approve Executive Compensation ("Say-on-Pay")', boardRecommendation: 'FOR' }
-          );
-        }
+        // Fallback standard items deleted to ensure data-integrity (no faked proposals)
 
         return {
           symbol: sym,
@@ -1415,6 +1417,81 @@ export const edgarService = {
           boardOfDirectors: { directors },
           auditFees,
           shareholderProposals
+        };
+      }
+    );
+  },
+
+  getPayVersusPerformance: async (symbol: string): Promise<EdgarPayVsPerformance> => {
+    const sym = symbol.toUpperCase();
+    return cachedFetch<EdgarPayVsPerformance>(
+      `pvp:${sym}`,
+      `pvp:${sym}`,
+      SQLITE_TTL.pvp,
+      async () => {
+        const cik = await getCik(sym);
+        const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
+        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        if (!res.ok) {
+          if (res.status === 404) {
+            return {
+              symbol: sym,
+              cik,
+              available: false,
+              reason: `Filer has no XBRL company facts registered on SEC EDGAR.`,
+              concepts: [],
+              sourceUrl: url
+            };
+          }
+          throw new Error(`SEC API returned status ${res.status} for CIK ${cik}`);
+        }
+        const facts = await res.json();
+        const ecdFacts = facts.facts?.ecd;
+
+        if (!ecdFacts || Object.keys(ecdFacts).length === 0) {
+          return {
+            symbol: sym,
+            cik,
+            available: false,
+            reason: `Filer has no 'ecd' (Executive Compensation Disclosure) taxonomy facts in their filings.`,
+            concepts: [],
+            sourceUrl: url
+          };
+        }
+
+        const concepts: EdgarPvPConcept[] = [];
+        for (const [tag, conceptData] of Object.entries(ecdFacts)) {
+          const data = conceptData as any;
+          const label = data.label || tag;
+          const units = data.units || {};
+          for (const [unit, valuesArray] of Object.entries(units)) {
+            if (!Array.isArray(valuesArray)) continue;
+            
+            const values: EdgarPvPFactValue[] = valuesArray.map((v: any) => ({
+              fy: typeof v.fy === 'number' ? v.fy : null,
+              fp: v.fp || null,
+              end: v.end || null,
+              start: v.start || null,
+              val: typeof v.val === 'number' ? v.val : Number(v.val),
+              accn: v.accn || '',
+              form: v.form || ''
+            }));
+
+            concepts.push({
+              tag,
+              label,
+              unit,
+              values
+            });
+          }
+        }
+
+        return {
+          symbol: sym,
+          cik,
+          available: true,
+          concepts,
+          sourceUrl: url
         };
       }
     );

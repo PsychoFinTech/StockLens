@@ -59,6 +59,7 @@ const quoteSummaryBreaker = new CircuitBreaker((sym: string, options: any) => ya
 const recommendationsBreaker = new CircuitBreaker((sym: string) => yahooFinance.recommendationsBySymbol(sym), breakerOptions);
 const searchBreaker = new CircuitBreaker((query: string) => yahooFinance.search(query), breakerOptions);
 const chartBreaker = new CircuitBreaker((sym: string, options: any) => yahooFinance.chart(sym, options), breakerOptions);
+const fundamentalsTimeSeriesBreaker = new CircuitBreaker((sym: string, options: any) => yahooFinance.fundamentalsTimeSeries(sym, options), breakerOptions);
 
 export const yahooService = {
   // Predefined playlists from Yahoo Finance native global screener
@@ -347,6 +348,10 @@ export const yahooService = {
           country: result.assetProfile?.country || 'US',
           weburl: website,
           ipo: '—',
+          ceo: result.assetProfile?.companyOfficers?.find((o: any) => 
+            o.title?.toLowerCase().includes('ceo') || 
+            o.title?.toLowerCase().includes('chief executive officer')
+          )?.name || '—',
           description: result.assetProfile?.longBusinessSummary || `${rawSymbol} is a leading global enterprise.`
         };
 
@@ -368,6 +373,7 @@ export const yahooService = {
           country: backup.data.country || 'US',
           weburl: backup.data.weburl || '',
           ipo: backup.data.ipo || '—',
+          ceo: '—',
           description: backup.data.description || `${rawSymbol} is a leading global enterprise.`
         };
       }
@@ -716,6 +722,35 @@ export const yahooService = {
         return backup.data;
       }
       throw error;
+    }
+  },
+
+  getFundamentalsTimeSeries: async (symbol: string, period1: string, period2: string) => {
+    const rawSymbol = symbol.toUpperCase();
+    const cacheKey = `yahoo:timeseries:${rawSymbol}`;
+
+    const cached = cacheService.get<any>(cacheKey);
+    if (cached) {
+      cacheService.logHit('timeseries', rawSymbol, 'MEMCACHE_YAHOO_TIMESERIES');
+      return cached;
+    }
+
+    try {
+      console.log(`[YAHOO] Fetching fundamentalsTimeSeries for: ${rawSymbol}`);
+      const payload = await dedupedFetch(cacheKey, async () => {
+        const result = await fundamentalsTimeSeriesBreaker.fire(rawSymbol, {
+          period1,
+          period2,
+          type: 'annual',
+          module: 'all'
+        });
+        cacheService.set(cacheKey, result, CACHE_TTLS.FUNDAMENTALS);
+        return result;
+      });
+      return payload;
+    } catch (error: any) {
+      console.error(`[YAHOO TIMESERIES ERROR] Failed for ${rawSymbol}`, error.message);
+      return [];
     }
   }
 };

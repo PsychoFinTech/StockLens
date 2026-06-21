@@ -7,9 +7,10 @@ import { Flame, TrendingUp, TrendingDown, RefreshCcw } from 'lucide-react';
 interface IndexQuote {
   name: string;
   symbol: string;
-  price: number;
-  change: number;
-  change_pct: number;
+  price: number | null;
+  change: number | null;
+  change_pct: number | null;
+  unavailable?: boolean;
 }
 
 export const Ticker: React.FC = () => {
@@ -45,10 +46,24 @@ export const Ticker: React.FC = () => {
             <div className="text-gray-400 font-mono">Indices delayed. Retry.</div>
           ) : (
             indices?.map((idx) => {
-              const isUp = idx.change >= 0;
+              if (idx.unavailable || idx.price === null || idx.change_pct === null) {
+                return (
+                  <div
+                    key={idx.symbol}
+                    className="flex items-center gap-2 flex-shrink-0 border-r border-gray-800/80 last:border-0 pr-4 last:pr-0"
+                  >
+                    <span className="font-sans font-medium text-gray-300">{idx.name}</span>
+                    <span className="font-mono text-[11px] font-semibold px-1 rounded text-gray-500 bg-gray-800/60">
+                      Unavailable
+                    </span>
+                  </div>
+                );
+              }
+
+              const isUp = (idx.change ?? 0) >= 0;
               return (
-                <div 
-                  key={idx.symbol} 
+                <div
+                  key={idx.symbol}
                   className="flex items-center gap-2 flex-shrink-0 border-r border-gray-800/80 last:border-0 pr-4 last:pr-0"
                 >
                   <span className="font-sans font-medium text-gray-300">{idx.name}</span>

@@ -18,35 +18,44 @@ router.get('/indices', apiLimiter, async (req, res, next) => {
   try {
     const list = await Promise.all(
       Object.entries(indexSymbols).map(async ([name, symbol]) => {
-        let quote: any = null;
         try {
           // Fetch Layer 2 (Yahoo Scraping is perfect for indices and key globals)
-          quote = await yahooService.getIndexQuote(symbol);
-        } catch (e) {
-          // Mock index quote fallback if scraper blocked
-        }
+          const quote = await yahooService.getIndexQuote(symbol);
 
-        if (!quote) {
-          // Perfect fallback mock index quote
-          let seed = name.charCodeAt(0) + name.charCodeAt(1);
-          let price = (seed * 85 + 200).toFixed(2);
-          let change = ((seed % 10) - 4.5).toFixed(2);
-          let change_pct = (Number(change) / Number(price) * 100).toFixed(2);
-          
-          quote = {
-            price: Number(price),
-            change: Number(change),
-            change_pct: Number(change_pct)
+          // Defensive check: a resolved promise with a missing/garbage payload
+          // is just as dangerous as a thrown error if we don't validate it.
+          if (
+            !quote ||
+            typeof quote.price !== 'number' ||
+            typeof quote.change !== 'number' ||
+            typeof quote.change_pct !== 'number' ||
+            Number.isNaN(quote.price)
+          ) {
+            throw new Error('Malformed quote payload from upstream source');
+          }
+
+          return {
+            name,
+            symbol,
+            price: quote.price,
+            change: quote.change,
+            change_pct: quote.change_pct,
+            unavailable: false as const
+          };
+        } catch (e) {
+          // Honest unavailable state. We do NOT fabricate a price here.
+          // A previous version of this route synthesized a fake quote from
+          // the index name's character codes when the scraper failed -
+          // that is a data-integrity bug, not a fallback. Never reintroduce it.
+          return {
+            name,
+            symbol,
+            price: null,
+            change: null,
+            change_pct: null,
+            unavailable: true as const
           };
         }
-
-        return {
-          name,
-          symbol,
-          price: quote.price,
-          change: quote.change,
-          change_pct: quote.change_pct
-        };
       })
     );
 

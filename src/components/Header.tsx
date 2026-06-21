@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SearchBar } from './SearchBar.jsx';
-import { TrendingUp, Layers, LineChart, Star, Globe } from 'lucide-react';
+import { TrendingUp, Layers, LineChart, Star, Globe, Scale } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const location = useLocation();
@@ -60,6 +60,18 @@ export const Header: React.FC = () => {
             </Link>
 
             <Link
+              to="/compare"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-sans text-sm font-medium transition-colors ${
+                isLinkActive('/compare') 
+                  ? 'bg-emerald-50 text-emerald-700' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Scale className="h-4 w-4" />
+              Compare
+            </Link>
+
+            <Link
               to="/market"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-sans text-sm font-medium transition-colors ${
                 isLinkActive('/market') 
@@ -114,6 +126,15 @@ export const Header: React.FC = () => {
         >
           <Layers className="h-4 w-4" />
           Screener
+        </Link>
+        <Link
+          to="/compare"
+          className={`flex flex-col items-center gap-0.5 font-sans text-xs font-semibold ${
+            isLinkActive('/compare') ? 'text-emerald-700' : 'text-gray-500'
+          }`}
+        >
+          <Scale className="h-4 w-4" />
+          Compare
         </Link>
         <Link
           to="/market"

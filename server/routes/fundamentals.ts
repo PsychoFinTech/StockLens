@@ -360,4 +360,249 @@ router.get('/shareholding/:symbol', apiLimiter, async (req, res, next) => {
   }
 });
 
+// 6. GET /api/compare -> Compare up to 4 stocks side-by-side
+router.get('/compare', apiLimiter, async (req, res, next) => {
+  const symbolsQuery = (req.query.symbols || '').toString().trim();
+  if (!symbolsQuery) {
+    return res.status(400).json({ error: 'Missing symbols query parameter' });
+  }
+
+  const symbols = symbolsQuery
+    .split(',')
+    .map(s => s.trim().toUpperCase())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  if (symbols.length === 0) {
+    return res.status(400).json({ error: 'No valid symbols provided' });
+  }
+
+  try {
+    const results = await Promise.all(
+      symbols.map(async (symbol) => {
+        try {
+          // 1. Fetch Profile
+          const profile = await yahooService.getProfile(symbol);
+
+          // 2. Fetch Basic Ratios
+          const basic = await yahooService.getBasicFinancials(symbol);
+          const m = basic?.metric || {};
+
+          // 3. Fetch Candles to compute Price Performance
+          const to = Math.floor(Date.now() / 1000);
+          const from = to - (375 * 24 * 3600); // 375 days of history
+          const candles = await yahooService.getCandles(symbol, 'D', from, to);
+
+          let performance: {
+            oneWeek: number | null;
+            threeMonths: number | null;
+            ytd: number | null;
+            oneYear: number | null;
+          } = {
+            oneWeek: null,
+            threeMonths: null,
+            ytd: null,
+            oneYear: null
+          };
+
+          if (candles.s === 'ok' && candles.c && candles.c.length > 0) {
+            const prices = candles.c;
+            const timestamps = candles.t;
+            const count = prices.length;
+            const currentPrice = prices[count - 1];
+
+            const findClosestIndex = (targetTime: number) => {
+              let closestIdx = 0;
+              let minDiff = Infinity;
+              for (let i = 0; i < timestamps.length; i++) {
+                const diff = Math.abs(timestamps[i] - targetTime);
+                if (diff < minDiff) {
+                  minDiff = diff;
+                  closestIdx = i;
+                }
+              }
+              return closestIdx;
+            };
+
+            const oneWeekAgoTarget = to - (7 * 24 * 3600);
+            const threeMonthsAgoTarget = to - (90 * 24 * 3600);
+            const oneYearAgoTarget = to - (365 * 24 * 3600);
+
+            const oneWeekIdx = findClosestIndex(oneWeekAgoTarget);
+            const threeMonthsIdx = findClosestIndex(threeMonthsAgoTarget);
+            const oneYearIdx = findClosestIndex(oneYearAgoTarget);
+
+            // YTD calculation
+            const currentYear = new Date().getFullYear();
+            let ytdIdx = 0;
+            for (let i = 0; i < timestamps.length; i++) {
+              const date = new Date(timestamps[i] * 1000);
+              if (date.getFullYear() === currentYear) {
+                ytdIdx = i;
+                break;
+              }
+            }
+
+            const calcReturn = (pastPrice: number) => {
+              if (!pastPrice) return null;
+              return ((currentPrice - pastPrice) / pastPrice) * 100;
+            };
+
+            performance = {
+              oneWeek: calcReturn(prices[oneWeekIdx]),
+              threeMonths: calcReturn(prices[threeMonthsIdx]),
+              ytd: calcReturn(prices[ytdIdx]),
+              oneYear: calcReturn(prices[oneYearIdx])
+            };
+          }
+
+          // 4. Fetch Multi-Year (fundamentalsTimeSeries) for Income Statement, Balance Sheet, Cash Flow
+          const timeSeries = await yahooService.getFundamentalsTimeSeries(
+            symbol,
+            new Date(Date.now() - 4 * 365 * 24 * 3600 * 1000).toISOString().split('T')[0], // last 4 years
+            new Date().toISOString().split('T')[0]
+          );
+
+          // Get latest and previous annual statement for growth calculations
+          const sortedStatements = (Array.isArray(timeSeries) ? timeSeries : []).sort((a: any, b: any) => {
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+          });
+
+          const latest = sortedStatements[0] || {};
+          const previous = sortedStatements[1] || {};
+
+          const latestDate = latest.date ? new Date(latest.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+          // Accounts Receivable Turnover = Revenue / Accounts Receivable
+          let receivablesTurnover = null;
+          const rev = latest.totalRevenue || latest.operatingRevenue || null;
+          const ar = latest.accountsReceivable || null;
+          if (rev && ar && ar !== 0) {
+            receivablesTurnover = rev / ar;
+          }
+
+          // Revenue Growth YoY
+          let revenueGrowthYoY = null;
+          const prevRev = previous.totalRevenue || previous.operatingRevenue || null;
+          if (rev && prevRev && prevRev !== 0) {
+            revenueGrowthYoY = ((rev - prevRev) / prevRev) * 100;
+          }
+
+          // EPS Growth YoY
+          let epsGrowthYoY = null;
+          const latestEPS = latest.basicEPS || latest.dilutedEPS || null;
+          const prevEPS = previous.basicEPS || previous.dilutedEPS || null;
+          if (latestEPS && prevEPS && prevEPS !== 0) {
+            epsGrowthYoY = ((latestEPS - prevEPS) / prevEPS) * 100;
+          }
+
+          // Smart margin calculations & fallbacks (using annual statements if TTM modules are empty)
+          let grossMargin = m.grossMargins || null;
+          if (grossMargin === null && rev && latest.grossProfit && rev !== 0) {
+            grossMargin = (latest.grossProfit / rev) * 100;
+          }
+
+          let operatingMargin = m.operatingMargins || null;
+          if (operatingMargin === null && rev && latest.operatingIncome && rev !== 0) {
+            operatingMargin = (latest.operatingIncome / rev) * 100;
+          }
+
+          let profitMargin = m.profitMargins || null;
+          if (profitMargin === null && rev && latest.netIncome && rev !== 0) {
+            profitMargin = (latest.netIncome / rev) * 100;
+          }
+
+          // Smart fallback for Free Cash Flow & P/FCF calculation
+          const fcf = m.freeCashflow || latest.freeCashFlow || null;
+          const pFreeCashFlow = fcf && m.marketCapitalization ? (m.marketCapitalization * 1000000) / fcf : null;
+
+          const payload = {
+            symbol,
+            profile: {
+              name: profile.name,
+              sector: profile.finnhubIndustry,
+              industry: profile.finnhubIndustry,
+              ceo: profile.ceo || '—',
+              exchange: profile.exchange,
+              country: profile.country,
+              logo: profile.logo
+            },
+            keyStats: {
+              asOf: latestDate,
+              marketCap: m.marketCapitalization ? m.marketCapitalization * 1000000 : null,
+              enterpriseValue: m.enterpriseValue || null,
+              peRatio: m.peTrailing || m.peAnnual || null,
+              eps: m.epsBasicExclExtraItemsTTM || latest.basicEPS || latest.dilutedEPS || null,
+              dividendRate: m.dividendRate || null,
+              dividendYield: m.dividendYield || null
+            },
+            pricePerformance: {
+              asOf: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+              oneWeek: performance.oneWeek,
+              threeMonths: performance.threeMonths,
+              ytd: performance.ytd,
+              oneYear: performance.oneYear
+            },
+            incomeStatement: {
+              asOf: latestDate,
+              revenue: rev,
+              operatingExpenses: latest.operatingExpense || null,
+              operatingIncome: latest.operatingIncome || null,
+              revenueGrowthYoY,
+              grossProfit: latest.grossProfit || null
+            },
+            balanceSheet: {
+              asOf: latestDate,
+              inventory: latest.inventory || null,
+              receivablesTurnover
+            },
+            cashFlow: {
+              asOf: latestDate,
+              operatingCashFlow: latest.operatingCashFlow || null,
+              capex: latest.capitalExpenditure ? Math.abs(latest.capitalExpenditure) : null,
+              investingCashFlow: latest.investingCashFlow || latest.cashFlowFromContinuingInvestingActivities || null,
+              freeCashFlow: fcf
+            },
+            priceRatios: {
+              pe: m.peTrailing || m.peAnnual || null,
+              forwardPe: m.peForward || null,
+              pFreeCashFlow,
+              pBook: m.priceToBook || null,
+              pSales: m.priceToSales || null,
+              evEbitda: m.enterpriseToEbitda || (m.enterpriseValue && latest.EBITDA ? m.enterpriseValue / latest.EBITDA : null)
+            },
+            margin: {
+              operatingMargin,
+              grossMargin,
+              profitMargin
+            },
+            earnings: {
+              eps: latest.basicEPS || latest.dilutedEPS || m.epsBasicExclExtraItemsTTM || null,
+              epsGrowthYoY
+            },
+            equityReturn: {
+              roe: m.roeTTM || null,
+              roa: m.roaTTM || null,
+              roic: m.roicTTM || null
+            }
+          };
+
+          return payload;
+        } catch (symError: any) {
+          console.error(`[COMPARE SYMBOL ERROR] Failed for ${symbol}:`, symError.message);
+          return {
+            symbol,
+            error: true,
+            message: symError.message || 'Failed to fetch comparison data'
+          };
+        }
+      })
+    );
+
+    res.json(results);
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

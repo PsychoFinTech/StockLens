@@ -2,6 +2,7 @@ import React from 'react';
 import { Building, ExternalLink, FileText, Search } from 'lucide-react';
 import { formatDate } from '../../utils/formatters.js';
 import { ProxyStatementPanel } from './components/ProxyStatementPanel.jsx';
+import { PayVersusPerformancePanel } from './components/PayVersusPerformancePanel.tsx';
 
 interface Peer {
   symbol: string;
@@ -58,6 +59,9 @@ interface SECTabProps {
   edgarProxy: any;
   isEdgarProxyPending: boolean;
   isEdgarProxyError: boolean;
+  edgarPayVersusPerformance: any;
+  isEdgarPayVersusPerformancePending: boolean;
+  isEdgarPayVersusPerformanceError: boolean;
 }
 
 export const SECTab: React.FC<SECTabProps> = ({
@@ -103,6 +107,9 @@ export const SECTab: React.FC<SECTabProps> = ({
   edgarProxy,
   isEdgarProxyPending,
   isEdgarProxyError,
+  edgarPayVersusPerformance,
+  isEdgarPayVersusPerformancePending,
+  isEdgarPayVersusPerformanceError,
 }) => {
   const [secSearchInput, setSecSearchInput] = React.useState('');
   const [diffFilter, setDiffFilter] = React.useState<'all' | 'changes' | 'added' | 'removed'>('all');
@@ -818,12 +825,31 @@ export const SECTab: React.FC<SECTabProps> = ({
 
         {/* Sub-tab: Proxy Statement Panel */}
         {activeSecSubTab === 'proxy' && (
-          <ProxyStatementPanel
-            data={edgarProxy}
-            isPending={isEdgarProxyPending}
-            isError={isEdgarProxyError}
-            upperSymbol={upperSymbol}
-          />
+          <div className="space-y-6">
+            <div>
+              <h4 className="font-sans font-bold text-sm text-gray-900 mb-2">
+                Pay versus Performance (structured XBRL)
+              </h4>
+              <PayVersusPerformancePanel
+                data={edgarPayVersusPerformance}
+                isPending={isEdgarPayVersusPerformancePending}
+                isError={isEdgarPayVersusPerformanceError}
+                upperSymbol={upperSymbol}
+              />
+            </div>
+
+            <div className="border-t border-gray-150 pt-6">
+              <h4 className="font-sans font-bold text-sm text-gray-900 mb-2">
+                Full Proxy Statement (parsed from filing HTML)
+              </h4>
+              <ProxyStatementPanel
+                data={edgarProxy}
+                isPending={isEdgarProxyPending}
+                isError={isEdgarProxyError}
+                upperSymbol={upperSymbol}
+              />
+            </div>
+          </div>
         )}
 
       </div>

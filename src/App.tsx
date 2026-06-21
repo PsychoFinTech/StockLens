@@ -6,9 +6,10 @@ import { Ticker } from './components/Ticker.jsx';
 import { WatchlistPage } from './pages/WatchlistPage.jsx';
 import { ScreenerPage } from './pages/ScreenerPage.jsx';
 import { MarketDashboardPage } from './pages/MarketDashboardPage.jsx';
+import { ComparePage } from './pages/ComparePage.jsx';
 import { CompanyPage } from './pages/CompanyPage/index.jsx';
 import { MacroIndicatorsPage } from './pages/MacroIndicatorsPage.jsx';
-
+import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 // 1. Initialize TanStack Query engine
 const queryClient = new QueryClient({
@@ -28,20 +29,27 @@ export default function App() {
         <div className="min-h-screen bg-gray-50/50 flex flex-col selection:bg-emerald-150 selection:text-emerald-900">
           
           {/* Header block */}
-          <Header />
+          <ErrorBoundary name="Header">
+            <Header />
+          </ErrorBoundary>
 
           {/* Indices ticker widget */}
-          <Ticker />
+          <ErrorBoundary name="Global Ticker">
+            <Ticker />
+          </ErrorBoundary>
 
           {/* Main workspace routing content */}
           <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<WatchlistPage />} />
-              <Route path="/screener" element={<ScreenerPage />} />
-              <Route path="/market" element={<MarketDashboardPage />} />
-              <Route path="/macro" element={<MacroIndicatorsPage />} />
-              <Route path="/company/:symbol" element={<CompanyPage />} />
-            </Routes>
+            <ErrorBoundary name="Page Content">
+              <Routes>
+                <Route path="/" element={<WatchlistPage />} />
+                <Route path="/screener" element={<ScreenerPage />} />
+                <Route path="/compare" element={<ComparePage />} />
+                <Route path="/market" element={<MarketDashboardPage />} />
+                <Route path="/macro" element={<MacroIndicatorsPage />} />
+                <Route path="/company/:symbol" element={<CompanyPage />} />
+              </Routes>
+            </ErrorBoundary>
           </main>
 
           {/* Humble architectural Footer */}
@@ -61,4 +69,3 @@ export default function App() {
     </QueryClientProvider>
   );
 }
-

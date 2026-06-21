@@ -313,6 +313,20 @@ export const useCompanyData = ({
     }
   });
 
+  const { data: edgarPayVersusPerformance, isPending: isEdgarPayVersusPerformancePending, isError: isEdgarPayVersusPerformanceError } = useQuery({
+    queryKey: ['edgarPayVersusPerformance', upperSymbol],
+    queryFn: async () => {
+      const resp = await edgarApiClient.get(`/edgar/pay-vs-performance/${upperSymbol}`);
+      return resp.data;
+    },
+    enabled: isUSStock && activeSecSubTab === 'proxy',
+    staleTime: 24 * 60 * 60 * 1000, // cache 24h
+    retry: (failureCount, error: any) => {
+      if (error?.response?.status === 404) return false;
+      return failureCount < 2;
+    }
+  });
+
   const { data: shareholding, isPending: isShareholdingPending } = useQuery({
     queryKey: ['shareholding', upperSymbol],
     queryFn: async () => {
@@ -367,6 +381,9 @@ export const useCompanyData = ({
     edgarProxy,
     isEdgarProxyPending,
     isEdgarProxyError,
+    edgarPayVersusPerformance,
+    isEdgarPayVersusPerformancePending,
+    isEdgarPayVersusPerformanceError,
     shareholding,
     isShareholdingPending
   };

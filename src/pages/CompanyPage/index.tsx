@@ -132,6 +132,9 @@ export const CompanyPage: React.FC = () => {
     edgarProxy,
     isEdgarProxyPending,
     isEdgarProxyError,
+    edgarPayVersusPerformance,
+    isEdgarPayVersusPerformancePending,
+    isEdgarPayVersusPerformanceError,
     shareholding,
     isShareholdingPending
   } = useCompanyData({
@@ -508,6 +511,9 @@ export const CompanyPage: React.FC = () => {
             edgarProxy={edgarProxy}
             isEdgarProxyPending={isEdgarProxyPending}
             isEdgarProxyError={isEdgarProxyError}
+            edgarPayVersusPerformance={edgarPayVersusPerformance}
+            isEdgarPayVersusPerformancePending={isEdgarPayVersusPerformancePending}
+            isEdgarPayVersusPerformanceError={isEdgarPayVersusPerformanceError}
           />
         )}
 

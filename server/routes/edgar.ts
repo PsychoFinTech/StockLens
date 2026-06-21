@@ -84,6 +84,19 @@ router.get('/proxy/:symbol', apiLimiter, async (req, res, next) => {
   }
 });
 
+// GET /api/edgar/pay-vs-performance/:symbol
+// Structured XBRL data (SEC "ecd" taxonomy, Item 402(v)) - see edgar.ts for
+// why this is intentionally separate from the HTML-scraped proxy endpoint.
+router.get('/pay-vs-performance/:symbol', apiLimiter, async (req, res, next) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const data = await edgarService.getPayVersusPerformance(symbol);
+    res.json(data);
+  } catch (error) {
+    handleEdgarError(error, res, next);
+  }
+});
+
 // 6. GET /api/edgar/congress/trades
 router.get('/congress/trades', apiLimiter, async (req, res, next) => {
   try {
