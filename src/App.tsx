@@ -9,6 +9,7 @@ import { MarketDashboardPage } from './pages/MarketDashboardPage.jsx';
 import { ComparePage } from './pages/ComparePage.jsx';
 import { CompanyPage } from './pages/CompanyPage/index.jsx';
 import { MacroIndicatorsPage } from './pages/MacroIndicatorsPage.jsx';
+import { DexterPage } from './pages/DexterPage.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 // 1. Initialize TanStack Query engine
@@ -47,6 +48,7 @@ export default function App() {
                 <Route path="/compare" element={<ComparePage />} />
                 <Route path="/market" element={<MarketDashboardPage />} />
                 <Route path="/macro" element={<MacroIndicatorsPage />} />
+                <Route path="/dexter" element={<DexterPage />} />
                 <Route path="/company/:symbol" element={<CompanyPage />} />
               </Routes>
             </ErrorBoundary>

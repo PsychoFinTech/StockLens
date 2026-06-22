@@ -130,5 +130,64 @@ router.get('/congress/committees', apiLimiter, async (_req, res) => {
   res.json({});
 });
 
+// 8. GET /api/edgar/filer-search?name=
+router.get('/filer-search', apiLimiter, async (req, res, next) => {
+  try {
+    const nameQuery = req.query.name as string;
+    if (!nameQuery) {
+      return res.status(400).json({ error: 'Missing name parameter' });
+    }
+    
+    // Check local SEC ticker-to-CIK file first as a naive match
+    try {
+      const { cacheService } = await import('../services/cache.js');
+      const cacheKey = `filer_search_${nameQuery.toLowerCase()}`;
+      let data = cacheService.get<any>(cacheKey);
+      
+      if (!data) {
+        const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(nameQuery)}&output=atom`;
+        const response = await fetch(url, {
+          headers: { 'User-Agent': 'Stocklens Research Agent stocklens-admin@gmail.com' }
+        });
+        
+        if (!response.ok) throw new Error(`SEC API returned status ${response.status}`);
+        const xml = await response.text();
+        
+        // Extract CIK from the ATOM feed
+        const cikMatch = xml.match(/<title>([^<]+)\s+\(CIK\s+(\d{10})\)<\/title>/);
+        if (cikMatch) {
+          data = { name: cikMatch[1].trim(), cik: cikMatch[2] };
+        } else {
+          // If no direct match in ATOM, try to parse the general HTML page or return 404
+          const htmlUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(nameQuery)}`;
+          const htmlResponse = await fetch(htmlUrl, {
+            headers: { 'User-Agent': 'Stocklens Research Agent stocklens-admin@gmail.com' }
+          });
+          const html = await htmlResponse.text();
+          const htmlCikMatch = html.match(/CIK=(\d{10})/);
+          if (htmlCikMatch) {
+            data = { name: nameQuery, cik: htmlCikMatch[1] };
+          } else {
+             data = { error: 'No filer found' };
+          }
+        }
+        
+        if (!data.error) {
+           cacheService.set(cacheKey, data, 3600 * 24); // Cache for 24 hours
+        }
+      }
+      
+      if (data.error) {
+        return res.status(404).json(data);
+      }
+      res.json(data);
+    } catch (fetchErr: any) {
+      res.status(500).json({ error: fetchErr.message });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
 

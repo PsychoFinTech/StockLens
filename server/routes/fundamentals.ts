@@ -89,6 +89,7 @@ router.get('/financials/:symbol', apiLimiter, async (req, res, next) => {
       incomeStatement: financials?.incomeStatement?.map((r: any) => {
         const dateVal = r.endDate || r.fiscalDateEnding || '—';
         return {
+          ...r,
           year: dateVal !== '—' ? new Date(dateVal).getFullYear() : '—',
           date: dateVal,
           revenue: r.totalRevenue?.raw || r.totalRevenue || 0,
@@ -100,6 +101,7 @@ router.get('/financials/:symbol', apiLimiter, async (req, res, next) => {
       balanceSheet: financials?.balanceSheet?.map((r: any) => {
         const dateVal = r.endDate || r.fiscalDateEnding || '—';
         return {
+          ...r,
           year: dateVal !== '—' ? new Date(dateVal).getFullYear() : '—',
           date: dateVal,
           assets: r.totalAssets?.raw || r.totalAssets || 0,
@@ -111,6 +113,7 @@ router.get('/financials/:symbol', apiLimiter, async (req, res, next) => {
       cashFlow: financials?.cashFlow?.map((r: any) => {
         const dateVal = r.endDate || r.fiscalDateEnding || '—';
         return {
+          ...r,
           year: dateVal !== '—' ? new Date(dateVal).getFullYear() : '—',
           date: dateVal,
           operating: r.totalCashFromOperatingActivities?.raw || r.operatingCashflow || 0,
@@ -119,7 +122,11 @@ router.get('/financials/:symbol', apiLimiter, async (req, res, next) => {
         };
       })?.slice(0, 5).reverse() || [],
       
-      quarterly: []
+      quarterly: {
+        incomeStatement: financials?.incomeStatementQuarterly || [],
+        balanceSheet: financials?.balanceSheetQuarterly || [],
+        cashFlow: financials?.cashFlowQuarterly || []
+      }
     };
 
     res.json(result);

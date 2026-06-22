@@ -162,6 +162,9 @@ export const yahooService = {
             'incomeStatementHistory',
             'balanceSheetHistory',
             'cashflowStatementHistory',
+            'incomeStatementHistoryQuarterly',
+            'balanceSheetHistoryQuarterly',
+            'cashflowStatementHistoryQuarterly',
             'financialData',
             'defaultKeyStatistics'
           ]
@@ -174,8 +177,11 @@ export const yahooService = {
         // Extract and map into standardized schema
         const mapped = {
           incomeStatement: result.incomeStatementHistory?.incomeStatementHistory || [],
+          incomeStatementQuarterly: result.incomeStatementHistoryQuarterly?.incomeStatementHistory || [],
           balanceSheet: result.balanceSheetHistory?.balanceSheetStatements || [],
+          balanceSheetQuarterly: result.balanceSheetHistoryQuarterly?.balanceSheetStatements || [],
           cashFlow: result.cashflowStatementHistory?.cashflowStatements || [],
+          cashFlowQuarterly: result.cashflowStatementHistoryQuarterly?.cashflowStatements || [],
           ratios: {
             recommendationKey: result.financialData?.recommendationKey || '—',
             targetMeanPrice: result.financialData?.targetMeanPrice || null,
