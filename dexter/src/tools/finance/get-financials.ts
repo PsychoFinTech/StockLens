@@ -144,6 +144,7 @@ export function createGetFinancials(model: string): DynamicStructuredTool {
         model,
         systemPrompt: buildRouterPrompt(),
         tools: FINANCE_TOOLS,
+        signal: config?.signal ?? undefined,
       });
       const aiMessage = response as AIMessage;
 

@@ -203,6 +203,39 @@ export function getChatModel(
   return factory(modelName, opts);
 }
 
+// ── Per-call hard timeout ─────────────────────────────────────────────────────
+// Most LLM provider SDKs have no built-in request timeout.  Without this, a
+// single hung network call to Google/OpenAI/Anthropic blocks the entire agent
+// for the full 90 s gateway wall-clock timeout.  Each *attempt* inside
+// withRetry gets its own fresh budget so retries aren't penalised.
+const LLM_CALL_TIMEOUT_MS = 25_000; // 25 s per attempt — generous for tool-routing calls
+
+/**
+ * Returns a merged AbortSignal that fires after LLM_CALL_TIMEOUT_MS **or**
+ * when the caller's own signal fires, whichever comes first.
+ * Call `cleanup()` in a finally block to clear the internal timer.
+ */
+function withCallTimeout(
+  callerSignal: AbortSignal | undefined,
+  providerName: string,
+): { signal: AbortSignal; cleanup: () => void } {
+  const timeoutCtrl = new AbortController();
+  const timeoutId = setTimeout(
+    () =>
+      timeoutCtrl.abort(
+        new Error(
+          `[${providerName} API] LLM call timed out after ${LLM_CALL_TIMEOUT_MS / 1000}s ` +
+          `(no response from provider — check your API key, network, and model name)`,
+        ),
+      ),
+    LLM_CALL_TIMEOUT_MS,
+  );
+  const merged = callerSignal
+    ? AbortSignal.any([callerSignal, timeoutCtrl.signal])
+    : timeoutCtrl.signal;
+  return { signal: merged, cleanup: () => clearTimeout(timeoutId) };
+}
+
 interface CallLlmOptions {
   model?: string;
   systemPrompt?: string;
@@ -281,20 +314,27 @@ export async function callLlm(prompt: string, options: CallLlmOptions = {}): Pro
       runnable = llm.bindTools(tools);
     }
 
-    const invokeOpts = signal ? { signal } : undefined;
+    // Each retry attempt gets its own 25 s hard timeout so a hung provider
+    // fails fast instead of burning the full 90 s gateway allowance.
+    const { signal: mergedSignal, cleanup } = withCallTimeout(signal, provider.displayName);
+    const invokeOpts = { signal: mergedSignal };
 
-    if (provider.id === 'anthropic') {
-      // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
-      const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
-      return await runnable.invoke(messages, invokeOpts);
-    } else {
-      // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
-      const promptTemplate = ChatPromptTemplate.fromMessages([
-        ['system', finalSystemPrompt],
-        ['user', '{prompt}'],
-      ]);
-      const chain = promptTemplate.pipe(runnable);
-      return await chain.invoke({ prompt }, invokeOpts);
+    try {
+      if (provider.id === 'anthropic') {
+        // Anthropic: use explicit messages with cache_control for prompt caching (~90% savings)
+        const messages = buildAnthropicMessages(finalSystemPrompt, prompt);
+        return await runnable.invoke(messages, invokeOpts);
+      } else {
+        // Other providers: use ChatPromptTemplate (OpenAI/Gemini have automatic caching)
+        const promptTemplate = ChatPromptTemplate.fromMessages([
+          ['system', finalSystemPrompt],
+          ['user', '{prompt}'],
+        ]);
+        const chain = promptTemplate.pipe(runnable);
+        return await chain.invoke({ prompt }, invokeOpts);
+      }
+    } finally {
+      cleanup();
     }
   };
 
@@ -375,14 +415,21 @@ export async function callLlmWithMessages(
       runnable = llm.bindTools(tools);
     }
 
-    const invokeOpts = signal ? { signal } : undefined;
+    // Per-attempt 25 s hard timeout — prevents hung provider connections from
+    // burning the full 90 s gateway allowance before withRetry can rotate keys.
+    const { signal: mergedSignal, cleanup } = withCallTimeout(signal, provider.displayName);
+    const invokeOpts = { signal: mergedSignal };
 
     // For Anthropic: annotate SystemMessage with cache_control for prompt caching
     const finalMessages = provider.id === 'anthropic'
       ? annotateSystemMessageForCaching(messages)
       : messages;
 
-    return await runnable.invoke(finalMessages, invokeOpts);
+    try {
+      return await runnable.invoke(finalMessages, invokeOpts);
+    } finally {
+      cleanup();
+    }
   };
 
   const maxAttempts = provider.id === 'google' ? Math.max(5, geminiKeyRotator.getKeyCount()) : 3;
@@ -413,6 +460,7 @@ export async function* streamLlmWithMessages(
 
   let attempt = 0;
   while (attempt < maxAttempts) {
+    const { signal: mergedSignal, cleanup } = withCallTimeout(signal, provider.displayName);
     try {
       const llm = getChatModel(model, true);
 
@@ -423,7 +471,7 @@ export async function* streamLlmWithMessages(
         runnable = llm.bindTools(tools);
       }
 
-      const invokeOpts = signal ? { signal } : undefined;
+      const invokeOpts = { signal: mergedSignal };
 
       const finalMessages = provider.id === 'anthropic'
         ? annotateSystemMessageForCaching(messages)
@@ -434,8 +482,10 @@ export async function* streamLlmWithMessages(
       for await (const chunk of stream) {
         yield chunk as AIMessageChunk;
       }
+      cleanup();
       return; // Stream finished successfully
     } catch (e) {
+      cleanup();
       const message = e instanceof Error ? e.message : String(e);
       const errorType = classifyError(message);
       logger.error(`[${provider.displayName} API] Stream error (attempt ${attempt + 1}/${maxAttempts}): ${message}`);

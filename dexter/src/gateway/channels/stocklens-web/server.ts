@@ -59,8 +59,12 @@ app.post('/chat', async (req, res) => {
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
 
-  // Agent timeout — avoids an indefinite SSE connection if the model stalls.
+  // Wire a real AbortController so the timeout actually cancels the underlying
+  // LLM network call — not just the SSE response.  Without this, the hung
+  // provider request keeps running silently in the background forever.
+  const agentAbort = new AbortController();
   const timeoutId = setTimeout(() => {
+    agentAbort.abort(new Error('Agent timed out after 90 seconds.'));
     send({ type: 'error', message: 'Agent timed out after 90 seconds.' });
     res.end();
   }, AGENT_TIMEOUT_MS);
@@ -73,6 +77,7 @@ app.post('/chat', async (req, res) => {
       modelProvider: resolvedProvider,
       channel: 'stocklens-web',
       onEvent: send,
+      signal: agentAbort.signal,   // ← propagates to Agent → callLlmWithMessages → LangChain
     });
     clearTimeout(timeoutId);
     send({ type: 'done', answer });
