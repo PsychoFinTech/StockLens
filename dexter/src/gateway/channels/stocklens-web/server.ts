@@ -10,7 +10,7 @@ const PROVIDER_KEY_MAP: Record<string, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
 };
 const requiredKey = PROVIDER_KEY_MAP[MODEL_PROVIDER] ?? `${MODEL_PROVIDER.toUpperCase()}_API_KEY`;
-if (!process.env[requiredKey]) {
+if (!process.env[requiredKey] && !(MODEL_PROVIDER === 'google' && process.env.GEMINI_API_KEYS)) {
   console.error(
     `[DEXTER GATEWAY] FATAL: MODEL_PROVIDER is "${MODEL_PROVIDER}" but ${requiredKey} is not set.\n` +
     `Set it in your .env file and restart the gateway.`
