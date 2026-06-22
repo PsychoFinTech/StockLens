@@ -76,7 +76,7 @@ export const getHistoricalKeyRatios = new DynamicStructuredTool({
     const { snapshot, url } = await stocklens.getKeyRatios(ticker);
     // StockLens only provides current snapshot for ratios, wrap in array to match historical contract
     return formatToolResult(
-      stripFieldsDeep([snapshot] || [], REDUNDANT_FINANCIAL_FIELDS),
+      stripFieldsDeep(snapshot ? [snapshot] : [], REDUNDANT_FINANCIAL_FIELDS),
       [url]
     );
   },

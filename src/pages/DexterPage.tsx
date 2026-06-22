@@ -42,15 +42,29 @@ export const DexterPage: React.FC = () => {
     const agentMsgId = (Date.now() + 1).toString();
     setMessages(prev => [...prev, { id: agentMsgId, role: 'agent', content: '', events: [] }]);
 
+    // 30 s client-side timeout — browser fetch() never times out on its own,
+    // so without this a hung gateway leaves the spinner spinning forever.
+    const clientAbort = new AbortController();
+    const clientTimeout = setTimeout(() => clientAbort.abort(), 30_000);
+
     try {
       const response = await fetch('/api/dexter/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: userMsg.content, sessionKey: 'stocklens-web-session' }),
+        signal: clientAbort.signal,
       });
 
+      clearTimeout(clientTimeout);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Surface the JSON error message from the proxy instead of a bare status code.
+        let errorMsg = `Request failed (${response.status})`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.error) errorMsg = errBody.error;
+        } catch { /* response wasn't JSON — keep the default */ }
+        throw new Error(errorMsg);
       }
 
       if (!response.body) throw new Error('No readable stream available');
@@ -97,11 +111,16 @@ export const DexterPage: React.FC = () => {
           }
         }
       }
-    } catch (err) {
+    } catch (err: any) {
+      clearTimeout(clientTimeout);
       console.error('Chat error:', err);
-      setMessages(prev => prev.map(msg => 
-        msg.id === agentMsgId 
-          ? { ...msg, content: 'Sorry, I encountered an error communicating with the server.' } 
+      const isTimeout = err?.name === 'AbortError';
+      const displayMsg = isTimeout
+        ? 'Request timed out after 30 seconds. The gateway may be overloaded — please try again.'
+        : (err?.message || 'Sorry, I encountered an error communicating with the server.');
+      setMessages(prev => prev.map(msg =>
+        msg.id === agentMsgId
+          ? { ...msg, content: displayMsg }
           : msg
       ));
     } finally {

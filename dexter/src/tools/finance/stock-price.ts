@@ -67,7 +67,12 @@ export const getStockTickers = new DynamicStructuredTool({
   description: 'Retrieves the list of available stock tickers that can be used with the stock price tools.',
   schema: z.object({}),
   func: async () => {
-    const { data, url } = await api.get('/prices/snapshot/tickers/', {}, { cacheable: true, ttlMs: 24 * 60 * 60 * 1000 });
-    return formatToolResult(data.tickers || [], [url]);
+    // `api` (the old Financial Datasets client) no longer exists in this codebase.
+    // Use the screener — it returns a broad list of available stocks from StockLens.
+    const { data, url } = await stocklens.screenStocks({});
+    const tickers: string[] = Array.isArray(data)
+      ? data.map((item: any) => item.ticker).filter(Boolean)
+      : [];
+    return formatToolResult(tickers, [url]);
   },
 });
