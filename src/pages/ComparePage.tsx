@@ -255,6 +255,51 @@ export const ComparePage: React.FC = () => {
     return '';
   };
 
+  // Calculate scores for all comparable metrics
+  const scores = React.useMemo(() => {
+    const s = new Array(columnsData.length).fill(0);
+    if (columnsData.every(c => !c || c.loading || c.details?.error)) return s;
+
+    const evaluate = (getRawValue: (d: any) => number | null, isBetter: 'high' | 'low') => {
+      const rawValues = columnsData.map(col => col?.details && !col.details.error ? getRawValue(col.details) : null);
+      const validValues = rawValues.filter((v): v is number => v !== null && v !== undefined && !isNaN(v));
+      if (validValues.length < 2) return;
+      const max = Math.max(...validValues);
+      const min = Math.min(...validValues);
+      if (max === min) return; // tie for all
+
+      const best = isBetter === 'high' ? max : min;
+      rawValues.forEach((val, idx) => {
+        if (val === best) s[idx]++;
+      });
+    };
+
+    // Evaluate metrics
+    evaluate(d => d.keyStats.peRatio, 'low');
+    evaluate(d => d.pricePerformance.oneWeek, 'high');
+    evaluate(d => d.pricePerformance.threeMonths, 'high');
+    evaluate(d => d.pricePerformance.ytd, 'high');
+    evaluate(d => d.pricePerformance.oneYear, 'high');
+    evaluate(d => d.incomeStatement.revenueGrowthYoY, 'high');
+    evaluate(d => d.balanceSheet.receivablesTurnover, 'high');
+    evaluate(d => d.cashFlow.operatingCashFlow, 'high');
+    evaluate(d => d.cashFlow.freeCashFlow, 'high');
+    evaluate(d => d.priceRatios.forwardPe, 'low');
+    evaluate(d => d.priceRatios.pFreeCashFlow, 'low');
+    evaluate(d => d.priceRatios.pBook, 'low');
+    evaluate(d => d.priceRatios.pSales, 'low');
+    evaluate(d => d.priceRatios.evEbitda, 'low');
+    evaluate(d => d.margin.operatingMargin, 'high');
+    evaluate(d => d.margin.grossMargin, 'high');
+    evaluate(d => d.margin.profitMargin, 'high');
+    evaluate(d => d.earnings.epsGrowthYoY, 'high');
+    evaluate(d => d.equityReturn.roe, 'high');
+    evaluate(d => d.equityReturn.roa, 'high');
+    evaluate(d => d.equityReturn.roic, 'high');
+
+    return s;
+  }, [columnsData]);
+
   // Render a specific row
   const renderRow = (
     label: string, 
@@ -309,7 +354,7 @@ export const ComparePage: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Scale className="h-7 w-7 text-emerald-600" />
-            <h1 className="font-sans text-3xl font-black text-gray-900 tracking-tight">Compare Stocks</h1>
+            <h1 className="font-sans text-3xl font-black bg-gradient-to-r from-emerald-600 via-teal-500 to-blue-600 bg-clip-text text-transparent tracking-tight drop-shadow-sm">Compare Stocks</h1>
           </div>
           <p className="font-sans text-sm text-gray-500 max-w-2xl">
             Compare key stats, performance, balance sheets, and multiples side-by-side. Add up to four stocks to begin.
@@ -319,7 +364,7 @@ export const ComparePage: React.FC = () => {
         {/* Global Toolbar Controls */}
         <div className="flex flex-wrap items-center gap-4">
           {/* Highlight toggle */}
-          <label className="inline-flex items-center cursor-pointer bg-white px-3.5 py-2 rounded-lg border border-gray-200 shadow-3xs hover:bg-gray-50 transition-colors">
+          <label className="inline-flex items-center cursor-pointer bg-white/90 backdrop-blur-xl px-3.5 py-2 rounded-xl border border-white/50 shadow-lg shadow-blue-500/5 hover:bg-white transition-colors">
             <input 
               type="checkbox" 
               checked={highlightHighLow} 
@@ -331,7 +376,7 @@ export const ComparePage: React.FC = () => {
           </label>
 
           {/* Currency dropdown */}
-          <div className="relative bg-white px-3 py-2 rounded-lg border border-gray-200 shadow-3xs flex items-center gap-1.5">
+          <div className="relative bg-white/90 backdrop-blur-xl px-3 py-2 rounded-xl border border-white/50 shadow-lg shadow-blue-500/5 flex items-center gap-1.5">
             <span className="text-[10px] uppercase font-bold text-gray-400">Display Currency:</span>
             <select
               value={currencyMode}
@@ -346,7 +391,7 @@ export const ComparePage: React.FC = () => {
       </div>
 
       {/* 2. Symbol Add/Remove Column Headers */}
-      <div className="grid grid-cols-1 md:grid-cols-5 border border-gray-200 rounded-xl bg-white shadow-2xs overflow-hidden">
+      <div className="grid grid-cols-1 md:grid-cols-5 border border-white/50 rounded-3xl bg-white/95 backdrop-blur-xl shadow-xl shadow-indigo-500/10 overflow-hidden">
         {/* Row Header Helper Label */}
         <div className="p-4 bg-gray-50/50 flex flex-col justify-center border-b md:border-b-0 md:border-r border-gray-200">
           <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs uppercase tracking-wider mb-1">
@@ -480,7 +525,7 @@ export const ComparePage: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-2xl bg-white shadow-2xs overflow-hidden">
+        <div className="border border-white/50 rounded-3xl bg-white/95 backdrop-blur-xl shadow-xl shadow-indigo-500/10 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
               <thead>
@@ -909,6 +954,28 @@ export const ComparePage: React.FC = () => {
                     )}
                   </>
                 )}
+
+                {/* ========================================================
+                    SECTION 10: SCORE SUMMARY
+                    ======================================================== */}
+                <tr className="bg-emerald-50/30 border-t-2 border-emerald-500">
+                  <td className="py-4 px-4 text-sm font-black text-emerald-900 sticky left-0 z-10 bg-emerald-50/80 backdrop-blur-xs border-r border-emerald-100 flex flex-col">
+                    <span>Overall Winner</span>
+                    <span className="text-[10px] text-emerald-600/80 font-semibold uppercase tracking-wider mt-0.5">Metrics Won</span>
+                  </td>
+                  {columnsData.map((col, idx) => {
+                    if (!col || col.loading || col.details?.error) {
+                      return <td key={idx} className="py-4 px-4 text-center text-gray-300 font-mono text-xs">—</td>;
+                    }
+                    const isWinner = scores[idx] === Math.max(...scores.filter((_, i) => columnsData[i]?.details));
+                    return (
+                      <td key={idx} className={`py-4 px-4 text-center text-xl font-black font-mono ${isWinner ? 'text-emerald-600 bg-emerald-100/50 border-x border-emerald-200' : 'text-gray-400'}`}>
+                        {scores[idx]} <span className="text-[10px] text-gray-400 font-sans tracking-wide uppercase">wins</span>
+                        {isWinner && <div className="text-[10px] font-sans text-emerald-600 bg-emerald-200/50 inline-block px-2 py-0.5 rounded-full ml-2 uppercase tracking-widest align-middle">Winner</div>}
+                      </td>
+                    );
+                  })}
+                </tr>
 
               </tbody>
             </table>

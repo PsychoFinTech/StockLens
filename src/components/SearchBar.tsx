@@ -17,11 +17,13 @@ interface SearchResult {
 interface SearchBarProps {
   placeholder?: string;
   variant?: 'default' | 'hero';
+  onSelect?: (symbol: string) => void;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({ 
   placeholder = 'Search tickers...',
-  variant = 'default'
+  variant = 'default',
+  onSelect
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -81,7 +83,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const handleSelect = (symbol: string) => {
     setQuery('');
     setIsOpen(false);
-    navigate(`/company/${encodeURIComponent(symbol.toUpperCase())}`);
+    if (onSelect) {
+      onSelect(symbol);
+    } else {
+      navigate(`/company/${encodeURIComponent(symbol.toUpperCase())}`);
+    }
   };
 
   const isHero = variant === 'hero';

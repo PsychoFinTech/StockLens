@@ -1012,13 +1012,13 @@ export const ScreenerPage: React.FC = () => {
   const currentCategorical = currentValue?.kind === 'categorical' ? currentValue : undefined;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8 pb-20">
       {/* Page Title Header */}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Layers className="h-6 w-6 text-emerald-600 animate-pulse" />
-            <h1 className="font-sans text-2xl font-black text-gray-900 tracking-tight">Equities Stock Screener</h1>
+            <h1 className="font-sans text-3xl font-black bg-gradient-to-r from-blue-600 via-indigo-600 to-emerald-500 bg-clip-text text-transparent tracking-tight drop-shadow-sm">Equities Stock Screener</h1>
           </div>
           <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -1061,21 +1061,21 @@ export const ScreenerPage: React.FC = () => {
                 <button
                   key={s.name}
                   onClick={() => handleSectorCardClick(s.name)}
-                  className={`p-5 rounded-2xl border text-left transition-all ${
+                  className={`p-5 rounded-3xl text-left transition-all duration-300 transform ${
                     isSelected 
-                      ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-500/20' 
-                      : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'
+                      ? 'bg-white shadow-2xl ring-2 ring-indigo-500/50 scale-[1.02] shadow-indigo-500/20' 
+                      : 'bg-white/95 shadow-xl shadow-blue-500/5 border border-white hover:bg-white hover:shadow-2xl hover:shadow-indigo-500/15 hover:-translate-y-2'
                   }`}
                 >
-                  <div className="font-sans font-bold text-base sm:text-lg text-gray-950 truncate">
+                  <div className="font-sans font-bold text-base sm:text-lg text-gray-800 truncate tracking-tight">
                     {s.name}
                   </div>
-                  <div className="flex items-baseline gap-2 mt-2">
-                    <span className="font-mono text-xs font-bold text-gray-400">
+                  <div className="flex items-baseline gap-2 mt-3">
+                    <span className="font-sans text-xs font-bold text-gray-400 bg-gray-100/80 px-2 py-0.5 rounded-md">
                       {s.proxy}
                     </span>
-                    <span className={`font-mono text-base font-black ml-auto ${
-                      isUp ? 'text-emerald-600' : 'text-rose-600'
+                    <span className={`font-mono text-sm font-black ml-auto px-2 py-0.5 rounded-md ${
+                      isUp ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
                     }`}>
                       {isUp ? '+' : ''}{s.performance.toFixed(2)}%
                     </span>
@@ -1119,21 +1119,21 @@ export const ScreenerPage: React.FC = () => {
         </div>
 
         {/* Table showing stocks for the active tab in a vertical list layout */}
-        <div className="overflow-x-auto rounded-xl border border-gray-150 bg-white shadow-3xs">
-          <table className="min-w-full divide-y divide-gray-150 border-collapse">
-            <thead className="bg-gray-50/75 border-b border-gray-150 text-left">
+        <div className="overflow-x-auto rounded-3xl border border-white/50 bg-white/95 backdrop-blur-2xl shadow-2xl shadow-indigo-500/10">
+          <table className="min-w-full divide-y divide-gray-100/50 border-collapse">
+            <thead className="bg-transparent border-b border-gray-100/60 text-left">
               <tr>
-                <th className="w-24 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider border-r border-gray-150">Symbol</th>
-                <th className="px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="w-24 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-center">Trend</th>
-                <th className="w-28 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Price</th>
-                <th className="w-28 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Change %</th>
-                <th className="w-32 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">Market Cap</th>
-                <th className="w-32 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">P/E Ratio (TTM)</th>
-                <th className="w-36 px-4 py-2.5 text-[11px] font-bold text-gray-500 uppercase tracking-wider text-right">52 Wk Change %</th>
+                <th className="w-24 px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider">Symbol</th>
+                <th className="px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="w-24 px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider text-center">Trend</th>
+                <th className="w-28 px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider text-right">Price</th>
+                <th className="w-28 px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider text-right">Change %</th>
+                <th className="w-32 px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider text-right">Market Cap</th>
+                <th className="w-32 px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider text-right">P/E Ratio</th>
+                <th className="w-36 px-4 py-4 text-[11px] font-sans font-bold text-gray-500 uppercase tracking-wider text-right">52 Wk Change %</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-150 bg-white">
+            <tbody className="divide-y divide-gray-100/50 bg-transparent">
               {isMoversPending ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="animate-pulse">
@@ -1166,32 +1166,34 @@ export const ScreenerPage: React.FC = () => {
                       <tr 
                         key={stock.symbol}
                         onClick={() => navigate(`/company/${encodeURIComponent(stock.symbol.toUpperCase())}`)}
-                        className="hover:bg-slate-50/70 cursor-pointer transition-colors group"
+                        className="hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-transparent hover:scale-[1.01] hover:shadow-lg cursor-pointer transition-all duration-300 group relative z-10"
                       >
-                        <td className="w-24 px-4 py-3 border-r border-gray-150 font-sans font-bold text-sm text-blue-600 hover:underline group-hover:text-blue-700 select-none text-left">
-                          {stock.symbol}
+                        <td className="w-24 px-4 py-4 text-left">
+                          <span className="inline-flex items-center rounded-md bg-gray-100/80 px-2 py-1 text-xs font-bold text-gray-700 ring-1 ring-inset ring-gray-500/10 group-hover:bg-white group-hover:text-blue-600 group-hover:ring-blue-500/20 transition-colors">
+                            {stock.symbol}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-xs sm:text-sm text-gray-800 truncate max-w-[150px] sm:max-w-md font-sans">
+                        <td className="px-4 py-4 text-xs sm:text-sm text-gray-600 truncate max-w-[150px] sm:max-w-md font-sans font-medium">
                           {stock.name}
                         </td>
-                        <td className="w-24 px-4 py-3 text-center">
+                        <td className="w-24 px-4 py-4 text-center">
                           {renderSparkline(stock.symbol, isUp)}
                         </td>
-                        <td className="w-28 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold text-gray-955">
+                        <td className="w-28 px-4 py-4 text-right font-mono text-xs sm:text-sm font-bold text-gray-700">
                           {formatPrice(stock.price, stock.exchange)}
                         </td>
-                        <td className={`w-28 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold ${
+                        <td className={`w-28 px-4 py-4 text-right font-mono text-xs sm:text-sm font-bold ${
                           isUp ? 'text-emerald-600' : 'text-rose-600'
                         }`}>
                           {formatPercentChange(stock.change_pct)}
                         </td>
-                        <td className="w-32 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold text-gray-955">
+                        <td className="w-32 px-4 py-4 text-right font-mono text-xs sm:text-sm font-bold text-gray-700">
                           {typeof stock.market_cap === 'number' ? formatMarketCap(stock.market_cap, stock.exchange) : '—'}
                         </td>
-                        <td className="w-32 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold text-gray-955">
+                        <td className="w-32 px-4 py-4 text-right font-mono text-xs sm:text-sm font-bold text-gray-700">
                           {typeof stock.pe_ratio === 'number' ? `${stock.pe_ratio.toFixed(2)}` : '—'}
                         </td>
-                        <td className={`w-36 px-4 py-3 text-right font-mono text-xs sm:text-sm font-bold ${
+                        <td className={`w-36 px-4 py-4 text-right font-mono text-xs sm:text-sm font-bold ${
                           is52wUp ? 'text-emerald-600' : 'text-rose-600'
                         }`}>
                           {typeof stock.change_52w === 'number' ? `${stock.change_52w >= 0 ? '+' : ''}${stock.change_52w.toFixed(2)}%` : '—'}
@@ -1208,9 +1210,9 @@ export const ScreenerPage: React.FC = () => {
 
       {/* 2. Interactive Multi-Factor Filters Builder Panel */}
       {showAdvancedFilters && (
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-col overflow-hidden rounded-3xl border border-white/50 bg-white/90 backdrop-blur-2xl shadow-2xl shadow-blue-500/10">
           {/* Filters Builder Title Header */}
-          <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-5 py-3">
+          <div className="flex items-center justify-between border-b border-gray-100/50 bg-transparent px-5 py-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Filter Builder</span>
               <span className="rounded-full bg-emerald-100/70 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
@@ -1237,10 +1239,9 @@ export const ScreenerPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Three Panes Splitter Layout */}
-          <div className="flex flex-col md:flex-row h-[360px] overflow-hidden">
+          <div className="flex flex-col md:flex-row h-[480px] overflow-hidden">
             {/* L1: Categories (25%) */}
-            <div className="w-full md:w-1/4 border-r border-gray-100 bg-gray-50/40 p-2 overflow-y-auto">
+            <div className="w-full md:w-1/4 border-r border-gray-100/50 bg-transparent p-3 overflow-y-auto">
               <nav className="space-y-1">
                 {CATEGORIES.map((category) => {
                   const Icon = CATEGORY_ICONS[category];
@@ -1252,24 +1253,24 @@ export const ScreenerPage: React.FC = () => {
                     <button
                       key={category}
                       onClick={() => handleSelectCategory(category)}
-                      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-semibold transition-colors ${
+                      className={`flex w-full items-center justify-between rounded-lg px-4 py-3 text-left text-sm font-bold transition-colors ${
                         isActive
                           ? 'bg-emerald-50 text-emerald-700'
                           : 'text-gray-600 hover:bg-gray-100/70'
                       }`}
                     >
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-3">
                         <Icon
-                          className={`h-3.5 w-3.5 ${isActive ? 'text-emerald-600' : 'text-gray-400'}`}
+                          className={`h-4 w-4 ${isActive ? 'text-emerald-600' : 'text-gray-400'}`}
                         />
                         {category}
                       </span>
-                      <span className="flex items-center gap-1">
+                      <span className="flex items-center gap-1.5">
                         {countInCategory > 0 && (
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         )}
                         <ChevronRight
-                          className={`h-3 w-3 ${isActive ? 'text-emerald-500' : 'text-gray-300'}`}
+                          className={`h-4 w-4 ${isActive ? 'text-emerald-500' : 'text-gray-300'}`}
                         />
                       </span>
                     </button>
@@ -1279,7 +1280,7 @@ export const ScreenerPage: React.FC = () => {
             </div>
 
             {/* L2: Metrics (35%) */}
-            <div className="w-full md:w-[35%] border-r border-gray-100 p-2 overflow-y-auto">
+            <div className="w-full md:w-[35%] border-r border-gray-100/50 bg-transparent p-3 overflow-y-auto">
               <div className="space-y-1">
                 {metricsInCategory.map((metric) => {
                   const isActive = metric.id === activeMetricId;
@@ -1288,26 +1289,26 @@ export const ScreenerPage: React.FC = () => {
                     <button
                       key={metric.id}
                       onClick={() => handleSelectMetric(metric.id)}
-                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
+                      className={`flex w-full items-center justify-between gap-2 rounded-lg px-4 py-3 text-left transition-colors ${
                         isActive ? 'bg-emerald-50/50' : 'hover:bg-gray-50/50'
                       }`}
                     >
                       <div className="min-w-0">
                         <div
-                          className={`truncate text-xs ${
+                          className={`truncate text-sm ${
                             isActive ? 'font-bold text-emerald-800' : 'font-semibold text-gray-700'
                           }`}
                         >
                           {metric.name}
                         </div>
                         {summary && (
-                          <div className="mt-0.5 truncate text-[10px] font-mono font-bold text-emerald-600">
+                          <div className="mt-1 truncate text-xs font-mono font-bold text-emerald-600">
                             {summary}
                           </div>
                         )}
                       </div>
                       <ChevronRight
-                        className={`h-3 w-3 flex-shrink-0 ${
+                        className={`h-4 w-4 flex-shrink-0 ${
                           isActive ? 'text-emerald-500' : 'text-gray-300'
                         }`}
                       />
@@ -1318,10 +1319,10 @@ export const ScreenerPage: React.FC = () => {
             </div>
 
             {/* L3: Editors (40%) */}
-            <div className="w-full md:w-[40%] bg-white p-4 overflow-y-auto flex flex-col justify-between">
+            <div className="w-full md:w-[40%] bg-transparent p-6 overflow-y-auto flex flex-col justify-between">
               <div>
-                <h4 className="text-xs font-bold text-gray-955">{activeMetric.name}</h4>
-                <p className="mt-1 text-[11px] leading-relaxed text-gray-400 font-medium">
+                <h4 className="text-base font-bold text-gray-900">{activeMetric.name}</h4>
+                <p className="mt-1 text-sm leading-relaxed text-gray-500 font-medium">
                   {activeMetric.description}
                 </p>
                 <div className="mt-3">
@@ -1436,7 +1437,7 @@ export const ScreenerPage: React.FC = () => {
       </div>
     </div>
   );
-};
+}
 
 // ----------------------------------------------------------------------------
 // 4. SUB-COMPONENTS: CAT EDITORS & NUM EDITORS
@@ -1462,13 +1463,13 @@ function CategoricalEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder={`Search ${metric.name.toLowerCase()}...`}
-          className="w-full rounded-lg border border-gray-200 py-1.5 pl-8 pr-7 text-xs text-gray-700 placeholder:text-gray-450 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none"
+          className="w-full rounded-lg border border-gray-200 py-2.5 pl-9 pr-8 text-sm text-gray-700 placeholder:text-gray-450 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none"
         />
         {search && (
           <button
@@ -1480,22 +1481,22 @@ function CategoricalEditor({
         )}
       </div>
 
-      <div className="max-h-[160px] space-y-0.5 overflow-y-auto rounded-lg border border-gray-200 p-1">
+      <div className="max-h-[240px] space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-2">
         {filteredOptions.length === 0 && (
-          <p className="px-2 py-3 text-center text-xs text-gray-450">No matches found.</p>
+          <p className="px-3 py-4 text-center text-sm text-gray-450">No matches found.</p>
         )}
         {filteredOptions.map((option) => {
           const checked = selected.includes(option);
           return (
             <label
               key={option}
-              className="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-1 text-xs text-gray-755 hover:bg-gray-50"
+              className="flex cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-sm text-gray-755 hover:bg-gray-50"
             >
               <input
                 type="checkbox"
                 checked={checked}
                 onChange={() => onToggle(option)}
-                className="h-3.5 w-3.5 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-100"
+                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-100"
               />
               {option}
             </label>
@@ -1527,22 +1528,22 @@ function NumericEditor({
   const placeholder = metric.placeholder ?? 'e.g. 10';
 
   return (
-    <div className="space-y-1.5">
-      <div className="grid grid-cols-2 gap-1.5">
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
         {metric.presets?.map((preset) => {
           const checked = value?.preset === preset.id;
           return (
             <button
               key={preset.id}
               onClick={() => onPresetToggle(preset.id)}
-              className={`flex items-center justify-between rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-all ${
+              className={`flex items-center justify-between rounded-lg border px-4 py-3 text-sm font-semibold transition-all ${
                 checked
                   ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
                   : 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50'
               }`}
             >
               <span className="truncate">{preset.label}</span>
-              <span className={`h-2 w-2 rounded-full border border-gray-300 shrink-0 ml-1 ${
+              <span className={`h-3 w-3 rounded-full border border-gray-300 shrink-0 ml-1 ${
                 checked ? 'bg-emerald-600 border-emerald-600' : 'bg-white'
               }`} />
             </button>
@@ -1554,29 +1555,29 @@ function NumericEditor({
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <button
           onClick={() => onCustomOpenChange(!customOpen)}
-          className={`flex w-full items-center justify-between px-3 py-1.5 text-[11px] font-bold transition-all ${
+          className={`flex w-full items-center justify-between px-4 py-3 text-sm font-bold transition-all ${
             customOpen ? 'bg-gray-50 text-gray-800' : 'text-gray-750 hover:bg-gray-50'
           }`}
         >
           <span>Custom Value</span>
           <ChevronRight
-            className={`h-3 w-3 text-gray-400 transition-transform ${
+            className={`h-4 w-4 text-gray-400 transition-transform ${
               customOpen ? 'rotate-90' : ''
             }`}
           />
         </button>
 
         {customOpen && (
-          <div className="space-y-2 border-t border-gray-100 bg-gray-50/40 p-2.5">
+          <div className="space-y-3 border-t border-gray-100 bg-gray-50/40 p-3">
             {/* Operator button group */}
-            <div className="grid grid-cols-4 gap-0.5 rounded-lg bg-gray-200/50 p-0.5">
+            <div className="grid grid-cols-4 gap-1 rounded-lg bg-gray-200/50 p-1">
               {OPERATORS.map((op) => (
                 <button
                   key={op.id}
                   onClick={() => onCustomChange({ operator: op.id })}
-                  className={`rounded px-1 py-1 text-[10px] font-bold transition-all ${
+                  className={`rounded px-2 py-2 text-xs font-bold transition-all ${
                     operator === op.id
-                      ? 'bg-white text-emerald-705 shadow-3xs'
+                      ? 'bg-white text-emerald-705 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -1587,21 +1588,21 @@ function NumericEditor({
 
             {/* Inputs */}
             {operator === 'between' ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <input
                   type="text"
                   value={value1}
                   onChange={(e) => onCustomChange({ value1: e.target.value })}
                   placeholder={placeholder}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 placeholder:text-gray-400 focus:border-emerald-400 outline-none"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-emerald-400 outline-none"
                 />
-                <span className="text-[10px] text-gray-400 font-bold">and</span>
+                <span className="text-xs text-gray-400 font-bold">and</span>
                 <input
                   type="text"
                   value={value2}
                   onChange={(e) => onCustomChange({ value2: e.target.value })}
                   placeholder={placeholder}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 placeholder:text-gray-400 focus:border-emerald-400 outline-none"
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-emerald-400 outline-none"
                 />
               </div>
             ) : (
@@ -1610,7 +1611,7 @@ function NumericEditor({
                 value={value1}
                 onChange={(e) => onCustomChange({ value1: e.target.value })}
                 placeholder={placeholder}
-                className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 placeholder:text-gray-400 focus:border-emerald-400 outline-none"
+                className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:border-emerald-400 outline-none"
               />
             )}
           </div>

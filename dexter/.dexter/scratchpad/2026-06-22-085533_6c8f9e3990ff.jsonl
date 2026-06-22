@@ -1,0 +1,2 @@
+{"type":"init","content":"stock price of apple","timestamp":"2026-06-22T08:55:33.903Z"}
+{"type":"tool_result","timestamp":"2026-06-22T08:55:49.723Z","toolName":"get_market_data","args":{"query":"current stock price of AAPL"},"result":{"data":{"get_stock_price_AAPL":{"ticker":"AAPL","price":298.01,"day_high":300.57,"day_low":295.62,"open_price":298.44,"previous_close":295.95,"fifty_two_week_high":317.4,"fifty_two_week_low":198.96,"time":1782118549721}},"sourceUrls":["http://localhost:3000/api/quote/AAPL"]}}

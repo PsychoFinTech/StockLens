@@ -39,11 +39,11 @@ export function Table<T extends { id?: string | number; symbol?: string }>({
   };
 
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-gray-200/90 bg-white shadow-3xs">
-      <table id={id} className="min-w-full divide-y divide-gray-200">
+    <div className="w-full overflow-x-auto rounded-3xl bg-white/95 backdrop-blur-2xl shadow-2xl shadow-indigo-500/10 border-0">
+      <table id={id} className="min-w-full divide-y divide-gray-100 border-collapse">
         
         {/* Table header */}
-        <thead className="bg-gray-50/75">
+        <thead className="bg-transparent border-b-2 border-indigo-50/50">
           <tr>
             {columns.map((col) => {
               const matchesSort = sortKey === col.key;
@@ -56,8 +56,8 @@ export function Table<T extends { id?: string | number; symbol?: string }>({
                 <th
                   key={col.key}
                   onClick={() => handleHeaderClick(col)}
-                  className={`px-4 py-3 text-xs font-mono font-bold uppercase tracking-wider text-gray-500 ${
-                    col.sortable ? 'cursor-pointer select-none hover:bg-gray-100/70' : ''
+                  className={`px-4 py-4 text-xs font-sans font-bold uppercase tracking-wider text-gray-400 ${
+                    col.sortable ? 'cursor-pointer select-none hover:text-indigo-600 transition-colors' : ''
                   }`}
                 >
                   <div className={`flex items-center gap-1.5 ${alignClass}`}>
@@ -79,7 +79,7 @@ export function Table<T extends { id?: string | number; symbol?: string }>({
         </thead>
 
         {/* Table body */}
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody className="divide-y divide-gray-50 bg-transparent">
           {isPending ? (
             Array.from({ length: 8 }).map((_, rIdx) => (
               <TableRowSkeleton key={rIdx} columns={columns.length} />
@@ -96,8 +96,8 @@ export function Table<T extends { id?: string | number; symbol?: string }>({
               <tr
                 key={row.id || row.symbol || rIdx}
                 onClick={() => onRowClick && onRowClick(row)}
-                className={`transition-colors duration-150 ${
-                  onRowClick ? 'cursor-pointer hover:bg-emerald-50/20' : 'hover:bg-gray-50/30'
+                className={`transition-all duration-300 transform ${
+                  onRowClick ? 'cursor-pointer hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-transparent hover:scale-[1.01] hover:shadow-lg relative z-10' : 'hover:bg-indigo-50/30'
                 }`}
               >
                 {columns.map((col) => {

@@ -30,7 +30,7 @@ export const MarketDashboardPage: React.FC = () => {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <LineChart className="h-6 w-6 text-emerald-600" />
-            <h1 className="font-sans text-2xl font-black text-gray-900 tracking-tight">Financial Market Dashboard</h1>
+            <h1 className="font-sans text-3xl font-black bg-gradient-to-r from-emerald-600 via-teal-500 to-blue-600 bg-clip-text text-transparent tracking-tight drop-shadow-sm">Financial Market Dashboard</h1>
           </div>
           <p className="font-sans text-xs sm:text-sm text-gray-500 max-w-2xl">
             Monitor real-time movers, multi-region key indices, and global sector leadership rotations.
@@ -58,7 +58,7 @@ export const MarketDashboardPage: React.FC = () => {
               return (
                 <div
                   key={idx.symbol}
-                  className="p-4 bg-white border border-gray-150 rounded-xl shadow-3xs flex flex-col justify-between"
+                  className="p-5 border border-white/50 bg-white/95 backdrop-blur-xl rounded-3xl shadow-xl shadow-blue-500/5 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/15 hover:-translate-y-2 flex flex-col justify-between"
                 >
                   <div>
                     <span className="font-sans font-extrabold text-[13px] text-gray-900 tracking-tight">
@@ -82,7 +82,7 @@ export const MarketDashboardPage: React.FC = () => {
             return (
               <div 
                 key={idx.symbol}
-                className="p-4 bg-white border border-gray-150 rounded-xl shadow-3xs flex flex-col justify-between"
+                className="p-5 border border-white/50 bg-white/95 backdrop-blur-xl rounded-3xl shadow-xl shadow-blue-500/5 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/15 hover:-translate-y-2 flex flex-col justify-between"
               >
                 <div>
                   <span className="font-sans font-extrabold text-[13px] text-gray-900 tracking-tight">

@@ -4,6 +4,8 @@ import db from './db.js';
 import { warmAllRatios } from './ratiosWarmer.js';
 import pLimit from 'p-limit';
 import { SEED_STOCKS } from './seeds.js';
+import { warmAllEdgarFinancials } from './edgarWarmer.js';
+import { fredService, ALLOWED_SERIES } from './fred.js';
 
 // ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
 let pLimitFn: any = pLimit;
@@ -40,6 +42,27 @@ export const initCronJobs = () => {
   cron.schedule('30 9 * * *', async () => {
     console.log('[CRON] Starting daily full-universe ratios warm-up...');
     await warmAllRatios();
+  });
+
+  // Daily 10:00PM: download 5-year financials from SEC EDGAR for all stocks
+  cron.schedule('0 22 * * *', async () => {
+    console.log('[CRON] Starting daily full-universe SEC EDGAR warm-up...');
+    await warmAllEdgarFinancials();
+  });
+
+  // Daily 10:30PM: download 5-year macro indicators from FRED
+  cron.schedule('30 22 * * *', async () => {
+    console.log('[CRON] Starting daily FRED macro indicators warm-up...');
+    for (const series of ALLOWED_SERIES) {
+      try {
+        console.log(`[CRON] Pre-warming FRED series: ${series}`);
+        await fredService.getSeries(series);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limit protection
+      } catch (err: any) {
+        console.warn(`[CRON EXCEPTION] Failed to prewarm FRED series ${series}:`, err.message);
+      }
+    }
+    console.log('[CRON] FRED macro indicators warm-up complete.');
   });
 
   // Every 5 minutes during market hours (9 AM - 4 PM), Monday to Friday: warm quotes for the screener universe

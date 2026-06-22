@@ -46,7 +46,7 @@ export const StockCard: React.FC<StockCardProps> = ({
   const isUp = (change ?? 0) >= 0;
 
   return (
-    <div className="group relative border border-gray-200/95 bg-white rounded-xl p-5 shadow-3xs transition-all hover:border-gray-300 hover:shadow-md hover:-translate-y-0.5 duration-200 flex flex-col justify-between h-44">
+    <div className="group relative border border-white/50 bg-white/95 backdrop-blur-xl rounded-3xl p-5 shadow-xl shadow-blue-500/5 transition-all duration-300 hover:border-white hover:shadow-2xl hover:shadow-indigo-500/20 hover:-translate-y-2 flex flex-col justify-between h-44">
       {/* Upper info section */}
       <div>
         <div className="flex items-start justify-between gap-2">

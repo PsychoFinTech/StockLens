@@ -273,7 +273,7 @@ export const CompanyPage: React.FC = () => {
   const mcapSuffixLabel = isIndian ? 'Cr.' : 'B';
 
   return (
-    <div className="bg-[#F8F9FB] min-h-screen w-full py-6">
+    <div className="min-h-screen w-full py-6">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6 animate-in fade-in duration-200">
         
         {/* Breadcrumbs */}
@@ -286,7 +286,7 @@ export const CompanyPage: React.FC = () => {
         </div>
 
         {/* Primary Ticker Summary Box (Company Header) */}
-        <div className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div className="border border-white/50 bg-white/95 backdrop-blur-xl rounded-3xl p-6 shadow-xl shadow-indigo-500/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/15">
           <div className="space-y-3.5">
             <div className="flex items-center gap-3.5 flex-wrap">
               {profile.logo ? (
@@ -298,7 +298,7 @@ export const CompanyPage: React.FC = () => {
                   onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
                 />
               ) : null}
-              <h1 className="font-sans font-bold text-2xl sm:text-3xl text-slate-900 tracking-tight leading-none">
+              <h1 className="font-sans font-black text-2xl sm:text-3xl bg-gradient-to-r from-emerald-600 via-teal-500 to-blue-600 bg-clip-text text-transparent tracking-tight leading-none drop-shadow-sm">
                 {profile.name}
               </h1>
             </div>
@@ -373,7 +373,7 @@ export const CompanyPage: React.FC = () => {
         </div>
 
         {/* Primary Tab Navigation Row (Sticky Pill Switcher) */}
-        <div className="bg-white border border-[#E5E8EF] rounded-xl p-2 shadow-[0_1px_3px_rgba(0,0,0,0.06)] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sticky top-1 z-30">
+        <div className="border border-white/50 bg-white/95 backdrop-blur-xl rounded-2xl p-2 shadow-lg shadow-blue-500/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sticky top-1 z-30">
           <div className="flex items-center gap-2">
             <div className="px-2.5 py-1 bg-[#059669] text-white font-sans text-[11px] font-bold uppercase tracking-wider rounded-md shrink-0 select-none">
               Standalone

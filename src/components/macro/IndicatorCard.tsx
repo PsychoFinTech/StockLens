@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { Info } from "lucide-react";
 import { MacroSeriesConfig } from "../../constants/macroConfig";
 import { Observation } from "../../utils/macroHelpers";
 import { ExpandedChartModal } from "./ExpandedChartModal";
@@ -16,7 +17,7 @@ export const IndicatorCard: React.FC<IndicatorCardProps> = ({ config, observatio
 
   if (error) {
     return (
-      <div className="bg-white border border-gray-300 rounded-[10px] p-5 h-[160px] flex flex-col justify-center items-center">
+      <div className="border border-white/50 bg-white/95 backdrop-blur-xl rounded-2xl shadow-lg p-5 h-[160px] flex flex-col justify-center items-center">
         <div className="text-gray-900 font-bold mb-2">{config.name}</div>
         <div className="text-red-500 mb-4 text-sm flex items-center">
           <span className="mr-1">⚠</span> Failed to load
@@ -73,7 +74,7 @@ export const IndicatorCard: React.FC<IndicatorCardProps> = ({ config, observatio
     <>
       <div 
         onClick={() => setIsModalOpen(true)}
-        className="bg-white border border-gray-200 rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-5 h-[160px] cursor-pointer hover:border-emerald-300 transition-colors flex flex-col justify-between group"
+        className="border border-white/50 bg-white/95 backdrop-blur-xl rounded-2xl shadow-lg shadow-blue-500/5 p-5 cursor-pointer hover:border-emerald-300 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/20 hover:-translate-y-1.5 flex flex-col justify-between group h-full"
       >
         <div>
           <div className="font-mono text-xs text-gray-500 mb-1">{config.id}</div>
@@ -92,7 +93,7 @@ export const IndicatorCard: React.FC<IndicatorCardProps> = ({ config, observatio
             </div>
           </div>
           
-          <div className="h-[56px] w-24">
+          <div className="h-[56px] w-24 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={sparkData}>
                 <Line
@@ -115,6 +116,7 @@ export const IndicatorCard: React.FC<IndicatorCardProps> = ({ config, observatio
         title={config.name}
         currentValue={currentValueStr}
         observations={observations}
+        interpretation={config.interpretation}
       />
     </>
   );

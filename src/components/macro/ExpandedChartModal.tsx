@@ -9,6 +9,7 @@ interface ExpandedChartModalProps {
   title: string;
   currentValue: string;
   observations: Observation[];
+  interpretation?: string;
 }
 
 export const ExpandedChartModal: React.FC<ExpandedChartModalProps> = ({
@@ -17,6 +18,7 @@ export const ExpandedChartModal: React.FC<ExpandedChartModalProps> = ({
   title,
   currentValue,
   observations,
+  interpretation,
 }) => {
   const [activeRange, setActiveRange] = useState<TimeRange>("1Y");
 
@@ -31,9 +33,14 @@ export const ExpandedChartModal: React.FC<ExpandedChartModalProps> = ({
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
       >
         <div className="flex justify-between items-start mb-6">
-          <div>
+          <div className="max-w-[75%]">
             <h2 className="text-xl font-bold text-gray-900">{title}</h2>
             <div className="text-3xl font-bold text-gray-900 mt-2">{currentValue}</div>
+            {interpretation && (
+              <div className="mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-900 leading-relaxed font-medium">
+                {interpretation}
+              </div>
+            )}
           </div>
           <button
             onClick={onClose}

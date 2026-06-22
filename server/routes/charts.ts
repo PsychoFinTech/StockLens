@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { yahooService } from '../services/yahoo.js';
+import db from '../services/db.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
@@ -57,32 +57,34 @@ router.get('/:symbol', apiLimiter, async (req, res, next) => {
     }
 
     let chartData: any[] = [];
-    let liveC: any = null;
 
     try {
-      liveC = await yahooService.getCandles(symbol, resolution, from, to);
+      const rows = db.prepare(`
+        SELECT * FROM historical_prices 
+        WHERE symbol = ? AND date >= ? AND date <= ?
+        ORDER BY date ASC
+      `).all(symbol, from, to) as any[];
+
+      if (rows.length > 0) {
+        chartData = rows.map((r: any) => ({
+          date: new Date(r.date * 1000).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: period === '5Y' || period === 'MAX' ? '2-digit' : undefined
+          }),
+          timestamp: r.date,
+          close: Number(r.close?.toFixed(2) || 0),
+          open: Number(r.open?.toFixed(2) || 0),
+          high: Number(r.high?.toFixed(2) || 0),
+          low: Number(r.low?.toFixed(2) || 0),
+          volume: Number(r.volume || 0)
+        }));
+      }
     } catch (err: any) {
-      console.warn(`[CHART ROUTE WARNING] Candle query fail for ${symbol} on Yahoo:`, err.message);
+      console.warn(`[CHART ROUTE WARNING] DB query fail for ${symbol}:`, err.message);
     }
 
-    // If Finnhub has data, map OHLC arrays to structured json objects
-    if (liveC && liveC.s === 'ok' && Array.isArray(liveC.t)) {
-      chartData = liveC.t.map((timestamp: number, idx: number) => ({
-        date: new Date(timestamp * 1000).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: period === '5Y' || period === 'MAX' ? '2-digit' : undefined
-        }),
-        timestamp,
-        close: Number(liveC.c[idx].toFixed(2)),
-        open: Number(liveC.o[idx].toFixed(2)),
-        high: Number(liveC.h[idx].toFixed(2)),
-        low: Number(liveC.l[idx].toFixed(2)),
-        volume: liveC.v ? Number(liveC.v[idx]) : 2500000
-      }));
-    }
-
-    // IF Finnhub is empty or fails, return no_data
+    // IF local DB is empty, return no_data
     if (chartData.length === 0) {
       return res.json({ s: 'no_data' });
     }

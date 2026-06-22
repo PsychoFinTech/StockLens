@@ -1,0 +1,2 @@
+{"type":"init","content":"What is the current price of Tesla?","timestamp":"2026-06-22T17:23:13.231Z"}
+{"type":"tool_result","timestamp":"2026-06-22T17:23:31.612Z","toolName":"get_market_data","args":{"query":"current price of Tesla (TSLA)"},"result":{"data":{"get_stock_price_TSLA":{"ticker":"TSLA","price":409.3,"day_high":414.75,"day_low":394.4,"open_price":394.85,"previous_close":400.49,"fifty_two_week_high":498.83,"fifty_two_week_low":288.77,"time":1782149011606}},"sourceUrls":["http://localhost:3000/api/quote/TSLA"]}}

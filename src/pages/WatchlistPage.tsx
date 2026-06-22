@@ -72,14 +72,14 @@ export const WatchlistPage: React.FC = () => {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
       {/* 1. Centered Hero Search Section */}
-      <div className="relative rounded-2xl border border-emerald-150/60 bg-gradient-to-br from-emerald-50/40 via-teal-50/10 to-white py-12 px-6 sm:px-12 text-center shadow-3xs">
+      <div className="relative rounded-3xl border border-white/50 bg-white/60 backdrop-blur-3xl shadow-2xl shadow-emerald-500/10 py-12 px-6 sm:px-12 text-center">
         <div className="relative z-10 max-w-3xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-wider">
             <Sparkles className="h-3 w-3 text-emerald-650" />
             <span>Active Financial Analysis Engine</span>
           </div>
           
-          <h1 className="font-sans text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-950 leading-tight">
+          <h1 className="font-sans text-3xl sm:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-600 via-teal-500 to-blue-600 bg-clip-text text-transparent leading-tight drop-shadow-sm">
             The Modern Stock Screener that <br className="hidden sm:inline" />
             helps you <span className="text-emerald-600 bg-emerald-50/40 px-2 rounded-lg border border-emerald-100/30">pick better stocks</span>.
           </h1>
@@ -142,7 +142,7 @@ export const WatchlistPage: React.FC = () => {
             </div>
           ) : (
             /* Watchlist Empty Active State */
-            <div className="border border-dashed border-gray-200 rounded-2xl p-8 sm:p-12 text-center bg-gray-50/30">
+            <div className="border border-dashed border-white/80 rounded-3xl p-8 sm:p-12 text-center bg-white/50 backdrop-blur-xl shadow-xl shadow-indigo-500/5">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
                 <Star className="h-6 w-6" />
               </div>
@@ -170,8 +170,8 @@ export const WatchlistPage: React.FC = () => {
         </div>
 
         {/* Right 1 Column: Immersive Financial Hub News */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 border-b border-gray-100 pb-4">
+        <div className="space-y-6 rounded-3xl border border-white/50 bg-white/90 backdrop-blur-2xl shadow-2xl shadow-indigo-500/10 p-6">
+          <div className="flex items-center gap-2 border-b border-gray-100/50 pb-4">
             <Newspaper className="h-5.5 w-5.5 text-emerald-600" />
             <h2 className="font-sans text-xl font-bold text-gray-900 tracking-tight">Market Bulletins</h2>
           </div>
@@ -187,7 +187,7 @@ export const WatchlistPage: React.FC = () => {
               ))
             ) : news && news.length > 0 ? (
               news.map((item) => (
-                <article key={item.id} className="border-b border-gray-150/60 pb-4 last:border-0 last:pb-0 group">
+                <article key={item.id} className="border-b border-gray-100/50 pb-4 last:border-0 last:pb-0 group transition-all duration-200 hover:-translate-y-0.5">
                   <div className="flex justify-between items-baseline gap-2 mb-1">
                     <span className="font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-150 px-1.5 py-0.5 rounded uppercase tracking-wide">
                       {item.source || 'BULLETIN'}

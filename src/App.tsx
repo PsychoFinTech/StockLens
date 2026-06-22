@@ -7,9 +7,9 @@ import { WatchlistPage } from './pages/WatchlistPage.jsx';
 import { ScreenerPage } from './pages/ScreenerPage.jsx';
 import { MarketDashboardPage } from './pages/MarketDashboardPage.jsx';
 import { ComparePage } from './pages/ComparePage.jsx';
+import { HedgeFundPage } from './pages/HedgeFundPage.jsx';
 import { CompanyPage } from './pages/CompanyPage/index.jsx';
 import { MacroIndicatorsPage } from './pages/MacroIndicatorsPage.jsx';
-import { DexterPage } from './pages/DexterPage.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 
 // 1. Initialize TanStack Query engine
@@ -27,7 +27,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="min-h-screen bg-gray-50/50 flex flex-col selection:bg-emerald-150 selection:text-emerald-900">
+        <div className="relative min-h-screen w-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100 via-indigo-50 to-emerald-50 selection:bg-emerald-150 selection:text-emerald-900">
+          <div className="fixed inset-0 bg-white/40 backdrop-blur-[100px] pointer-events-none z-0" />
+          
+          <div className="relative z-10 flex flex-col min-h-screen">
           
           {/* Header block */}
           <ErrorBoundary name="Header">
@@ -45,10 +48,10 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<WatchlistPage />} />
                 <Route path="/screener" element={<ScreenerPage />} />
+                <Route path="/hedge-fund" element={<HedgeFundPage />} />
                 <Route path="/compare" element={<ComparePage />} />
                 <Route path="/market" element={<MarketDashboardPage />} />
                 <Route path="/macro" element={<MacroIndicatorsPage />} />
-                <Route path="/dexter" element={<DexterPage />} />
                 <Route path="/company/:symbol" element={<CompanyPage />} />
               </Routes>
             </ErrorBoundary>
@@ -66,6 +69,7 @@ export default function App() {
             </div>
           </footer>
 
+          </div>
         </div>
       </BrowserRouter>
     </QueryClientProvider>

@@ -20,6 +20,18 @@ db.exec(`
     country TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS historical_prices (
+    symbol TEXT NOT NULL,
+    date INTEGER NOT NULL,
+    open REAL,
+    high REAL,
+    low REAL,
+    close REAL,
+    volume INTEGER,
+    PRIMARY KEY (symbol, date)
+  ) WITHOUT ROWID;
+
+
   CREATE TABLE IF NOT EXISTS quotes (
     symbol TEXT PRIMARY KEY,
     price REAL NOT NULL,
@@ -53,6 +65,12 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS edgar_cache (
     cache_key TEXT PRIMARY KEY,
+    data TEXT NOT NULL,
+    fetched_at INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS fred_cache (
+    series_id TEXT PRIMARY KEY,
     data TEXT NOT NULL,
     fetched_at INTEGER NOT NULL
   );

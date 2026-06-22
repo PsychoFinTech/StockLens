@@ -24,7 +24,7 @@ export const Ticker: React.FC = () => {
   });
 
   return (
-    <div className="bg-gray-900 text-gray-100 border-b border-gray-800 text-xs py-2.5 px-4 overflow-hidden shadow-sm">
+    <div className="bg-slate-900/80 backdrop-blur-md text-slate-100 border-b border-slate-800/50 text-xs py-2.5 px-4 overflow-hidden shadow-sm">
       <div className="mx-auto max-w-7xl flex flex-col sm:flex-row items-center justify-between gap-3">
         
         {/* Label block */}

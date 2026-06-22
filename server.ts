@@ -18,7 +18,7 @@ import marketRouter from './server/routes/market.js';
 import watchlistRouter from './server/routes/watchlist.js';
 import edgarRouter from './server/routes/edgar.js';
 import macroRouter from './server/routes/macro.js';
-import dexterRouter from './server/routes/dexter.js';
+import hedgefundRouter from './server/routes/hedgefund.js';
 
 import { initCronJobs } from './server/services/cron.js';
 import { errorHandler } from './server/middleware/errorHandler.js';
@@ -49,7 +49,7 @@ async function startServer() {
   app.use('/api/market', marketRouter); // mounts /indices, /movers, /sectors
   app.use('/api/watchlist', watchlistRouter); // mounts /, /add, /:symbol
   app.use('/api/macro', macroRouter);
-  app.use('/api/dexter', dexterRouter);
+  app.use('/api/hedge-fund', hedgefundRouter);
 
   // Initialize node-cron cache prewarming
   initCronJobs();

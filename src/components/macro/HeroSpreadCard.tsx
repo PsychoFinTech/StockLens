@@ -21,7 +21,7 @@ export const HeroSpreadCard: React.FC<HeroSpreadCardProps> = ({ spreadData }) =>
 
   return (
     <div 
-      className="bg-white border border-gray-200 rounded-[10px] shadow-[0_1px_3px_rgba(0,0,0,0.06)] p-6 relative overflow-hidden flex flex-col justify-between min-h-[300px]"
+      className="border border-white/50 bg-white/95 backdrop-blur-xl rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between min-h-[300px] shadow-xl shadow-blue-500/5 transition-all duration-300 hover:shadow-2xl hover:shadow-indigo-500/20 hover:-translate-y-2"
       style={{ borderLeftWidth: "4px", borderLeftColor: strokeColor }}
     >
       <div className="flex flex-col sm:flex-row justify-between items-start mb-6">

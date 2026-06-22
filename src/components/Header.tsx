@@ -14,7 +14,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-gray-200/80 bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-white/30 bg-white/60 backdrop-blur-2xl shadow-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         
         {/* Brand Logo & Identification */}
@@ -60,18 +60,6 @@ export const Header: React.FC = () => {
             </Link>
 
             <Link
-              to="/dexter"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-sans text-sm font-medium transition-colors ${
-                isLinkActive('/dexter') 
-                  ? 'bg-emerald-50 text-emerald-700' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Bot className="h-4 w-4" />
-              Dexter
-            </Link>
-
-            <Link
               to="/compare"
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-sans text-sm font-medium transition-colors ${
                 isLinkActive('/compare') 
@@ -81,6 +69,18 @@ export const Header: React.FC = () => {
             >
               <Scale className="h-4 w-4" />
               Compare
+            </Link>
+
+            <Link
+              to="/hedge-fund"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-sans text-sm font-medium transition-colors ${
+                isLinkActive('/hedge-fund') 
+                  ? 'bg-emerald-50 text-emerald-700' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Bot className="h-4 w-4" />
+              Hedge Fund
             </Link>
 
             <Link
@@ -120,7 +120,7 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Sub-header Mini Mobile Nav bar for perfect compliance on narrow touch targets */}
-      <div className="flex md:hidden border-t border-gray-100 bg-gray-50/70 items-center justify-around py-2">
+      <div className="flex md:hidden border-t border-white/20 bg-white/30 backdrop-blur-2xl items-center justify-around py-2">
         <Link
           to="/"
           className={`flex flex-col items-center gap-0.5 font-sans text-xs font-semibold ${
@@ -139,15 +139,7 @@ export const Header: React.FC = () => {
           <Layers className="h-4 w-4" />
           Screener
         </Link>
-        <Link
-          to="/dexter"
-          className={`flex flex-col items-center gap-0.5 font-sans text-xs font-semibold ${
-            isLinkActive('/dexter') ? 'text-emerald-700' : 'text-gray-500'
-          }`}
-        >
-          <Bot className="h-4 w-4" />
-          Dexter
-        </Link>
+
         <Link
           to="/compare"
           className={`flex flex-col items-center gap-0.5 font-sans text-xs font-semibold ${
@@ -156,6 +148,15 @@ export const Header: React.FC = () => {
         >
           <Scale className="h-4 w-4" />
           Compare
+        </Link>
+        <Link
+          to="/hedge-fund"
+          className={`flex flex-col items-center gap-0.5 font-sans text-xs font-semibold ${
+            isLinkActive('/hedge-fund') ? 'text-emerald-700' : 'text-gray-500'
+          }`}
+        >
+          <Bot className="h-4 w-4" />
+          Hedge Fund
         </Link>
         <Link
           to="/market"
