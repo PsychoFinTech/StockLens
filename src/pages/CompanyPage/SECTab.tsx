@@ -114,6 +114,49 @@ export const SECTab: React.FC<SECTabProps> = ({
   const [secSearchInput, setSecSearchInput] = React.useState('');
   const [diffFilter, setDiffFilter] = React.useState<'all' | 'changes' | 'added' | 'removed'>('all');
 
+  const [holdingsSearchResults, setHoldingsSearchResults] = React.useState<{name: string, cik: string}[]>([]);
+  const [isHoldingsSearching, setIsHoldingsSearching] = React.useState(false);
+  const [showHoldingsDropdown, setShowHoldingsDropdown] = React.useState(false);
+  const holdingsDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (holdingsDropdownRef.current && !holdingsDropdownRef.current.contains(e.target as Node)) {
+        setShowHoldingsDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  React.useEffect(() => {
+    if (!holdingsSearchInput.trim()) {
+      setHoldingsSearchResults([]);
+      setIsHoldingsSearching(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsHoldingsSearching(true);
+      try {
+        const resp = await fetch(`/api/edgar/filer-search?name=${encodeURIComponent(holdingsSearchInput)}`);
+        const data = await resp.json();
+        if (data.results) {
+          setHoldingsSearchResults(data.results);
+        } else if (data.cik) {
+          setHoldingsSearchResults([data]);
+        } else {
+          setHoldingsSearchResults([]);
+        }
+        setShowHoldingsDropdown(true);
+      } catch (err) {
+        console.error('[EDGAR SEARCH]', err);
+      } finally {
+        setIsHoldingsSearching(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [holdingsSearchInput]);
+
   const isParagraphHeader = (p: string): boolean => {
     const trimmed = p.trim();
     if (trimmed.length === 0 || trimmed.length > 90) return false;
@@ -448,15 +491,52 @@ export const SECTab: React.FC<SECTabProps> = ({
                 }}
                 className="flex flex-col sm:flex-row gap-2.5"
               >
-                <div className="relative flex-1">
+                <div className="relative flex-1" ref={holdingsDropdownRef}>
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Search manager name, 10-digit SEC CIK, or ticker..."
                     value={holdingsSearchInput}
-                    onChange={(e) => setHoldingsSearchInput(e.target.value)}
+                    onChange={(e) => {
+                      setHoldingsSearchInput(e.target.value);
+                      setShowHoldingsDropdown(true);
+                    }}
+                    onFocus={() => holdingsSearchInput.trim() && setShowHoldingsDropdown(true)}
                     className="w-full pl-9 pr-4 py-2 bg-white border border-[#E5E8EF] rounded-xl text-xs font-semibold text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#059669] focus:border-[#059669]"
                   />
+                  {isHoldingsSearching && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="h-3 w-3 border-2 border-[#059669] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {/* Dropdown */}
+                  {showHoldingsDropdown && holdingsSearchInput.trim() && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-[#E5E8EF] rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+                      {isHoldingsSearching && holdingsSearchResults.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-slate-400">Searching SEC EDGAR database...</div>
+                      ) : holdingsSearchResults.length > 0 ? (
+                        <div className="py-1">
+                          {holdingsSearchResults.map((result, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setHoldingsSearchInput(result.name);
+                                setHoldingsQuery(result.cik);
+                                setShowHoldingsDropdown(false);
+                              }}
+                              className="w-full px-4 py-2 text-left hover:bg-slate-50 transition-colors flex flex-col cursor-pointer border-b border-slate-50 last:border-none"
+                            >
+                              <span className="text-xs font-bold text-slate-800">{result.name}</span>
+                              <span className="text-[10px] font-mono text-slate-500">CIK: {result.cik}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-xs text-slate-400">No matching institutions found</div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   type="submit"

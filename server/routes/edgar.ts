@@ -1,6 +1,8 @@
 import { Router } from 'express';
+import * as cheerio from 'cheerio';
 import { apiLimiter } from '../middleware/rateLimiter.js';
 import { edgarService } from '../services/edgar.js';
+import { cacheService } from '../services/cache.js';
 
 const router = Router();
 
@@ -138,38 +140,64 @@ router.get('/filer-search', apiLimiter, async (req, res, next) => {
       return res.status(400).json({ error: 'Missing name parameter' });
     }
     
+    console.log('[FILER SEARCH] Query:', nameQuery);
+
     // Check local SEC ticker-to-CIK file first as a naive match
     try {
-      const { cacheService } = await import('../services/cache.js');
       const cacheKey = `filer_search_${nameQuery.toLowerCase()}`;
       let data = await cacheService.get<any>(cacheKey);
       
       if (!data) {
-        const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(nameQuery)}&output=atom`;
-        const response = await fetch(url, {
-          headers: { 'User-Agent': 'Stocklens Research Agent stocklens-admin@gmail.com' }
-        });
+        const results: { name: string; cik: string }[] = [];
         
-        if (!response.ok) throw new Error(`SEC API returned status ${response.status}`);
-        const xml = await response.text();
-        
-        // Extract CIK from the ATOM feed
-        const cikMatch = xml.match(/<title>([^<]+)\s+\(CIK\s+(\d{10})\)<\/title>/);
-        if (cikMatch) {
-          data = { name: cikMatch[1].trim(), cik: cikMatch[2] };
-        } else {
-          // If no direct match in ATOM, try to parse the general HTML page or return 404
-          const htmlUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(nameQuery)}`;
-          const htmlResponse = await fetch(htmlUrl, {
+        // Extract CIK from the ATOM feed if there's an exact match
+        try {
+          const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(nameQuery)}&output=atom`;
+          const response = await fetch(url, {
             headers: { 'User-Agent': 'Stocklens Research Agent stocklens-admin@gmail.com' }
           });
-          const html = await htmlResponse.text();
+          if (response.ok) {
+            const xml = await response.text();
+            const cikMatch = xml.match(/<title>([^<]+)\s+\(CIK\s+(\d{10})\)<\/title>/);
+            if (cikMatch) {
+              results.push({ name: cikMatch[1].trim(), cik: cikMatch[2] });
+            }
+          }
+        } catch (atomErr) {
+          console.warn('[FILER SEARCH] ATOM fetch failed:', atomErr);
+        }
+        
+        // Parse the general HTML page to get more results
+        const htmlUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(nameQuery)}`;
+        const htmlResponse = await fetch(htmlUrl, {
+          headers: { 'User-Agent': 'Stocklens Research Agent stocklens-admin@gmail.com' }
+        });
+        const html = await htmlResponse.text();
+        
+        const $ = cheerio.load(html);
+        $('table[summary="Results"] tr').each((i, el) => {
+          const tds = $(el).find('td');
+          if (tds.length >= 2) {
+            const cik = $(tds[0]).text().trim();
+            const companyName = $(tds[1]).text().trim();
+            if (cik && companyName && !results.some(r => r.cik === cik)) {
+              results.push({ cik, name: companyName });
+            }
+          }
+        });
+
+        // Fallback to simple regex if no table found and no ATOM match
+        if (results.length === 0) {
           const htmlCikMatch = html.match(/CIK=(\d{10})/);
           if (htmlCikMatch) {
-            data = { name: nameQuery, cik: htmlCikMatch[1] };
-          } else {
-             data = { error: 'No filer found' };
+            results.push({ name: nameQuery, cik: htmlCikMatch[1] });
           }
+        }
+        
+        if (results.length > 0) {
+          data = { results };
+        } else {
+          data = { error: 'No filer found', results: [] };
         }
         
         if (!data.error) {
