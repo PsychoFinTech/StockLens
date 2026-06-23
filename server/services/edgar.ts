@@ -748,6 +748,30 @@ async function searchCikByName(name: string): Promise<string> {
   const htmlUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(name)}`;
   const htmlResponse = await fetch(htmlUrl, { headers: { 'User-Agent': USER_AGENT } });
   const html = await htmlResponse.text();
+  
+  const $ = cheerio.load(html);
+  const results: { cik: string, name: string }[] = [];
+  $('table[summary="Results"] tr').each((i, el) => {
+    const tds = $(el).find('td');
+    if (tds.length >= 2) {
+      const cik = $(tds[0]).text().trim();
+      const companyName = $(tds[1]).text().trim();
+      if (cik && companyName) results.push({ cik, name: companyName });
+    }
+  });
+
+  if (results.length > 0) {
+    const exactMatch = results.find(r => r.name.toLowerCase() === name.toLowerCase());
+    if (exactMatch) return exactMatch.cik;
+
+    const keywords = ['ADVISORS', 'MANAGEMENT', 'CAPITAL', 'FUND', 'ASSET', 'PARTNERS', 'INVESTMENT'];
+    for (const kw of keywords) {
+      const keywordMatch = results.find(r => r.name.toUpperCase().includes(kw));
+      if (keywordMatch) return keywordMatch.cik;
+    }
+    return results[0].cik;
+  }
+
   const htmlCikMatch = html.match(/CIK=(\d{10})/);
   if (htmlCikMatch) {
     return htmlCikMatch[1];

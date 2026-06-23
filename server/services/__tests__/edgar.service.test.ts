@@ -109,28 +109,24 @@ describe('edgarService - getPayVersusPerformance & Proxy', () => {
   });
 
   it('should fallback to searchCikByName when ticker lookup fails in getHoldings', async () => {
-    // 1st fetch: company_tickers.json (since arbitrary string won't be in local map)
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({}) 
-    });
-
-    // 2nd fetch: Atom feed for name search
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      text: async () => `<title>Mock Fund Name (CIK 0001234567)</title>`
-    });
-
-    // 3rd fetch: SEC submissions API
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        filings: { recent: { form: [], accessionNumber: [] } }
-      })
+    // We just provide generic mocks that satisfy whatever fetch happens
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.includes('company_tickers.json')) {
+        return { ok: true, json: async () => ({}) };
+      }
+      if (url.includes('output=atom')) {
+        return { ok: true, text: async () => `<title>Mock Fund Name (CIK 0001234567)</title>` };
+      }
+      if (url.includes('getcompany&company=')) {
+        return { ok: true, text: async () => `<html>CIK=0001234567</html>` };
+      }
+      if (url.includes('submissions')) {
+        return { ok: true, json: async () => ({ filings: { recent: { form: [], accessionNumber: [] } } }) };
+      }
+      return { ok: true };
     });
 
     const result = await edgarService.getHoldings('Mock Fund Name');
-    // For random names <= 5 length it uses Advisor Group, > 5 uses Capital Management
     expect(result.managerName).toBe('MOCK FUND NAME Capital Management LLC');
     expect(result.holdings.length).toBe(0);
   });
