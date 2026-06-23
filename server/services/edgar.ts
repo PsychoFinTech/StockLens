@@ -736,6 +736,25 @@ function diffParagraphs(prev: string[], latest: string[]): EdgarRiskDiffParagrap
 
 // ─── Public EDGAR service ─────────────────────────────────────────────────────
 
+async function searchCikByName(name: string): Promise<string> {
+  const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(name)}&output=atom`;
+  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  if (!response.ok) throw new Error(`SEC API returned status ${response.status}`);
+  const xml = await response.text();
+  const cikMatch = xml.match(/<title>([^<]+)\s+\(CIK\s+(\d{10})\)<\/title>/);
+  if (cikMatch) {
+    return cikMatch[2];
+  }
+  const htmlUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(name)}`;
+  const htmlResponse = await fetch(htmlUrl, { headers: { 'User-Agent': USER_AGENT } });
+  const html = await htmlResponse.text();
+  const htmlCikMatch = html.match(/CIK=(\d{10})/);
+  if (htmlCikMatch) {
+    return htmlCikMatch[1];
+  }
+  throw new Error(`Could not resolve CIK for name ${name}`);
+}
+
 export const edgarService = {
   getFinancials: async (symbol: string): Promise<EdgarFinancials> => {
     const sym = symbol.toUpperCase();
@@ -844,7 +863,11 @@ export const edgarService = {
       async () => {
         let cik = cikOrSymbol.trim();
         if (!/^\d+$/.test(cik)) {
-          cik = await getCik(cik);
+          try {
+            cik = await getCik(cik);
+          } catch (err) {
+            cik = await searchCikByName(cik);
+          }
         } else {
           cik = cik.padStart(10, '0');
         }

@@ -107,4 +107,31 @@ describe('edgarService - getPayVersusPerformance & Proxy', () => {
     expect(result.symbol).toBe('GOOGL');
     expect(result.shareholderProposals.length).toBe(0);
   });
+
+  it('should fallback to searchCikByName when ticker lookup fails in getHoldings', async () => {
+    // 1st fetch: company_tickers.json (since arbitrary string won't be in local map)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}) 
+    });
+
+    // 2nd fetch: Atom feed for name search
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => `<title>Mock Fund Name (CIK 0001234567)</title>`
+    });
+
+    // 3rd fetch: SEC submissions API
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        filings: { recent: { form: [], accessionNumber: [] } }
+      })
+    });
+
+    const result = await edgarService.getHoldings('Mock Fund Name');
+    // For random names <= 5 length it uses Advisor Group, > 5 uses Capital Management
+    expect(result.managerName).toBe('MOCK FUND NAME Capital Management LLC');
+    expect(result.holdings.length).toBe(0);
+  });
 });
