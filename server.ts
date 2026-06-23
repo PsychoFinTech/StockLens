@@ -1,8 +1,13 @@
+import cluster from 'cluster';
+import os from 'os';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
+import compression from 'compression';
+import pino from 'pino';
+import pinoHttp from 'pino-http';
 
 // Load environment variables
 dotenv.config();
@@ -19,38 +24,80 @@ import watchlistRouter from './server/routes/watchlist.js';
 import edgarRouter from './server/routes/edgar.js';
 import macroRouter from './server/routes/macro.js';
 import hedgefundRouter from './server/routes/hedgefund.js';
+import db from './server/services/db.js';
 
 import { initCronJobs } from './server/services/cron.js';
 import { errorHandler } from './server/middleware/errorHandler.js';
 import { prefetchEdgar } from './server/services/edgar.js';
 import { warmAllRatios } from './server/services/ratiosWarmer.js';
 
+export const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-  // Let Express rate-limiter trust the reverse proxy headers
   app.set('trust proxy', 1);
 
-  // Set up standard parsers
-  const allowedOrigins = process.env.NODE_ENV === 'production'
-    ? [process.env.CLIENT_URL ?? 'https://your-deployed-domain.com']
-    : true; // allow all in dev
+  let allowedOrigins: boolean | string[] = true;
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.CLIENT_URL) {
+      console.warn('[SECURITY] No CLIENT_URL provided in production. CORS is heavily restricted.');
+      allowedOrigins = [];
+    } else {
+      allowedOrigins = [process.env.CLIENT_URL];
+    }
+  }
   app.use(cors({ origin: allowedOrigins }));
+  
+  app.use(compression({ threshold: 1024 }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(pinoHttp({ logger }));
 
-  // API Routes
-  console.log('[SERVER] Mounting API endpoints...');
+  // Health endpoint
+  app.get('/health', (req, res) => {
+    const dbOk = (() => { try { db.prepare('SELECT 1').get(); return true; } catch { return false; } })();
+    res.status(dbOk ? 200 : 503).json({
+      status: dbOk ? 'ok' : 'degraded',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Global cache headers middleware
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    
+    // Quotes: short TTL
+    if (req.path.startsWith('/api/quote') || req.path.startsWith('/api/market')) {
+      res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    }
+    // Edgar: immutable
+    else if (req.path.startsWith('/api/edgar')) {
+      res.set('Cache-Control', 'public, max-age=604800, immutable');
+    }
+    // Screener: private, very short
+    else if (req.path.startsWith('/api/screener')) {
+      res.set('Cache-Control', 'private, max-age=60');
+    }
+    // Fundamentals/Charts: long TTL
+    else if (req.path.startsWith('/api/')) {
+      res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    }
+    next();
+  });
+
   app.use('/api/search', searchRouter);
   app.use('/api/quote', quotesRouter);
-  app.use('/api', fundamentalsRouter); // mounts /profile, /financials, /ratios, /peers
-  app.use('/api/edgar', edgarRouter);  // mounts /financials, /insiders, /holdings, /section, /risk-diff
+  app.use('/api', fundamentalsRouter); 
+  app.use('/api/edgar', edgarRouter);
   app.use('/api/chart', chartsRouter);
-  app.use('/api/news', newsRouter);     // mounts /market, /:symbol
+  app.use('/api/news', newsRouter);
   app.use('/api/screener', screenerRouter);
-  app.use('/api/market', marketRouter); // mounts /indices, /movers, /sectors
-  app.use('/api/watchlist', watchlistRouter); // mounts /, /add, /:symbol
+  app.use('/api/market', marketRouter);
+  app.use('/api/watchlist', watchlistRouter);
   app.use('/api/macro', macroRouter);
   app.use('/api/hedge-fund', hedgefundRouter);
 
@@ -59,62 +106,67 @@ async function startServer() {
     if (!process.env.GEMINI_API_KEYS) {
       return res.status(503).json({ error: 'GEMINI_API_KEYS not configured', unavailable: true });
     }
-    // Forward to actual dexter service here if available
     res.status(501).json({ error: 'Dexter proxy not implemented' });
   });
 
-  // Initialize node-cron cache prewarming
-  initCronJobs();
+  // Only init cron in worker 1 (or standalone)
+  if (!cluster.isWorker || cluster.worker?.id === 1) {
+    initCronJobs();
+  }
 
-  // Development vs Production Hosting Mode
   if (process.env.NODE_ENV !== 'production') {
-    console.log('[SERVER] Bundling Vite Development Middleware...');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa'
     });
-    // Let Viteware handle static files and standard client routing
     app.use(vite.middlewares);
   } else {
-    console.log('[SERVER] Launching Static Production File Server...');
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    
-    // SPA Wildcard fallback
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  // Centralized Error Interceptor (must mount last)
   app.use(errorHandler);
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[SERVER] StockLens is actively listening at http://localhost:${PORT}`);
+    logger.info(`[SERVER] Worker ${process.pid} listening at http://localhost:${PORT}`);
 
-    setTimeout(() => {
-      warmAllRatios().catch((err) => console.error('[STARTUP RATIOS WARMER ERROR]', err));
-    }, 30000); // 30s after boot
+    if (!cluster.isWorker || cluster.worker?.id === 1) {
+      setTimeout(() => {
+        warmAllRatios().catch((err) => logger.error({ err }, '[STARTUP RATIOS WARMER ERROR]'));
+      }, 30000);
 
-    // Pre-warm EDGAR cache for top 25 most-visited stocks.
-    // Starts 90s after boot (server is fully ready), staggered 8s apart.
-    // After first run these are persisted in SQLite and will be instant on all future visits.
-    const TOP_STOCKS = [
-      'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA',
-      'META', 'TSLA', 'JPM', 'V', 'JNJ',
-      'WMT', 'XOM', 'NFLX', 'AMD', 'INTC',
-      'BAC', 'DIS', 'GS', 'MA', 'PYPL',
-      'QCOM', 'AVGO', 'CRM', 'ORCL', 'IBM'
-    ];
-    let warmIdx = 0;
-    setTimeout(function warmNext() {
-      if (warmIdx >= TOP_STOCKS.length) return;
-      prefetchEdgar(TOP_STOCKS[warmIdx++]);
-      setTimeout(warmNext, 8000); // 8s gap between each to be polite to SEC EDGAR
-    }, 90000); // start 90s after server ready
+      const TOP_STOCKS = [
+        'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA',
+        'META', 'TSLA', 'JPM', 'V', 'JNJ',
+        'WMT', 'XOM', 'NFLX', 'AMD', 'INTC',
+        'BAC', 'DIS', 'GS', 'MA', 'PYPL',
+        'QCOM', 'AVGO', 'CRM', 'ORCL', 'IBM'
+      ];
+      let warmIdx = 0;
+      setTimeout(function warmNext() {
+        if (warmIdx >= TOP_STOCKS.length) return;
+        prefetchEdgar(TOP_STOCKS[warmIdx++]);
+        setTimeout(warmNext, 8000);
+      }, 90000);
+    }
   });
 }
 
-startServer().catch((error) => {
-  console.error('[FATAL SERVER START ERROR]', error);
-});
+// Clustering setup
+if (process.env.NODE_ENV === 'production' && cluster.isPrimary && process.env.CLUSTER !== 'false') {
+  const numCPUs = os.cpus().length;
+  // Fallback to console.log since logger might not be fully configured in primary yet
+  console.log(`[CLUSTER] Primary ${process.pid} spawning ${numCPUs} workers`);
+  for (let i = 0; i < numCPUs; i++) cluster.fork();
+  cluster.on('exit', (worker) => {
+    console.warn(`[CLUSTER] Worker ${worker.process.pid} died. Respawning...`);
+    cluster.fork();
+  });
+} else {
+  startServer().catch((error) => {
+    console.error('[FATAL SERVER START ERROR]', error);
+  });
+}

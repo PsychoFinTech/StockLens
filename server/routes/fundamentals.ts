@@ -337,18 +337,24 @@ router.get('/peers/:symbol', apiLimiter, async (req, res, next) => {
         let profileStmt: any;
         try {
           profileStmt = db.prepare('SELECT name, sector, exchange FROM stocks WHERE symbol = ?').get(peerSymbol);
-        } catch (e) {}
+        } catch (e: any) {
+          console.debug(`[PEERS] Failed to fetch SQLite profile for ${peerSymbol}:`, e.message);
+        }
 
         let price: number | null = null;
         try {
           const q = await yahooService.getQuote(peerSymbol);
           price = q?.price ?? null;
-        } catch (e) {}
+        } catch (e: any) {
+          console.debug(`[PEERS] Failed to fetch live quote for ${peerSymbol}:`, e.message);
+        }
 
         let cachedRatios: any = null;
         try {
           cachedRatios = await yahooService.getBasicFinancials(peerSymbol);
-        } catch (e) {}
+        } catch (e: any) {
+          console.debug(`[PEERS] Failed to fetch basic financials for ${peerSymbol}:`, e.message);
+        }
 
         const pe = cachedRatios?.metric?.peAnnual ?? null;
         const pb = cachedRatios?.metric?.pbAnnual ?? null;
@@ -448,7 +454,7 @@ router.get('/compare', apiLimiter, async (req, res, next) => {
             const currentPrice = prices[count - 1];
 
             const findClosestIndex = (targetTime: number) => {
-              let closestIdx = 0;
+              let closestIdx = -1;
               let minDiff = Infinity;
               for (let i = 0; i < timestamps.length; i++) {
                 const diff = Math.abs(timestamps[i] - targetTime);
@@ -457,6 +463,8 @@ router.get('/compare', apiLimiter, async (req, res, next) => {
                   closestIdx = i;
                 }
               }
+              // If the closest data point is more than 10 days away, reject it
+              if (minDiff > 10 * 24 * 3600) return -1;
               return closestIdx;
             };
 
@@ -470,7 +478,7 @@ router.get('/compare', apiLimiter, async (req, res, next) => {
 
             // YTD calculation
             const currentYear = new Date().getFullYear();
-            let ytdIdx = 0;
+            let ytdIdx = -1;
             for (let i = 0; i < timestamps.length; i++) {
               const date = new Date(timestamps[i] * 1000);
               if (date.getFullYear() === currentYear) {
@@ -479,16 +487,16 @@ router.get('/compare', apiLimiter, async (req, res, next) => {
               }
             }
 
-            const calcReturn = (pastPrice: number) => {
-              if (!pastPrice) return null;
+            const calcReturn = (pastPrice: number | undefined) => {
+              if (pastPrice === undefined || pastPrice === null || pastPrice === 0) return null;
               return ((currentPrice - pastPrice) / pastPrice) * 100;
             };
 
             performance = {
-              oneWeek: calcReturn(prices[oneWeekIdx]),
-              threeMonths: calcReturn(prices[threeMonthsIdx]),
-              ytd: calcReturn(prices[ytdIdx]),
-              oneYear: calcReturn(prices[oneYearIdx])
+              oneWeek: oneWeekIdx !== -1 ? calcReturn(prices[oneWeekIdx]) : null,
+              threeMonths: threeMonthsIdx !== -1 ? calcReturn(prices[threeMonthsIdx]) : null,
+              ytd: ytdIdx !== -1 ? calcReturn(prices[ytdIdx]) : null,
+              oneYear: oneYearIdx !== -1 ? calcReturn(prices[oneYearIdx]) : null
             };
           }
 

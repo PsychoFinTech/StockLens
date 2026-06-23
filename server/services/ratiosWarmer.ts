@@ -27,24 +27,24 @@ interface WarmResult {
   failed: string[];
 }
 
+const WARMER_INTERVAL_MS = (4 * 60 * 60 * 1000) / SEED_STOCKS.length; // ~7200ms
+
 async function warmBatch(symbols: string[], passLabel: string): Promise<WarmResult> {
-  const limit = pLimitFn(CONCURRENCY);
+  const limit = pLimitFn(1);
   const succeeded: string[] = [];
   const failed: string[] = [];
 
   let consecutiveFailures = 0;
   let done = 0;
 
-  const tasks = symbols.map((symbol) =>
+  const tasks = symbols.map((symbol, i) =>
     limit(async () => {
+      // Stagger start time based on index to spread across 4 hours
+      await new Promise(r => setTimeout(r, i * WARMER_INTERVAL_MS));
+
       try {
         const data = await yahooService.getBasicFinancials(symbol);
 
-        // getBasicFinancials() swallows its own errors and returns a
-        // metric object full of nulls on failure (see yahoo.ts catch
-        // block) instead of throwing. Treat an "all nulls" result the
-        // same as a thrown error so it gets retried, instead of being
-        // silently counted as a success.
         const hasAnyData = data?.metric && Object.values(data.metric).some(
           (v) => v !== null && v !== undefined
         );
@@ -74,7 +74,6 @@ async function warmBatch(symbols: string[], passLabel: string): Promise<WarmResu
       if (done % 50 === 0) {
         console.log(`[RATIOS WARMER:${passLabel}] Progress: ${done}/${symbols.length}`);
       }
-      await new Promise((resolve) => setTimeout(resolve, DELAY_MS));
     })
   );
 

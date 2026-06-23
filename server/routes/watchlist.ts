@@ -28,7 +28,9 @@ router.get('/', apiLimiter, async (req, res, next) => {
             name = profile.name;
             exchange = profile.exchange;
           }
-        } catch (e) {}
+        } catch (e: any) {
+          console.debug(`[WATCHLIST] Failed to fetch SQLite profile for ${symbol}:`, e.message);
+        }
 
         // Fetch quote data via waterfall
         let price = null;
@@ -51,7 +53,9 @@ router.get('/', apiLimiter, async (req, res, next) => {
               change = row.change;
               change_pct = row.change_pct;
             }
-          } catch (sqliteErr) {}
+          } catch (sqliteErr: any) {
+            console.debug(`[WATCHLIST] Failed to fetch SQLite quote fallback for ${symbol}:`, sqliteErr.message);
+          }
         }
 
         // Return standardized object

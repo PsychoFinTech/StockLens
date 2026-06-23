@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Header } from './components/Header.jsx';
 import { Ticker } from './components/Ticker.jsx';
-import { WatchlistPage } from './pages/WatchlistPage.jsx';
-import { ScreenerPage } from './pages/ScreenerPage.jsx';
-import { MarketDashboardPage } from './pages/MarketDashboardPage.jsx';
-import { ComparePage } from './pages/ComparePage.jsx';
-import { HedgeFundPage } from './pages/HedgeFundPage.jsx';
-import { CompanyPage } from './pages/CompanyPage/index.jsx';
-import { MacroIndicatorsPage } from './pages/MacroIndicatorsPage.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
+
+// Lazy loaded heavy routes to split the bundle and improve TTI
+const WatchlistPage = React.lazy(() => import('./pages/WatchlistPage.jsx').then(m => ({ default: m.WatchlistPage })));
+const ScreenerPage = React.lazy(() => import('./pages/ScreenerPage.jsx').then(m => ({ default: m.ScreenerPage })));
+const MarketDashboardPage = React.lazy(() => import('./pages/MarketDashboardPage.jsx').then(m => ({ default: m.MarketDashboardPage })));
+const ComparePage = React.lazy(() => import('./pages/ComparePage.jsx').then(m => ({ default: m.ComparePage })));
+const HedgeFundPage = React.lazy(() => import('./pages/HedgeFundPage.jsx').then(m => ({ default: m.HedgeFundPage })));
+const CompanyPage = React.lazy(() => import('./pages/CompanyPage/index.jsx').then(m => ({ default: m.CompanyPage })));
+const MacroIndicatorsPage = React.lazy(() => import('./pages/MacroIndicatorsPage.jsx').then(m => ({ default: m.MacroIndicatorsPage })));
 
 // 1. Initialize TanStack Query engine
 const queryClient = new QueryClient({
@@ -22,6 +24,17 @@ const queryClient = new QueryClient({
     }
   }
 });
+
+const RouteLoader = () => (
+  <div className="p-8 mt-20 flex justify-center w-full">
+    <div className="animate-pulse flex items-center gap-2 text-indigo-500 font-semibold font-mono">
+      <div className="w-4 h-4 bg-indigo-500 rounded-full animate-bounce"></div>
+      <div className="w-4 h-4 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+      <div className="w-4 h-4 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+      Loading view...
+    </div>
+  </div>
+);
 
 export default function App() {
   return (
@@ -45,15 +58,17 @@ export default function App() {
           {/* Main workspace routing content */}
           <main className="flex-1">
             <ErrorBoundary name="Page Content">
-              <Routes>
-                <Route path="/" element={<WatchlistPage />} />
-                <Route path="/screener" element={<ScreenerPage />} />
-                <Route path="/hedge-fund" element={<HedgeFundPage />} />
-                <Route path="/compare" element={<ComparePage />} />
-                <Route path="/market" element={<MarketDashboardPage />} />
-                <Route path="/macro" element={<MacroIndicatorsPage />} />
-                <Route path="/company/:symbol" element={<CompanyPage />} />
-              </Routes>
+              <Suspense fallback={<RouteLoader />}>
+                <Routes>
+                  <Route path="/" element={<WatchlistPage />} />
+                  <Route path="/screener" element={<ScreenerPage />} />
+                  <Route path="/hedge-fund" element={<HedgeFundPage />} />
+                  <Route path="/compare" element={<ComparePage />} />
+                  <Route path="/market" element={<MarketDashboardPage />} />
+                  <Route path="/macro" element={<MacroIndicatorsPage />} />
+                  <Route path="/company/:symbol" element={<CompanyPage />} />
+                </Routes>
+              </Suspense>
             </ErrorBoundary>
           </main>
 

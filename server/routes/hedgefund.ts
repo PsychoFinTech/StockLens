@@ -42,7 +42,7 @@ router.post('/run', async (req, res, next) => {
             price = prices[prices.length - 1];
 
             const findClosestIndex = (targetTime: number) => {
-              let closestIdx = 0;
+              let closestIdx = -1;
               let minDiff = Infinity;
               for (let i = 0; i < timestamps.length; i++) {
                 const diff = Math.abs(timestamps[i] - targetTime);
@@ -51,6 +51,8 @@ router.post('/run', async (req, res, next) => {
                   closestIdx = i;
                 }
               }
+              // If the closest data point is more than 10 days away, reject it
+              if (minDiff > 10 * 24 * 3600) return -1;
               return closestIdx;
             };
 
@@ -58,11 +60,11 @@ router.post('/run', async (req, res, next) => {
             const sixMonthIdx = findClosestIndex(to - 180 * 24 * 3600);
             const threeMonthIdx = findClosestIndex(to - 90 * 24 * 3600);
 
-            const calcReturn = (pastPrice: number) => pastPrice ? ((price - pastPrice) / pastPrice) * 100 : null;
+            const calcReturn = (pastPrice: number | undefined) => (pastPrice && pastPrice !== 0) ? ((price - pastPrice) / pastPrice) * 100 : null;
 
-            oneYearReturn = calcReturn(prices[oneYearIdx]);
-            sixMonthReturn = calcReturn(prices[sixMonthIdx]);
-            threeMonthReturn = calcReturn(prices[threeMonthIdx]);
+            oneYearReturn = oneYearIdx !== -1 ? calcReturn(prices[oneYearIdx]) : null;
+            sixMonthReturn = sixMonthIdx !== -1 ? calcReturn(prices[sixMonthIdx]) : null;
+            threeMonthReturn = threeMonthIdx !== -1 ? calcReturn(prices[threeMonthIdx]) : null;
             
             // basic volatility (very simplified)
             volatility = m.beta || 1.0; 

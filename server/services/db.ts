@@ -6,8 +6,14 @@ import { SEED_STOCKS } from './seeds.js';
 const dbPath = process.env.SQLITE_DB_PATH || path.resolve(process.cwd(), 'stocklens.db');
 const db = new Database(dbPath);
 
-// Enable WAL for performance and concurrent readers
+// Enable WAL and performance pragmas
 db.pragma('journal_mode = WAL');
+db.pragma('synchronous = NORMAL');
+db.pragma('cache_size = -64000');
+db.pragma('mmap_size = 268435456');
+db.pragma('temp_store = MEMORY');
+db.pragma('busy_timeout = 5000');
+db.pragma('foreign_keys = ON');
 
 // Define database schemas
 db.exec(`
@@ -86,6 +92,11 @@ db.exec(`
     data TEXT NOT NULL, -- Stored as JSON string (getBasicFinancials output)
     updated_at INTEGER NOT NULL
   );
+
+  CREATE INDEX IF NOT EXISTS idx_stocks_sector ON stocks(sector);
+  CREATE INDEX IF NOT EXISTS idx_stocks_exchange ON stocks(exchange);
+  CREATE INDEX IF NOT EXISTS idx_ratios_updated ON ratios_cache(updated_at);
+  CREATE INDEX IF NOT EXISTS idx_quotes_symbol ON quotes(symbol);
 `);
 
 // Alter quotes table if needed for schema updates
