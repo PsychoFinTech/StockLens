@@ -33,7 +33,10 @@ async function startServer() {
   app.set('trust proxy', 1);
 
   // Set up standard parsers
-  app.use(cors());
+  const allowedOrigins = process.env.NODE_ENV === 'production'
+    ? [process.env.CLIENT_URL ?? 'https://your-deployed-domain.com']
+    : true; // allow all in dev
+  app.use(cors({ origin: allowedOrigins }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
@@ -50,6 +53,15 @@ async function startServer() {
   app.use('/api/watchlist', watchlistRouter); // mounts /, /add, /:symbol
   app.use('/api/macro', macroRouter);
   app.use('/api/hedge-fund', hedgefundRouter);
+
+  // Dexter graceful degradation stub
+  app.post('/api/dexter/chat', (req, res) => {
+    if (!process.env.GEMINI_API_KEYS) {
+      return res.status(503).json({ error: 'GEMINI_API_KEYS not configured', unavailable: true });
+    }
+    // Forward to actual dexter service here if available
+    res.status(501).json({ error: 'Dexter proxy not implemented' });
+  });
 
   // Initialize node-cron cache prewarming
   initCronJobs();

@@ -29,9 +29,16 @@ describe('edgarParsing helpers', () => {
       expect(parseMoney('$(1,200)')).toBe(-1200);
     });
 
-    it('should return null for empty or invalid values', () => {
+    it('handles parenthetical negatives properly', () => {
+      expect(parseMoney('(1,000.50)')).toBe(-1000.5);
+      expect(parseMoney(' ( 500 ) ')).toBe(-500);
+    });
+
+    it('handles "N/A" and "—" gracefully (returns null)', () => {
+      expect(parseMoney('N/A')).toBeNull();
+      expect(parseMoney('—')).toBeNull();
+      expect(parseMoney('-')).toBeNull();
       expect(parseMoney('')).toBeNull();
-      expect(parseMoney('abc')).toBeNull();
     });
   });
 

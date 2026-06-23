@@ -6,9 +6,10 @@ interface MacroRegimeCardProps {
   t10y2y: Observation[];
   unrate: Observation[];
   baml: Observation[];
+  cpi: Observation[];
 }
 
-export const MacroRegimeCard: React.FC<MacroRegimeCardProps> = ({ t10y2y, unrate, baml }) => {
+export const MacroRegimeCard: React.FC<MacroRegimeCardProps> = ({ t10y2y, unrate, baml, cpi }) => {
   if (!t10y2y.length || !unrate.length || !baml.length) return null;
 
   const currentYieldSpread = t10y2y[t10y2y.length - 1].value;

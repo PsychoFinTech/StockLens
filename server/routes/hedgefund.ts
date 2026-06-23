@@ -5,6 +5,10 @@ import { runHedgeFundEngine, StockEvaluationData } from '../services/hedgeFundEn
 const router = Router();
 
 router.post('/run', async (req, res, next) => {
+  if (!process.env.GEMINI_API_KEYS) {
+    return res.status(503).json({ error: 'GEMINI_API_KEYS not configured', unavailable: true });
+  }
+
   const { tickers, cash } = req.body;
 
   if (!tickers || !Array.isArray(tickers) || tickers.length === 0) {
