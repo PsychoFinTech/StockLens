@@ -101,14 +101,6 @@ async function startServer() {
   app.use('/api/macro', macroRouter);
   app.use('/api/hedge-fund', hedgefundRouter);
 
-  // Dexter graceful degradation stub
-  app.post('/api/dexter/chat', (req, res) => {
-    if (!process.env.GEMINI_API_KEYS) {
-      return res.status(503).json({ error: 'GEMINI_API_KEYS not configured', unavailable: true });
-    }
-    res.status(501).json({ error: 'Dexter proxy not implemented' });
-  });
-
   // Only init cron in worker 1 (or standalone)
   if (!cluster.isWorker || cluster.worker?.id === 1) {
     initCronJobs();
