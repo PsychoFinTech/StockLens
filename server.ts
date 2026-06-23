@@ -10,6 +10,9 @@ import pino from 'pino';
 import pinoHttp from 'pino-http';
 
 // Load environment variables
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
+
 dotenv.config();
 
 // Import custom backend files
