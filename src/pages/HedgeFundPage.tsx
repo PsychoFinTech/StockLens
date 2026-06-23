@@ -83,7 +83,7 @@ export const HedgeFundPage: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
+        <div className="lg:col-span-1 space-y-6 relative z-50">
           <div className="border border-white/50 rounded-3xl bg-white/95 backdrop-blur-xl shadow-xl shadow-indigo-500/10 p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-blue-500/15">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
               <Target className="h-5 w-5 text-indigo-500" />

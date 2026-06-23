@@ -72,7 +72,7 @@ export const WatchlistPage: React.FC = () => {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
       {/* 1. Centered Hero Search Section */}
-      <div className="relative rounded-3xl border border-white/50 bg-white/60 backdrop-blur-3xl shadow-2xl shadow-emerald-500/10 py-12 px-6 sm:px-12 text-center">
+      <div className="relative z-50 rounded-3xl border border-white/50 bg-white/60 backdrop-blur-3xl shadow-2xl shadow-emerald-500/10 py-12 px-6 sm:px-12 text-center">
         <div className="relative z-10 max-w-3xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-wider">
             <Sparkles className="h-3 w-3 text-emerald-650" />
