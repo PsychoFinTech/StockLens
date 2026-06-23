@@ -102,7 +102,7 @@ router.get('/congress/trades', apiLimiter, async (req, res, next) => {
   try {
     const { cacheService } = await import('../services/cache.js');
     const cacheKey = 'congress_trades_fmp';
-    let data = cacheService.get<any>(cacheKey);
+    let data = await cacheService.get<any>(cacheKey);
     
     if (!data) {
       const apiKey = process.env.FMP_API_KEY;
@@ -116,7 +116,7 @@ router.get('/congress/trades', apiLimiter, async (req, res, next) => {
       });
       if (!response.ok) throw new Error(`FMP API returned status ${response.status}`);
       data = await response.json();
-      cacheService.set(cacheKey, data, 3600 * 6); // Cache for 6 hours
+      await cacheService.set(cacheKey, data, 3600 * 6); // Cache for 6 hours
     }
     
     res.json(data);
@@ -142,7 +142,7 @@ router.get('/filer-search', apiLimiter, async (req, res, next) => {
     try {
       const { cacheService } = await import('../services/cache.js');
       const cacheKey = `filer_search_${nameQuery.toLowerCase()}`;
-      let data = cacheService.get<any>(cacheKey);
+      let data = await cacheService.get<any>(cacheKey);
       
       if (!data) {
         const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(nameQuery)}&output=atom`;
@@ -173,7 +173,7 @@ router.get('/filer-search', apiLimiter, async (req, res, next) => {
         }
         
         if (!data.error) {
-           cacheService.set(cacheKey, data, 3600 * 24); // Cache for 24 hours
+           await cacheService.set(cacheKey, data, 3600 * 24); // Cache for 24 hours
         }
       }
       

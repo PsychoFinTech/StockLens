@@ -65,7 +65,7 @@ export const yahooService = {
   // Predefined playlists from Yahoo Finance native global screener
   getMarketPlaylist: async (scrId: string) => {
     const cacheKey = `yahoo:playlist:${scrId}`;
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('playlist', scrId, 'MEMCACHE_PLAYLIST');
       return cached;
@@ -91,7 +91,7 @@ export const yahooService = {
         }));
       });
 
-      cacheService.set(cacheKey, result, 600); // 10 min TTL
+      await cacheService.set(cacheKey, result, 600); // 10 min TTL
       return result;
     } catch (error: any) {
       console.error(`[YAHOO PLAYLIST ERROR] Failed to fetch playlist ${scrId}:`, error.message);
@@ -102,7 +102,7 @@ export const yahooService = {
   // Trending symbols from Yahoo Finance
   getTrendingSymbols: async (country: string) => {
     const cacheKey = `yahoo:trending:${country}`;
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('trending', country, 'MEMCACHE_TRENDING');
       return cached;
@@ -134,7 +134,7 @@ export const yahooService = {
         }));
       });
 
-      cacheService.set(cacheKey, result, 600); // 10 min TTL
+      await cacheService.set(cacheKey, result, 600); // 10 min TTL
       return result;
     } catch (error: any) {
       console.error(`[YAHOO TRENDING ERROR] Failed to fetch trending symbols for ${country}:`, error.message);
@@ -148,7 +148,7 @@ export const yahooService = {
     const cacheKey = `yahoo:financials:${rawSymbol}`;
 
     // Try cache first
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('financials', rawSymbol, 'MEMCACHE_YAHOO');
       return cached;
@@ -199,7 +199,7 @@ export const yahooService = {
         };
 
         // Set node-cache & save backend SQLite persistent backup
-        cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
+        await cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
         cacheService.saveFundamentalsBackup(rawSymbol, mapped, 'YAHOO');
 
         return mapped;
@@ -224,7 +224,7 @@ export const yahooService = {
     const rawSymbol = symbol.toUpperCase();
     const cacheKey = `yahoo:index:${rawSymbol}`;
 
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -242,7 +242,7 @@ export const yahooService = {
             low: result.regularMarketDayLow || result.regularMarketPrice,
             prev_close: result.regularMarketPreviousClose || result.regularMarketPrice
           };
-          cacheService.set(cacheKey, quoteObj, CACHE_TTLS.QUOTE); // 5 min TTL
+          await cacheService.set(cacheKey, quoteObj, CACHE_TTLS.QUOTE); // 5 min TTL
           return quoteObj;
         }
         throw new Error('No index quote result found');
@@ -260,7 +260,7 @@ export const yahooService = {
     const cacheKey = `yahoo:quote:${rawSymbol}`;
 
     // Try cache first
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('quote', rawSymbol, 'MEMCACHE_YAHOO_QUOTE');
       return cached;
@@ -297,7 +297,7 @@ export const yahooService = {
             throw new Error('Quote failed validation and no backup available');
           }
 
-          cacheService.set(cacheKey, quoteObj, CACHE_TTLS.QUOTE);
+          await cacheService.set(cacheKey, quoteObj, CACHE_TTLS.QUOTE);
           cacheService.saveQuoteBackup(rawSymbol, quoteObj);
           return quoteObj;
         }
@@ -320,7 +320,7 @@ export const yahooService = {
     const rawSymbol = symbol.toUpperCase();
     const cacheKey = `yahoo:profile:${rawSymbol}`;
 
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('profile', rawSymbol, 'MEMCACHE_YAHOO_PROFILE');
       return cached;
@@ -361,7 +361,7 @@ export const yahooService = {
           description: result.assetProfile?.longBusinessSummary || `${rawSymbol} is a leading global enterprise.`
         };
 
-        cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
+        await cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
         return mapped;
       });
 
@@ -392,7 +392,7 @@ export const yahooService = {
     const rawSymbol = symbol.toUpperCase();
     const cacheKey = `yahoo:basic:${rawSymbol}`;
 
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('basic_financials', rawSymbol, 'MEMCACHE_YAHOO_BASIC');
       return cached;
@@ -402,7 +402,7 @@ export const yahooService = {
     const backup = cacheService.getRatiosBackup(rawSymbol);
     if (backup && (Date.now() - backup.updated_at < CACHE_TTLS.FUNDAMENTALS * 1000)) {
       console.log(`[YAHOO] Found fresh SQLite ratios backup for: ${rawSymbol}`);
-      cacheService.set(cacheKey, backup.data, CACHE_TTLS.FUNDAMENTALS);
+      await cacheService.set(cacheKey, backup.data, CACHE_TTLS.FUNDAMENTALS);
       return backup.data;
     }
 
@@ -458,7 +458,7 @@ export const yahooService = {
           }
         };
 
-        cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
+        await cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
         cacheService.saveRatiosBackup(rawSymbol, mapped);
         return mapped;
       });
@@ -493,7 +493,7 @@ export const yahooService = {
     const rawSymbol = symbol.toUpperCase();
     const cacheKey = `yahoo:peers:${rawSymbol}`;
 
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('peers', rawSymbol, 'MEMCACHE_YAHOO_PEERS');
       return cached;
@@ -504,7 +504,7 @@ export const yahooService = {
       const peers = await dedupedFetch(cacheKey, async () => {
         const recs: any = await recommendationsBreaker.fire(rawSymbol);
         const mappedPeers = (recs?.recommendedSymbols || []).map((r: any) => r.symbol);
-        cacheService.set(cacheKey, mappedPeers, CACHE_TTLS.PEERS);
+        await cacheService.set(cacheKey, mappedPeers, CACHE_TTLS.PEERS);
         return mappedPeers;
       });
       return peers;
@@ -519,7 +519,7 @@ export const yahooService = {
     const rawSymbol = symbol.toUpperCase();
     const cacheKey = `yahoo:news:${rawSymbol}`;
 
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('news', rawSymbol, 'MEMCACHE_YAHOO_NEWS');
       return cached;
@@ -537,7 +537,7 @@ export const yahooService = {
           datetime: item.providerPublishTime ? Math.floor(Date.parse(item.providerPublishTime) / 1000) : Math.floor(Date.now() / 1000),
           url: item.link
         }));
-        cacheService.set(cacheKey, newsArr, CACHE_TTLS.NEWS);
+        await cacheService.set(cacheKey, newsArr, CACHE_TTLS.NEWS);
         return newsArr;
       });
       return mappedNews;
@@ -551,7 +551,7 @@ export const yahooService = {
   getMarketNews: async () => {
     const cacheKey = `yahoo:news:market`;
 
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -568,7 +568,7 @@ export const yahooService = {
           datetime: item.providerPublishTime ? Math.floor(Date.parse(item.providerPublishTime) / 1000) : Math.floor(Date.now() / 1000),
           url: item.link
         }));
-        cacheService.set(cacheKey, newsArr, CACHE_TTLS.NEWS);
+        await cacheService.set(cacheKey, newsArr, CACHE_TTLS.NEWS);
         return newsArr;
       });
       return mappedNews;
@@ -657,7 +657,7 @@ export const yahooService = {
     const cacheKey = `yahoo:shareholding:${rawSymbol}`;
 
     // Try in-memory cache first
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('shareholding', rawSymbol, 'MEMCACHE_YAHOO_SHAREHOLDING');
       return cached;
@@ -667,7 +667,7 @@ export const yahooService = {
     const backup = cacheService.getShareholdingBackup(rawSymbol);
     if (backup && (Date.now() - backup.updated_at < CACHE_TTLS.FUNDAMENTALS * 1000)) {
       console.log(`[YAHOO] Found fresh SQLite shareholding backup for: ${rawSymbol}`);
-      cacheService.set(cacheKey, backup.data, CACHE_TTLS.FUNDAMENTALS);
+      await cacheService.set(cacheKey, backup.data, CACHE_TTLS.FUNDAMENTALS);
       return backup.data;
     }
 
@@ -712,7 +712,7 @@ export const yahooService = {
         };
 
         // Set node-cache & save backend SQLite persistent backup
-        cacheService.set(cacheKey, mappedPayload, CACHE_TTLS.FUNDAMENTALS);
+        await cacheService.set(cacheKey, mappedPayload, CACHE_TTLS.FUNDAMENTALS);
         cacheService.saveShareholdingBackup(rawSymbol, mappedPayload);
 
         return mappedPayload;
@@ -735,7 +735,7 @@ export const yahooService = {
     const rawSymbol = symbol.toUpperCase();
     const cacheKey = `yahoo:timeseries:${rawSymbol}`;
 
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('timeseries', rawSymbol, 'MEMCACHE_YAHOO_TIMESERIES');
       return cached;
@@ -750,7 +750,7 @@ export const yahooService = {
           type: 'annual',
           module: 'all'
         });
-        cacheService.set(cacheKey, result, CACHE_TTLS.FUNDAMENTALS);
+        await cacheService.set(cacheKey, result, CACHE_TTLS.FUNDAMENTALS);
         return result;
       });
       return payload;

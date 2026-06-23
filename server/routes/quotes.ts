@@ -27,7 +27,7 @@ router.get('/:symbol', apiLimiter, async (req, res, next) => {
 
   try {
     // 1. Layer 1 (Memory Lookup)
-    const cached = cacheService.get<any>(cacheKey);
+    const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
       cacheService.logHit('quote', symbol, 'MEMORY');
       return res.json(formatClientQuote(symbol, cached));
@@ -39,7 +39,7 @@ router.get('/:symbol', apiLimiter, async (req, res, next) => {
       liveData = await yahooService.getQuote(symbol);
       if (liveData && liveData.price !== null) {
         // 5. Cache Hydration Safeguard
-        cacheService.set(cacheKey, liveData, CACHE_TTLS.QUOTE);
+        await cacheService.set(cacheKey, liveData, CACHE_TTLS.QUOTE);
         cacheService.saveQuoteBackup(symbol, {
           price: liveData.price,
           change: 0,

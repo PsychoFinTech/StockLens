@@ -148,7 +148,7 @@ async function startServer() {
 }
 
 // Clustering setup
-if (process.env.NODE_ENV === 'production' && cluster.isPrimary && process.env.CLUSTER !== 'false') {
+if (process.env.NODE_ENV === 'production' && cluster.isPrimary && process.env.CLUSTER === 'true') {
   const numCPUs = os.cpus().length;
   // Fallback to console.log since logger might not be fully configured in primary yet
   console.log(`[CLUSTER] Primary ${process.pid} spawning ${numCPUs} workers`);

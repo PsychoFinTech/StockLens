@@ -1,12 +1,21 @@
 import NodeCache from 'node-cache';
+import Redis from 'ioredis';
 import db from './db.js';
+import dotenv from 'dotenv';
 
-// Initialize NodeCache
-// TTL values in seconds
-const cache = new NodeCache({
+dotenv.config();
+
+// Initialize NodeCache (fallback)
+const localCache = new NodeCache({
   stdTTL: 300,        // Default 5 min
   checkperiod: 60     // Clean up expired items every 60s
 });
+
+let redisClient: Redis | undefined;
+if (process.env.REDIS_URL) {
+  redisClient = new Redis(process.env.REDIS_URL);
+  redisClient.on('error', (err) => console.error('[REDIS CACHE ERROR]', err));
+}
 
 export const CACHE_TTLS = {
   QUOTE: 300,         // 5 mins
@@ -16,12 +25,30 @@ export const CACHE_TTLS = {
 };
 
 export const cacheService = {
-  get: <T>(key: string): T | undefined => {
-    return cache.get<T>(key);
+  get: async <T>(key: string): Promise<T | undefined> => {
+    if (redisClient) {
+      try {
+        const val = await redisClient.get(key);
+        if (val) return JSON.parse(val) as T;
+      } catch (err) {
+        console.error('[REDIS GET ERROR]', err);
+      }
+      return undefined;
+    }
+    return localCache.get<T>(key);
   },
 
-  set: <T>(key: string, value: T, ttlSeconds: number): boolean => {
-    return cache.set(key, value, ttlSeconds);
+  set: async <T>(key: string, value: T, ttlSeconds: number): Promise<boolean> => {
+    if (redisClient) {
+      try {
+        await redisClient.setex(key, ttlSeconds, JSON.stringify(value));
+        return true;
+      } catch (err) {
+        console.error('[REDIS SET ERROR]', err);
+        return false;
+      }
+    }
+    return localCache.set(key, value, ttlSeconds);
   },
 
   // Log cached hits in the SQLite db
