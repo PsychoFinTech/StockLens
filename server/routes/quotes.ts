@@ -42,8 +42,8 @@ router.get('/:symbol', apiLimiter, async (req, res, next) => {
         await cacheService.set(cacheKey, liveData, CACHE_TTLS.QUOTE);
         cacheService.saveQuoteBackup(symbol, {
           price: liveData.price,
-          change: 0,
-          change_pct: 0,
+          change: liveData.change,
+          change_pct: liveData.change_pct,
           high_52w: liveData.high_52w,
           low_52w: liveData.low_52w
         });
