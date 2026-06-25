@@ -115,6 +115,46 @@ describe('DCF Calculator Utilities', () => {
       };
       expect(() => computeDCF(badInputs, 100)).toThrow('WACC (discount rate) must be greater than the terminal growth rate.');
     });
+    it('applies 2-stage growth rate decay for projections longer than 5 years', () => {
+      const inputs10Yr = {
+        ...mockInputs,
+        projectionYears: 10,
+      };
+      const result = computeDCF(inputs10Yr, 100);
+      expect(result.projectedYears.length).toBe(10);
+      
+      // Years 1-5 should have constant growth of 10%
+      for (let i = 0; i < 5; i++) {
+        expect(result.projectedYears[i].growthRate).toBeCloseTo(0.10, 4);
+      }
+      
+      // Year 10 (index 9) should fade to terminal growth (2%)
+      expect(result.projectedYears[9].growthRate).toBeCloseTo(0.02, 4);
+      
+      // Year 7 should be intermediate (index 6)
+      // Step factor at i = 7: (7 - 5) / (10 - 5) = 2/5 = 0.4
+      // growth = 0.10 - 0.4 * (0.10 - 0.02) = 0.10 - 0.032 = 0.068
+      expect(result.projectedYears[6].growthRate).toBeCloseTo(0.068, 4);
+    });
+
+    it('interpolates FCF margins linearly when targetFcfMargin is provided', () => {
+      const variableMarginInputs = {
+        ...mockInputs,
+        projectionYears: 5,
+        targetFcfMargin: 0.30, // grow from 20% to 30%
+      };
+      const result = computeDCF(variableMarginInputs, 100);
+      
+      // Margins:
+      // Year 1: 20%
+      // Year 2: 22.5%
+      // Year 3: 25%
+      // Year 4: 27.5%
+      // Year 5: 30%
+      expect(result.projectedYears[0].fcfMargin).toBeCloseTo(0.20, 4);
+      expect(result.projectedYears[2].fcfMargin).toBeCloseTo(0.25, 4);
+      expect(result.projectedYears[4].fcfMargin).toBeCloseTo(0.30, 4);
+    });
   });
 
   describe('computeSensitivityTable', () => {

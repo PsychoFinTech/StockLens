@@ -47,7 +47,7 @@ export async function fetchYahooData(ticker: string): Promise<YFData> {
   const period1 = fiveYearsAgo.toISOString().split('T')[0];
   
   let history: any[] = [];
-  let returns = { oneMonth: null, threeMonth: null, oneYear: null, threeYear: null, fiveYear: null };
+  let returns: YFData['returns'] = { oneMonth: null, threeMonth: null, oneYear: null, threeYear: null, fiveYear: null };
   try {
     const historyResult = await yahooFinance.chart(ticker, { period1, interval: '1d' });
     history = historyResult.quotes;

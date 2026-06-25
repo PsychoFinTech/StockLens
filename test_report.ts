@@ -19,7 +19,7 @@ async function test() {
   const chartUrl = generatePriceChartUrl(ticker, yfData.history);
 
   console.log('Rendering content...');
-  const content = generateReportContent(ticker, yfData, secData, fredData, metrics, chartUrl);
+  const content = generateReportContent(ticker, yfData, secData, fredData, metrics, chartUrl, [], null);
 
   console.log('Generating PDF...');
   const pdfBuffer = await generatePdf(content);

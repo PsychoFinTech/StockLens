@@ -2,6 +2,7 @@ export interface DCFInputs {
   // Growth
   revenueGrowthRate: number;    // decimal (e.g. 0.125 = 12.5%)
   fcfMargin: number;            // decimal (e.g. 0.18 = 18%)
+  targetFcfMargin?: number;     // decimal (e.g. 0.22 = 22%), defaults to fcfMargin if omitted
   projectionYears: number;      // 5-10
   terminalGrowthRate: number;   // decimal (e.g. 0.025 = 2.5%)
   
@@ -26,8 +27,10 @@ export interface DCFResult {
   projectedYears: {
     year: number;
     revenue: number;
+    fcfMargin: number;
     fcf: number;
     discountedFcf: number;
+    growthRate: number;
   }[];
   terminalValue: number;
   pvTerminalValue: number;
@@ -75,18 +78,38 @@ export function computeDCF(inputs: DCFInputs, currentPrice: number): DCFResult {
   let pvFcfSum = 0;
 
   const currentYear = new Date().getFullYear();
+  const targetMargin = inputs.targetFcfMargin !== undefined ? inputs.targetFcfMargin : inputs.fcfMargin;
 
   for (let i = 1; i <= inputs.projectionYears; i++) {
-    currentRevenue = currentRevenue * (1 + inputs.revenueGrowthRate);
-    const fcf = currentRevenue * inputs.fcfMargin;
+    // 2-stage growth rate model: years 1-5 use high-growth rate, 
+    // years 6-10 fade linearly to terminal growth rate
+    let growthRate = inputs.revenueGrowthRate;
+    if (i > 5 && inputs.projectionYears > 5) {
+      const steps = inputs.projectionYears - 5;
+      const factor = (i - 5) / steps;
+      growthRate = inputs.revenueGrowthRate - factor * (inputs.revenueGrowthRate - inputs.terminalGrowthRate);
+    }
+
+    currentRevenue = currentRevenue * (1 + growthRate);
+
+    // Variable FCF margin model: linear interpolation from initial to target margin
+    let currentMargin = inputs.fcfMargin;
+    if (inputs.projectionYears > 1) {
+      const factor = (i - 1) / (inputs.projectionYears - 1);
+      currentMargin = inputs.fcfMargin + factor * (targetMargin - inputs.fcfMargin);
+    }
+
+    const fcf = currentRevenue * currentMargin;
     const discountedFcf = fcf / Math.pow(1 + wacc, i);
     pvFcfSum += discountedFcf;
 
     projectedYears.push({
       year: currentYear + i,
       revenue: currentRevenue,
+      fcfMargin: currentMargin,
       fcf,
       discountedFcf,
+      growthRate,
     });
   }
 
@@ -163,18 +186,35 @@ function computeDCFWithFixedWACC(inputs: DCFInputs, currentPrice: number, fixedW
   let currentRevenue = inputs.latestRevenue;
   let pvFcfSum = 0;
   const currentYear = new Date().getFullYear();
+  const targetMargin = inputs.targetFcfMargin !== undefined ? inputs.targetFcfMargin : inputs.fcfMargin;
 
   for (let i = 1; i <= inputs.projectionYears; i++) {
-    currentRevenue = currentRevenue * (1 + inputs.revenueGrowthRate);
-    const fcf = currentRevenue * inputs.fcfMargin;
+    let growthRate = inputs.revenueGrowthRate;
+    if (i > 5 && inputs.projectionYears > 5) {
+      const steps = inputs.projectionYears - 5;
+      const factor = (i - 5) / steps;
+      growthRate = inputs.revenueGrowthRate - factor * (inputs.revenueGrowthRate - inputs.terminalGrowthRate);
+    }
+
+    currentRevenue = currentRevenue * (1 + growthRate);
+
+    let currentMargin = inputs.fcfMargin;
+    if (inputs.projectionYears > 1) {
+      const factor = (i - 1) / (inputs.projectionYears - 1);
+      currentMargin = inputs.fcfMargin + factor * (targetMargin - inputs.fcfMargin);
+    }
+
+    const fcf = currentRevenue * currentMargin;
     const discountedFcf = fcf / Math.pow(1 + fixedWacc, i);
     pvFcfSum += discountedFcf;
 
     projectedYears.push({
       year: currentYear + i,
       revenue: currentRevenue,
+      fcfMargin: currentMargin,
       fcf,
       discountedFcf,
+      growthRate,
     });
   }
 

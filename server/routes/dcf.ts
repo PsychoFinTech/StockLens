@@ -38,6 +38,12 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
       return res.status(404).json({ error: `Could not fetch real-time quote for symbol ${symbol}` });
     }
 
+    const getField = (obj: any, name: string) => {
+      if (!obj) return null;
+      const key = Object.keys(obj).find(k => k.toLowerCase() === name.toLowerCase());
+      return key !== undefined && obj[key] !== undefined ? obj[key] : null;
+    };
+
     const sortedStatements = (Array.isArray(timeSeries) ? timeSeries : []).sort((a: any, b: any) => {
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
@@ -48,7 +54,7 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
     const historicalFCF = sortedStatements
       .map((item: any) => {
         const year = new Date(item.date).getFullYear();
-        const value = item.freeCashFlow ?? null;
+        const value = getField(item, 'freeCashFlow') ?? null;
         return { year, value };
       })
       .filter(item => item.value !== null);
@@ -57,42 +63,65 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
     const historicalRevenue = sortedStatements
       .map((item: any) => {
         const year = new Date(item.date).getFullYear();
-        const value = item.totalRevenue ?? null;
+        const value = getField(item, 'totalRevenue') ?? null;
         return { year, value };
       })
       .filter(item => item.value !== null);
 
     // WACC Cost of Debt components fallback mapping
     let interestExpense = null;
-    const latestInterestObj = sortedNewestFirst.find(s => s.interestExpense !== undefined && s.interestExpense !== null);
+    const latestInterestObj = sortedNewestFirst.find(s => getField(s, 'interestExpense') !== null);
     if (latestInterestObj) {
-      interestExpense = latestInterestObj.interestExpense;
+      const rawInterest = getField(latestInterestObj, 'interestExpense');
+      interestExpense = rawInterest !== null ? Math.abs(rawInterest) : null;
     }
 
     let taxRate = null;
-    const latestTaxObj = sortedNewestFirst.find(s => s.taxRateForCalcs !== undefined && s.taxRateForCalcs !== null);
+    const latestTaxObj = sortedNewestFirst.find(s => getField(s, 'taxRateForCalcs') !== null);
     if (latestTaxObj) {
-      taxRate = latestTaxObj.taxRateForCalcs;
+      taxRate = getField(latestTaxObj, 'taxRateForCalcs');
     }
 
     // Leverage cash and debt from basic stats, fallback to latest balance sheet statement
-    const totalDebt = basicFinancials?.metric?.totalDebt ?? 
-                      sortedNewestFirst.find(s => s.totalDebt !== undefined && s.totalDebt !== null)?.totalDebt ?? 
-                      null;
+    let totalDebt = basicFinancials?.metric?.totalDebt ?? 
+                    sortedNewestFirst.find(s => getField(s, 'totalDebt') !== null)?.totalDebt ?? 
+                    null;
+    if (totalDebt !== null) {
+      totalDebt = Math.abs(totalDebt); // Keep debt positive
+    }
 
-    const cashAndEquivalents = basicFinancials?.metric?.totalCash ?? 
-                               sortedNewestFirst.find(s => s.cashCashEquivalentsAndShortTermInvestments !== undefined && s.cashCashEquivalentsAndShortTermInvestments !== null)?.cashCashEquivalentsAndShortTermInvestments ?? 
-                               sortedNewestFirst.find(s => s.cashAndCashEquivalents !== undefined && s.cashAndCashEquivalents !== null)?.cashAndCashEquivalents ?? 
-                               null;
+    let cashAndEquivalents = basicFinancials?.metric?.totalCash ?? 
+                             sortedNewestFirst.find(s => getField(s, 'cashCashEquivalentsAndShortTermInvestments') !== null)?.cashCashEquivalentsAndShortTermInvestments ?? 
+                             sortedNewestFirst.find(s => getField(s, 'cashAndCashEquivalents') !== null)?.cashAndCashEquivalents ?? 
+                             null;
 
-    const sharesOutstanding = basicFinancials?.metric?.sharesOutstanding ?? 
-                              sortedNewestFirst.find(s => s.ordinarySharesNumber !== undefined && s.ordinarySharesNumber !== null)?.ordinarySharesNumber ?? 
+    let sharesOutstanding = basicFinancials?.metric?.sharesOutstanding ?? 
+                              sortedNewestFirst.find(s => getField(s, 'ordinarySharesNumber') !== null)?.ordinarySharesNumber ?? 
                               null;
 
     const beta = basicFinancials?.metric?.beta ?? null;
-    const marketCap = basicFinancials?.metric?.marketCapitalization 
-                      ? basicFinancials.metric.marketCapitalization * 1000000 
-                      : (sharesOutstanding && quote.price ? sharesOutstanding * quote.price : null);
+
+    let marketCap = basicFinancials?.metric?.marketCapitalization;
+    if (marketCap !== null && marketCap !== undefined) {
+      marketCap = marketCap * 1000000;
+      // Sanity check: if it is abnormally low (< $1M), the original number was likely already absolute, not in millions
+      if (marketCap < 1000000 && basicFinancials.metric.marketCapitalization > 0) {
+        marketCap = basicFinancials.metric.marketCapitalization;
+      }
+    } else if (sharesOutstanding && quote.price) {
+      marketCap = sharesOutstanding * quote.price;
+    }
+
+    // Sanity check for shares outstanding unit mismatch
+    if (sharesOutstanding && quote.price && marketCap) {
+      const calculatedCap = sharesOutstanding * quote.price;
+      const ratio = marketCap / calculatedCap;
+      if (ratio >= 500000 && ratio <= 2000000) {
+        sharesOutstanding = sharesOutstanding * 1000000;
+      } else if (ratio >= 500 && ratio <= 2000) {
+        sharesOutstanding = sharesOutstanding * 1000;
+      }
+    }
 
     // Resolve Risk-Free Rate based on region (US vs India)
     const isIndian = symbol.endsWith('.NS') || symbol.endsWith('.BO') || profile?.country === 'IN' || profile?.country === 'India';
@@ -133,7 +162,9 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
       analystGrowthEstimate5yr: growthEstimates?.growthEstimate5yr || null,
       currency: isIndian ? 'INR' : 'USD',
       lastFiscalYear: sortedNewestFirst.length > 0 ? new Date(sortedNewestFirst[0].date).getFullYear() : new Date().getFullYear() - 1,
-      dataFreshness: new Date().toISOString()
+      dataFreshness: new Date().toISOString(),
+      high_52w: quote.high_52w || null,
+      low_52w: quote.low_52w || null
     };
 
     // Cache with standard fundamentals TTL (24h)

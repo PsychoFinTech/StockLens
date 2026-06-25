@@ -19,6 +19,8 @@ export interface DCFData {
   currency: 'USD' | 'INR';
   lastFiscalYear: number;
   dataFreshness: string;
+  high_52w: number | null;
+  low_52w: number | null;
 }
 
 export function useDCFData(symbol: string) {

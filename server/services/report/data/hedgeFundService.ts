@@ -1,6 +1,5 @@
 import { runHedgeFundEngine, StockEvaluationData, HedgeFundResult } from '../../hedgeFundEngine.js';
 import { YFData } from './yahooFinanceService.js';
-import { computeMargins } from '../compute/ratios.js';
 
 export function runHedgeFundForReport(ticker: string, yfData: YFData): HedgeFundResult | null {
   try {
@@ -17,7 +16,7 @@ export function runHedgeFundForReport(ticker: string, yfData: YFData): HedgeFund
     const debtToEquity = quote.debtToEquity !== undefined ? quote.debtToEquity / 100 : null;
     const currentRatio = quote.currentRatio || null;
     
-    const returns = yfData.returns || {};
+    const returns = yfData.returns || { oneMonth: null, threeMonth: null, oneYear: null, threeYear: null, fiveYear: null };
     
     const stockData: StockEvaluationData = {
       symbol: ticker,

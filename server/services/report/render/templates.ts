@@ -188,7 +188,7 @@ export function generateReportContent(
     else finstarRating = 'NEUTRAL';
   }
 
-  const returns = yfData.returns || { oneMonth: null, threeMonth: null, oneYear: null, threeYear: null };
+  const returns = yfData.returns || { oneMonth: null, threeMonth: null, oneYear: null, threeYear: null, fiveYear: null };
 
   const executiveSummary = analystNote ? analystNote : (summaryReasons.length > 0 
     ? summaryReasons.slice(0, 3).join(' ') 

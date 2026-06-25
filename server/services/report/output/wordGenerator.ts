@@ -105,7 +105,7 @@ export async function generateWord(content: ReportContent): Promise<Buffer> {
         new ImageRun({
           data: chartImageBuffer,
           transformation: { width: 500, height: 250 }
-        })
+        } as any)
       ],
       spacing: { after: 200 }
     }));

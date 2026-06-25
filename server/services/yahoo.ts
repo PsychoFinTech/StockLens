@@ -775,7 +775,7 @@ export const yahooService = {
     try {
       console.log(`[YAHOO] Fetching growth estimates for: ${rawSymbol}`);
       const payload = await dedupedFetch(cacheKey, async () => {
-        const result = await quoteSummaryBreaker.fire(rawSymbol, {
+        const result: any = await quoteSummaryBreaker.fire(rawSymbol, {
           modules: ['earningsTrend']
         });
         const trends = result?.earningsTrend?.trend || [];
