@@ -455,7 +455,8 @@ export const yahooService = {
             evEbitda: ks.enterpriseToEbitda || null,
             sharesOutstanding: ks.sharesOutstanding || null,
             bookValue: ks.bookValue || null,
-            totalCash: fd.totalCash || null
+            totalCash: fd.totalCash || null,
+            beta: ks.beta || null
           }
         };
 
@@ -483,7 +484,8 @@ export const yahooService = {
           debtEquityAnnual: null,
           epsBasicExclExtraItemsTTM: null,
           marketCapitalization: null,
-          dividendYieldIndicated: null
+          dividendYieldIndicated: null,
+          beta: null
         }
       };
     }
@@ -758,6 +760,36 @@ export const yahooService = {
     } catch (error: any) {
       console.error(`[YAHOO TIMESERIES ERROR] Failed for ${rawSymbol}`, error.message);
       return [];
+    }
+  },
+
+  getGrowthEstimates: async (symbol: string) => {
+    const rawSymbol = symbol.toUpperCase();
+    const cacheKey = `yahoo:growth:${rawSymbol}`;
+
+    const cached = await cacheService.get<any>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      console.log(`[YAHOO] Fetching growth estimates for: ${rawSymbol}`);
+      const payload = await dedupedFetch(cacheKey, async () => {
+        const result = await quoteSummaryBreaker.fire(rawSymbol, {
+          modules: ['earningsTrend']
+        });
+        const trends = result?.earningsTrend?.trend || [];
+        const fiveYear = trends.find((t: any) => t.period === '+5y');
+        const mapped = {
+          growthEstimate5yr: fiveYear?.growth || null
+        };
+        await cacheService.set(cacheKey, mapped, CACHE_TTLS.FUNDAMENTALS);
+        return mapped;
+      });
+      return payload;
+    } catch (error: any) {
+      console.error(`[YAHOO GROWTH ERROR] Failed for ${rawSymbol}`, error.message);
+      return { growthEstimate5yr: null };
     }
   }
 };

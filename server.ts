@@ -19,6 +19,7 @@ dotenv.config();
 import searchRouter from './server/routes/search.js';
 import quotesRouter from './server/routes/quotes.js';
 import fundamentalsRouter from './server/routes/fundamentals.js';
+import dcfRouter from './server/routes/dcf.js';
 import chartsRouter from './server/routes/charts.js';
 import newsRouter from './server/routes/news.js';
 import screenerRouter from './server/routes/screener.js';
@@ -96,6 +97,7 @@ async function startServer() {
   app.use('/api/search', searchRouter);
   app.use('/api/quote', quotesRouter);
   app.use('/api', fundamentalsRouter); 
+  app.use('/api', dcfRouter);
   app.use('/api/edgar', edgarRouter);
   app.use('/api/chart', chartsRouter);
   app.use('/api/news', newsRouter);
