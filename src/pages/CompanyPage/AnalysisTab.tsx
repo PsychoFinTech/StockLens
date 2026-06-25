@@ -3,6 +3,7 @@ import { X, Plus, Sparkles, HelpCircle, Info } from 'lucide-react';
 import { Chart } from '../../components/Chart.jsx';
 import { formatPrice, formatMarketCap } from '../../utils/formatters.js';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { DCFCalculator } from './DCFCalculator.js';
 
 interface CompanyProfile {
   symbol: string;
@@ -605,6 +606,8 @@ export const AnalysisTab: React.FC<AnalysisTabProps> = ({
           </div>
         )}
       </div>
+
+      <DCFCalculator symbol={upperSymbol} exchange={profile.exchange} profile={profile} />
 
       {/* Ratios Comprehensive Sparklines Section */}
       <div id="ratios" className="bg-white border border-[#E5E8EF] rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.06)] space-y-6">

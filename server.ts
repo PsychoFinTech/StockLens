@@ -19,6 +19,7 @@ dotenv.config();
 import searchRouter from './server/routes/search.js';
 import quotesRouter from './server/routes/quotes.js';
 import fundamentalsRouter from './server/routes/fundamentals.js';
+import dcfRouter from './server/routes/dcf.js';
 import chartsRouter from './server/routes/charts.js';
 import newsRouter from './server/routes/news.js';
 import screenerRouter from './server/routes/screener.js';
@@ -27,6 +28,7 @@ import watchlistRouter from './server/routes/watchlist.js';
 import edgarRouter from './server/routes/edgar.js';
 import macroRouter from './server/routes/macro.js';
 import hedgefundRouter from './server/routes/hedgefund.js';
+import reportRouter from './server/routes/report.js';
 import db from './server/services/db.js';
 
 import { initCronJobs } from './server/services/cron.js';
@@ -95,6 +97,7 @@ async function startServer() {
   app.use('/api/search', searchRouter);
   app.use('/api/quote', quotesRouter);
   app.use('/api', fundamentalsRouter); 
+  app.use('/api', dcfRouter);
   app.use('/api/edgar', edgarRouter);
   app.use('/api/chart', chartsRouter);
   app.use('/api/news', newsRouter);
@@ -103,6 +106,7 @@ async function startServer() {
   app.use('/api/watchlist', watchlistRouter);
   app.use('/api/macro', macroRouter);
   app.use('/api/hedge-fund', hedgefundRouter);
+  app.use('/api/report', reportRouter);
 
   // Only init cron in worker 1 (or standalone)
   if (!cluster.isWorker || cluster.worker?.id === 1) {

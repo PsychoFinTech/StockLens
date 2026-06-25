@@ -89,6 +89,9 @@ export const CompanyPage: React.FC = () => {
 
   // Sharing copy link states
   const [copied, setCopied] = useState(false);
+  
+  // Report type state
+  const [reportType, setReportType] = useState<'snapshot' | 'full'>('full');
 
   const {
     watchlist,
@@ -369,6 +372,39 @@ export const CompanyPage: React.FC = () => {
                 <Star className={`h-4.5 w-4.5 ${isStarred ? 'fill-current' : ''}`} />
               )}
             </button>
+
+            <div className="h-6 w-px bg-slate-200 hidden md:block"></div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={reportType}
+                onChange={(e) => setReportType(e.target.value as 'snapshot' | 'full')}
+                className="bg-white border border-[#E5E8EF] text-slate-600 text-xs font-bold rounded-lg px-2 py-2 focus:outline-none focus:ring-1 focus:ring-[#059669]"
+              >
+                <option value="full">Full Report</option>
+                <option value="snapshot">Snapshot</option>
+              </select>
+
+              <a
+                href={`/api/report/${upperSymbol}?format=pdf&type=${reportType}`}
+                download={`${upperSymbol}_Report.pdf`}
+                className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 text-rose-600 border border-rose-100 rounded-lg hover:bg-rose-100 transition-all hover:scale-105 cursor-pointer text-xs font-bold font-sans"
+                title="Generate PDF Report"
+              >
+                <FileText className="h-4 w-4" />
+                <span>PDF</span>
+              </a>
+
+              <a
+                href={`/api/report/${upperSymbol}?format=word&type=${reportType}`}
+                download={`${upperSymbol}_Report.docx`}
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg hover:bg-blue-100 transition-all hover:scale-105 cursor-pointer text-xs font-bold font-sans"
+                title="Generate Word Report"
+              >
+                <FileText className="h-4 w-4" />
+                <span>Word</span>
+              </a>
+            </div>
           </div>
         </div>
 
