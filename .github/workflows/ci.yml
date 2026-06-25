@@ -13,6 +13,8 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm run build
+      - run: npm audit
       
       - name: Gitleaks
         uses: gitleaks/gitleaks-action@v2

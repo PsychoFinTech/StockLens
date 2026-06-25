@@ -77,13 +77,20 @@ router.get('/', apiLimiter, async (req, res, next) => {
   }
 });
 
+import { z } from 'zod';
+
+const WatchlistAddSchema = z.object({
+  symbol: z.string().min(1).max(20).regex(/^[A-Z0-9.\-]+$/i, "Invalid symbol format").transform(s => s.toUpperCase().trim())
+});
+
 // 2. POST /api/watchlist/add -> add symbol to watchlist
 router.post('/add', apiLimiter, (req, res, next) => {
   try {
-    const symbol = req.body.symbol ? req.body.symbol.toString().toUpperCase().trim() : '';
-    if (!symbol) {
-      return res.status(400).json({ error: true, message: 'Stock symbol is required.' });
+    const parseResult = WatchlistAddSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return res.status(400).json({ error: true, message: parseResult.error.errors[0].message });
     }
+    const symbol = parseResult.data.symbol;
 
     try {
       const stmt = db.prepare(`

@@ -4,20 +4,11 @@ import { useDCFData } from './hooks/useDCFData.js';
 import { computeDCF, computeSensitivityTable } from '../../utils/dcfCalculator.js';
 import { runMonteCarloSimulation } from '../../utils/monteCarlo.js';
 import { formatPrice, formatMarketCap, formatPercentChange, formatShares } from '../../utils/formatters.js';
+import { ProvenanceTooltip } from './components/DCF/ProvenanceTooltip.js';
+import { DCFProjectedCashFlows } from './components/DCF/DCFProjectedCashFlows.js';
+import { DCFValuationBridge } from './components/DCF/DCFValuationBridge.js';
 
-const ProvenanceTooltip = ({ provenanceData }: { provenanceData?: { source: string, fallbackApplied: boolean, timestamp?: string } }) => {
-  if (!provenanceData) return null;
-  return (
-    <div className="relative group flex items-center ml-1 z-10">
-      <Info className={`w-3.5 h-3.5 cursor-help ${provenanceData.fallbackApplied ? 'text-amber-500' : 'text-[#1A6EFF]/80'}`} />
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-52 p-2 bg-slate-800 text-white text-[10.5px] rounded shadow-lg pointer-events-none">
-        <p><strong className="text-slate-300 font-semibold uppercase tracking-wider text-[9px]">Source:</strong> {provenanceData.source}</p>
-        {provenanceData.fallbackApplied && <p className="text-amber-300 mt-0.5">Fallback Mechanism Applied</p>}
-        {provenanceData.timestamp && <p className="text-slate-400 mt-0.5 font-mono truncate">As of: {provenanceData.timestamp.split('T')[0]}</p>}
-      </div>
-    </div>
-  );
-};
+
 
 interface DCFCalculatorProps {
   symbol: string;
@@ -32,7 +23,7 @@ interface DCFCalculatorProps {
 
 // 2D grid sensitivity calculation helper for Revenue Growth vs FCF Margin
 function computeRevenueMarginSensitivityTable(
-  baseInputs: any,
+  baseInputs: DCFInputs,
   currentPrice: number,
   growthRange: number[],
   marginRange: number[]
@@ -247,24 +238,31 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
   const monteCarloResult = React.useMemo(() => {
     if (!dcfResult || !latestRevenue || sharesOutstanding <= 0 || !data) return null;
     return runMonteCarloSimulation({
-      latestRevenue,
-      revenueGrowth,
+      baseInputs: {
+        revenueGrowthRate: revenueGrowth,
+        fcfMargin,
+        targetFcfMargin,
+        projectionYears,
+        terminalGrowthRate: terminalGrowth,
+        riskFreeRate,
+        equityRiskPremium,
+        beta,
+        costOfDebt,
+        taxRate,
+        marketCap: marketCap || (sharesOutstanding * data.currentPrice),
+        totalDebt,
+        latestRevenue,
+        cashAndEquivalents,
+        sharesOutstanding,
+      },
+      currentPrice: data.currentPrice,
+      baseWacc: dcfResult.wacc,
       revenueGrowthStdDev: Math.abs(revenueGrowth * 0.20) || 0.02, // 20% of base
-      targetFcfMargin,
       targetFcfMarginStdDev: Math.abs(targetFcfMargin * 0.10) || 0.01, // 10% of base
-      wacc: dcfResult.wacc,
       waccStdDev: dcfResult.wacc * 0.10 || 0.005, // 10% of WACC
-      terminalGrowth,
       terminalGrowthStdDev: Math.abs(terminalGrowth * 0.20) || 0.0025, // 20% of base
-      sharesOutstanding,
-      totalDebt,
-      cashAndEquivalents,
-      projectionYears,
-      fcfMarginYear1: data.historicalFCF && data.historicalFCF.length > 0 && data.historicalRevenue && data.historicalRevenue.length > 0
-        ? data.historicalFCF[data.historicalFCF.length - 1].value / data.historicalRevenue[data.historicalRevenue.length - 1].value
-        : targetFcfMargin
     }, 10000);
-  }, [dcfResult, latestRevenue, revenueGrowth, targetFcfMargin, dcfResult?.wacc, terminalGrowth, sharesOutstanding, totalDebt, cashAndEquivalents, projectionYears, data]);
+  }, [dcfResult, latestRevenue, revenueGrowth, fcfMargin, targetFcfMargin, terminalGrowth, riskFreeRate, equityRiskPremium, beta, costOfDebt, taxRate, marketCap, sharesOutstanding, totalDebt, cashAndEquivalents, projectionYears, data]);
 
   // WACC sensitivity ranges (Grid A)
   const waccSteps = dcfResult ? [
@@ -1094,104 +1092,19 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
 
           {/* Projected Cash Flows Table */}
           {dcfResult && (
-            <div className="space-y-3">
-              <h4 className="font-sans font-bold text-[12.5px] text-slate-800 uppercase tracking-wider">
-                Projected Free Cash Flows
-              </h4>
-              <div className="overflow-x-auto border border-[#E5E8EF] rounded-xl">
-                <table className="min-w-full divide-y divide-[#E5E8EF] text-xs font-sans text-slate-700 bg-white">
-                  <thead>
-                    <tr className="bg-slate-50 border-b border-[#E5E8EF] text-[11.5px] font-bold text-slate-500 uppercase tracking-wider text-left">
-                      <th className="py-2.5 px-4">Year</th>
-                      <th className="text-right py-2.5 px-4">Revenue</th>
-                      <th className="text-right py-2.5 px-4">Revenue Growth</th>
-                      <th className="text-right py-2.5 px-4">FCF Margin</th>
-                      <th className="text-right py-2.5 px-4">Projected FCF</th>
-                      <th className="text-right py-2.5 px-4">Discounted FCF</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E5E8EF]">
-                    {dcfResult.projectedYears.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/50 transition">
-                        <td className="py-2.5 px-4 font-mono font-bold text-slate-600">Year {idx + 1} ({item.year})</td>
-                        <td className="text-right py-2.5 px-4 font-mono">{formatMarketCap(item.revenue, exchange, symbol)}</td>
-                        <td className="text-right py-2.5 px-4 font-mono font-semibold text-slate-600">{formatPercentChange(item.growthRate * 100)}</td>
-                        <td className="text-right py-2.5 px-4 font-mono text-slate-600">{(item.fcfMargin * 100).toFixed(1)}%</td>
-                        <td className="text-right py-2.5 px-4 font-mono">{formatMarketCap(item.fcf, exchange, symbol)}</td>
-                        <td className="text-right py-2.5 px-4 font-mono font-semibold text-[#1A6EFF]">
-                          {formatMarketCap(item.discountedFcf, exchange, symbol)}
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="bg-slate-50/60 font-bold border-t border-[#E5E8EF]">
-                      <td className="py-2.5 px-4 text-slate-800">Terminal Value (TV)</td>
-                      <td className="text-right py-2.5 px-4 font-mono text-slate-400">—</td>
-                      <td className="text-right py-2.5 px-4 font-mono text-slate-400">—</td>
-                      <td className="text-right py-2.5 px-4 font-mono text-slate-400">—</td>
-                      <td className="text-right py-2.5 px-4 font-mono">{formatMarketCap(dcfResult.terminalValue, exchange, symbol)}</td>
-                      <td className="text-right py-2.5 px-4 font-mono text-[#1A6EFF]">
-                        {formatMarketCap(dcfResult.pvTerminalValue, exchange, symbol)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <DCFProjectedCashFlows dcfResult={dcfResult} exchange={exchange} symbol={symbol} />
           )}
 
           {/* Valuation Bridge */}
           {dcfResult && (
-            <div className="space-y-3">
-              <h4 className="font-sans font-bold text-[12.5px] text-slate-800 uppercase tracking-wider">
-                Valuation Bridge
-              </h4>
-              <div className="bg-[#F8F9FB] border border-[#E5E8EF] rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5 text-xs font-sans">
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-medium text-slate-600 flex items-center gap-1.5">
-                    PV of Projected Cash Flows
-                    <span className="text-[10px] text-slate-400">({(100 - (dcfResult.pvTerminalValue / dcfResult.enterpriseValue * 100)).toFixed(1)}% of EV)</span>
-                  </span>
-                  <span className="font-mono font-bold text-slate-900">{formatMarketCap(dcfResult.pvFcfSum, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-medium text-slate-600 flex items-center gap-1.5">
-                    PV of Terminal Value
-                    <span className="text-[10px] text-slate-400 font-bold">({(dcfResult.pvTerminalValue / dcfResult.enterpriseValue * 100).toFixed(1)}% of EV)</span>
-                  </span>
-                  <span className="font-mono font-bold text-slate-900">{formatMarketCap(dcfResult.pvTerminalValue, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-bold text-[#059669]">Enterprise Value (EV)</span>
-                  <span className="font-mono font-extrabold text-[#059669]">{formatMarketCap(dcfResult.enterpriseValue, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-medium text-slate-600">Cash & Equivalents (+)</span>
-                  <span className="font-mono font-bold text-slate-900">{formatMarketCap(cashAndEquivalents, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-medium text-slate-600">Total Debt (−)</span>
-                  <span className="font-mono font-bold text-slate-900">{formatMarketCap(totalDebt, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-medium text-slate-600">Net Debt</span>
-                  <span className="font-mono font-bold text-slate-900">{formatMarketCap(dcfResult.netDebt, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-bold text-slate-800">Equity Value</span>
-                  <span className="font-mono font-extrabold text-slate-900">{formatMarketCap(dcfResult.equityValue, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-slate-200/50">
-                  <span className="font-medium text-slate-600">Shares Outstanding</span>
-                  <span className="font-mono font-bold text-slate-900">{formatShares(sharesOutstanding, exchange, symbol)}</span>
-                </div>
-                <div className="flex justify-between items-center py-2.5 col-span-1 md:col-span-2 border-t border-slate-200 mt-1">
-                  <span className="font-black text-sm text-slate-900">Intrinsic Value / Share</span>
-                  <span className="font-mono font-black text-lg text-[#059669]">
-                    {formatPrice(dcfResult.fairValuePerShare, exchange, symbol)}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <DCFValuationBridge 
+              dcfResult={dcfResult}
+              cashAndEquivalents={cashAndEquivalents}
+              totalDebt={totalDebt}
+              sharesOutstanding={sharesOutstanding}
+              exchange={exchange}
+              symbol={symbol}
+            />
           )}
 
           {/* Sensitivity Table section */}

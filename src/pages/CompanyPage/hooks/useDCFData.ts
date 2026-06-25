@@ -21,6 +21,12 @@ export interface DCFData {
   dataFreshness: string;
   high_52w: number | null;
   low_52w: number | null;
+  dataConfidence?: 'high' | 'medium' | 'low';
+  peerMedianPE?: number | null;
+  companyEPS?: number | null;
+  syntheticRating?: string | null;
+  syntheticCostOfDebt?: number | null;
+  provenance?: Record<string, { source: string; timestamp?: string; fallbackApplied: boolean }>;
 }
 
 export function useDCFData(symbol: string) {

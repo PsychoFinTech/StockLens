@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import pLimit from 'p-limit';
 import * as cheerio from 'cheerio';
+import CircuitBreaker from 'opossum';
 import { cleanText, parseMoney, isFootnote } from './edgarParsing.js';
 
 // ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
@@ -227,7 +228,6 @@ async function cachedFetch<T>(
 
 let tickerToCikMap: Record<string, string> = {};
 let cusipToTickerMap: Record<string, string> = {};
-
 function loadMappings() {
   try {
     const tickerPath = path.join(process.cwd(), 'server', 'services', 'ticker_to_cik.json');
@@ -249,6 +249,25 @@ function loadMappings() {
 }
 loadMappings();
 
+import CircuitBreaker from 'opossum';
+
+const edgarBreaker = new CircuitBreaker(async (url: string, init?: RequestInit) => {
+  const res = await fetch(url, init);
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`EDGAR fetch failed ${res.status}`);
+  }
+  return res;
+}, {
+  timeout: 15000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 30000,
+  volumeThreshold: 10
+});
+
+async function safeFetch(url: string, init?: RequestInit) {
+  return edgarBreaker.fire(url, init);
+}
+
 const USER_AGENT = 'Stocklens Research Agent stocklens-admin@gmail.com';
 
 async function getCik(symbol: string): Promise<string> {
@@ -262,7 +281,7 @@ async function getCik(symbol: string): Promise<string> {
 
   // Fetch from SEC
   try {
-    const res = await fetch('https://www.sec.gov/files/company_tickers.json', {
+    const res = await safeFetch('https://www.sec.gov/files/company_tickers.json', {
       headers: { 'User-Agent': USER_AGENT }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -565,7 +584,7 @@ async function parse13F(cik: string, accNum: string): Promise<any[]> {
   const accNumNoDashes = accNum.replace(/-/g, '');
   const dirUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNumNoDashes}/index.json`;
   
-  const dirRes = await fetch(dirUrl, { headers: { 'User-Agent': USER_AGENT } });
+  const dirRes = await safeFetch(dirUrl, { headers: { 'User-Agent': USER_AGENT } });
   if (!dirRes.ok) return [];
   const dirData = await dirRes.json();
   const files = dirData.directory.item.map((i: any) => i.name);
@@ -574,7 +593,7 @@ async function parse13F(cik: string, accNum: string): Promise<any[]> {
   if (!xmlFile) return [];
   
   const fileUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNumNoDashes}/${xmlFile}`;
-  const xmlRes = await fetch(fileUrl, { headers: { 'User-Agent': USER_AGENT } });
+  const xmlRes = await safeFetch(fileUrl, { headers: { 'User-Agent': USER_AGENT } });
   if (!xmlRes.ok) return [];
   const xmlText = await xmlRes.text();
   
@@ -738,7 +757,7 @@ function diffParagraphs(prev: string[], latest: string[]): EdgarRiskDiffParagrap
 
 async function searchCikByName(name: string): Promise<string> {
   const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(name)}&output=atom`;
-  const response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+  const response = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
   if (!response.ok) throw new Error(`SEC API returned status ${response.status}`);
   const xml = await response.text();
   const cikMatch = xml.match(/<title>([^<]+)\s+\(CIK\s+(\d{10})\)<\/title>/);
@@ -746,7 +765,7 @@ async function searchCikByName(name: string): Promise<string> {
     return cikMatch[2];
   }
   const htmlUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(name)}`;
-  const htmlResponse = await fetch(htmlUrl, { headers: { 'User-Agent': USER_AGENT } });
+  const htmlResponse = await safeFetch(htmlUrl, { headers: { 'User-Agent': USER_AGENT } });
   const html = await htmlResponse.text();
   
   const $ = cheerio.load(html);
@@ -789,7 +808,7 @@ export const edgarService = {
       async () => {
         const cik = await getCik(sym);
         const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        const res = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!res.ok) throw new Error(`SEC API returned status ${res.status}`);
         const facts = await res.json();
         
@@ -812,7 +831,7 @@ export const edgarService = {
       async () => {
         const cik = await getCik(sym);
         const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        const res = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!res.ok) throw new Error(`SEC API returned status ${res.status}`);
         const sub = await res.json();
         
@@ -841,7 +860,7 @@ export const edgarService = {
               const xmlName = path.basename(docName);
               const xmlUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNumNoDashes}/${xmlName}`;
               
-              const xmlRes = await fetch(xmlUrl, { headers: { 'User-Agent': USER_AGENT } });
+              const xmlRes = await safeFetch(xmlUrl, { headers: { 'User-Agent': USER_AGENT } });
               if (!xmlRes.ok) return;
               const xmlContent = await xmlRes.text();
               
@@ -897,7 +916,7 @@ export const edgarService = {
         }
 
         const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        const res = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!res.ok) throw new Error(`SEC API returned status ${res.status}`);
         const sub = await res.json();
         
@@ -986,7 +1005,7 @@ export const edgarService = {
       async () => {
         const cik = await getCik(sym);
         const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        const res = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!res.ok) throw new Error(`SEC API returned status ${res.status}`);
         const sub = await res.json();
         
@@ -1004,7 +1023,7 @@ export const edgarService = {
         const primaryDoc = docs[idx];
         const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNumNoDashes}/${primaryDoc}`;
         
-        const docRes = await fetch(docUrl, { headers: { 'User-Agent': USER_AGENT } });
+        const docRes = await safeFetch(docUrl, { headers: { 'User-Agent': USER_AGENT } });
         if (!docRes.ok) throw new Error(`Failed to fetch 10-K document for ${sym}`);
         const html = await docRes.text();
         
@@ -1028,7 +1047,7 @@ export const edgarService = {
       async () => {
         const cik = await getCik(sym);
         const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        const res = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!res.ok) throw new Error(`SEC API returned status ${res.status}`);
         const sub = await res.json();
         
@@ -1054,7 +1073,7 @@ export const edgarService = {
           const accNumNoDashes = accNum.replace(/-/g, '');
           const docName = docs[idx];
           const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNumNoDashes}/${docName}`;
-          const docRes = await fetch(docUrl, { headers: { 'User-Agent': USER_AGENT } });
+          const docRes = await safeFetch(docUrl, { headers: { 'User-Agent': USER_AGENT } });
           if (!docRes.ok) return [];
           const html = await docRes.text();
           return extractSectionText(html, '1A');
@@ -1084,7 +1103,7 @@ export const edgarService = {
       async () => {
         const cik = await getCik(sym);
         const url = `https://data.sec.gov/submissions/CIK${cik}.json`;
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        const res = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!res.ok) throw new Error(`SEC API returned status ${res.status} for CIK ${cik}`);
         const sub = await res.json();
         
@@ -1105,7 +1124,7 @@ export const edgarService = {
         const filedDate = dates[idx];
         const docUrl = `https://www.sec.gov/Archives/edgar/data/${cik}/${accNumNoDashes}/${primaryDoc}`;
         
-        const docRes = await fetch(docUrl, { headers: { 'User-Agent': USER_AGENT } });
+        const docRes = await safeFetch(docUrl, { headers: { 'User-Agent': USER_AGENT } });
         if (!docRes.ok) throw new Error(`Failed to fetch DEF 14A document for ${sym}`);
         const html = await docRes.text();
         
@@ -1478,7 +1497,7 @@ export const edgarService = {
       async () => {
         const cik = await getCik(sym);
         const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`;
-        const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+        const res = await safeFetch(url, { headers: { 'User-Agent': USER_AGENT } });
         if (!res.ok) {
           if (res.status === 404) {
             return {

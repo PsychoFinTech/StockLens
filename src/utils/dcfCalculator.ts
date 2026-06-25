@@ -174,7 +174,7 @@ export function computeSensitivityTable(
   return table;
 }
 
-function computeDCFWithFixedWACC(inputs: DCFInputs, currentPrice: number, fixedWacc: number): DCFResult {
+export function computeDCFWithFixedWACC(inputs: DCFInputs, currentPrice: number, fixedWacc: number): DCFResult {
   if (inputs.sharesOutstanding <= 0) {
     throw new Error('Shares outstanding must be greater than zero.');
   }
