@@ -1,4 +1,4 @@
-import { computeDCF } from './dcfCalculator.js';
+import { computeDCFWithFixedWACC, DCFInputs } from './dcfCalculator.js';
 
 // Box-Muller transform to generate normally distributed random numbers
 // Returns a random number with a standard normal distribution (mean 0, stdDev 1)
@@ -10,20 +10,13 @@ function randomNormal(): number {
 }
 
 export interface MonteCarloInputs {
-  latestRevenue: number;
-  revenueGrowth: number; // Base mean
+  baseInputs: DCFInputs;
+  currentPrice: number;
+  baseWacc: number;
   revenueGrowthStdDev: number; // Std dev
-  targetFcfMargin: number; // Base mean
   targetFcfMarginStdDev: number; // Std dev
-  wacc: number; // Base mean
   waccStdDev: number; // Std dev
-  terminalGrowth: number; // Base mean
   terminalGrowthStdDev: number; // Std dev
-  sharesOutstanding: number;
-  totalDebt: number;
-  cashAndEquivalents: number;
-  projectionYears: number;
-  fcfMarginYear1?: number; // Optional, defaults to targetFcfMargin if not provided
 }
 
 export interface HistogramBin {
@@ -77,39 +70,37 @@ function computeHistogram(sortedData: number[], bins: number = 40): HistogramBin
 export function runMonteCarloSimulation(inputs: MonteCarloInputs, iterations: number = 10000): MonteCarloResult {
   const results: number[] = [];
 
+  const baseRevGrowth = inputs.baseInputs.revenueGrowthRate;
+  const baseFcfMarginTarget = inputs.baseInputs.targetFcfMargin !== undefined ? inputs.baseInputs.targetFcfMargin : inputs.baseInputs.fcfMargin;
+  const baseFcfMarginInitial = inputs.baseInputs.fcfMargin;
+  const baseTerminalGrowth = inputs.baseInputs.terminalGrowthRate;
+
   for (let i = 0; i < iterations; i++) {
     // Generate randomized inputs based on normal distribution
-    const randRevGrowth = inputs.revenueGrowth + randomNormal() * inputs.revenueGrowthStdDev;
-    const randFcfMargin = inputs.targetFcfMargin + randomNormal() * inputs.targetFcfMarginStdDev;
-    const randWacc = inputs.wacc + randomNormal() * inputs.waccStdDev;
-    const randTerminalGrowth = inputs.terminalGrowth + randomNormal() * inputs.terminalGrowthStdDev;
-    const randFcfMarginYear1 = inputs.fcfMarginYear1 !== undefined 
-      ? inputs.fcfMarginYear1 + randomNormal() * inputs.targetFcfMarginStdDev 
-      : randFcfMargin;
+    const randRevGrowth = baseRevGrowth + randomNormal() * inputs.revenueGrowthStdDev;
+    const randFcfMarginTarget = baseFcfMarginTarget + randomNormal() * inputs.targetFcfMarginStdDev;
+    const randFcfMarginInitial = baseFcfMarginInitial + randomNormal() * inputs.targetFcfMarginStdDev;
+    const randWacc = inputs.baseWacc + randomNormal() * inputs.waccStdDev;
+    const randTerminalGrowth = baseTerminalGrowth + randomNormal() * inputs.terminalGrowthStdDev;
 
     // Boundary constraints to prevent mathematically impossible scenarios
     const safeRevGrowth = Math.max(-0.5, randRevGrowth);
-    const safeFcfMargin = Math.max(-0.5, randFcfMargin);
-    const safeFcfMarginYear1 = Math.max(-0.5, randFcfMarginYear1);
+    const safeFcfMarginTarget = Math.max(-0.5, randFcfMarginTarget);
+    const safeFcfMarginInitial = Math.max(-0.5, randFcfMarginInitial);
     const safeWacc = Math.max(0.01, randWacc); // WACC must be > 0
     // Terminal growth must be strictly less than WACC
     const safeTerminalGrowth = Math.min(safeWacc - 0.001, Math.max(-0.05, randTerminalGrowth));
 
     // Run the DCF
-    const dcfResult = computeDCF({
-      latestRevenue: inputs.latestRevenue,
-      revenueGrowth: safeRevGrowth,
-      targetFcfMargin: safeFcfMargin,
-      wacc: safeWacc,
-      terminalGrowth: safeTerminalGrowth,
-      sharesOutstanding: inputs.sharesOutstanding,
-      totalDebt: inputs.totalDebt,
-      cashAndEquivalents: inputs.cashAndEquivalents,
-      projectionYears: inputs.projectionYears,
-      fcfMarginYear1: safeFcfMarginYear1
-    });
+    const dcfResult = computeDCFWithFixedWACC({
+      ...inputs.baseInputs,
+      revenueGrowthRate: safeRevGrowth,
+      targetFcfMargin: safeFcfMarginTarget,
+      fcfMargin: safeFcfMarginInitial,
+      terminalGrowthRate: safeTerminalGrowth
+    }, inputs.currentPrice, safeWacc);
 
-    results.push(dcfResult.fairValue);
+    results.push(dcfResult.fairValuePerShare);
   }
 
   // Sort results to extract percentiles

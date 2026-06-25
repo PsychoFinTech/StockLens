@@ -81,7 +81,7 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
       .map((item: any) => {
         const year = new Date(item.date).getFullYear();
         const value = getField(item, 'freeCashFlow') ?? null;
-        return { year, value };
+        return { year, value, source: 'Yahoo Annual' };
       })
       .filter(item => item.value !== null);
 

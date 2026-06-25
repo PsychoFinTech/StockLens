@@ -32,7 +32,7 @@ interface DCFCalculatorProps {
 
 // 2D grid sensitivity calculation helper for Revenue Growth vs FCF Margin
 function computeRevenueMarginSensitivityTable(
-  baseInputs: any,
+  baseInputs: DCFInputs,
   currentPrice: number,
   growthRange: number[],
   marginRange: number[]
@@ -247,24 +247,31 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
   const monteCarloResult = React.useMemo(() => {
     if (!dcfResult || !latestRevenue || sharesOutstanding <= 0 || !data) return null;
     return runMonteCarloSimulation({
-      latestRevenue,
-      revenueGrowth,
+      baseInputs: {
+        revenueGrowthRate: revenueGrowth,
+        fcfMargin,
+        targetFcfMargin,
+        projectionYears,
+        terminalGrowthRate: terminalGrowth,
+        riskFreeRate,
+        equityRiskPremium,
+        beta,
+        costOfDebt,
+        taxRate,
+        marketCap: marketCap || (sharesOutstanding * data.currentPrice),
+        totalDebt,
+        latestRevenue,
+        cashAndEquivalents,
+        sharesOutstanding,
+      },
+      currentPrice: data.currentPrice,
+      baseWacc: dcfResult.wacc,
       revenueGrowthStdDev: Math.abs(revenueGrowth * 0.20) || 0.02, // 20% of base
-      targetFcfMargin,
       targetFcfMarginStdDev: Math.abs(targetFcfMargin * 0.10) || 0.01, // 10% of base
-      wacc: dcfResult.wacc,
       waccStdDev: dcfResult.wacc * 0.10 || 0.005, // 10% of WACC
-      terminalGrowth,
       terminalGrowthStdDev: Math.abs(terminalGrowth * 0.20) || 0.0025, // 20% of base
-      sharesOutstanding,
-      totalDebt,
-      cashAndEquivalents,
-      projectionYears,
-      fcfMarginYear1: data.historicalFCF && data.historicalFCF.length > 0 && data.historicalRevenue && data.historicalRevenue.length > 0
-        ? data.historicalFCF[data.historicalFCF.length - 1].value / data.historicalRevenue[data.historicalRevenue.length - 1].value
-        : targetFcfMargin
     }, 10000);
-  }, [dcfResult, latestRevenue, revenueGrowth, targetFcfMargin, dcfResult?.wacc, terminalGrowth, sharesOutstanding, totalDebt, cashAndEquivalents, projectionYears, data]);
+  }, [dcfResult, latestRevenue, revenueGrowth, fcfMargin, targetFcfMargin, terminalGrowth, riskFreeRate, equityRiskPremium, beta, costOfDebt, taxRate, marketCap, sharesOutstanding, totalDebt, cashAndEquivalents, projectionYears, data]);
 
   // WACC sensitivity ranges (Grid A)
   const waccSteps = dcfResult ? [
