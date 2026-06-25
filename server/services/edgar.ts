@@ -249,14 +249,34 @@ function loadMappings() {
 }
 loadMappings();
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 const edgarBreaker = new CircuitBreaker(async (url: string, init?: RequestInit) => {
-  const res = await fetch(url, init);
-  if (!res.ok && res.status !== 404) {
+  let retries = 3;
+  let res: Response | null = null;
+  while (retries > 0) {
+    res = await fetch(url, init);
+    if (res.status === 429) {
+      retries--;
+      const retryAfter = res.headers.get('Retry-After');
+      const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : 1000;
+      console.warn(`[EDGAR] 429 Too Many Requests. Retrying in ${waitMs}ms...`);
+      if (retries === 0) break;
+      await delay(waitMs);
+      continue;
+    }
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`EDGAR fetch failed ${res.status}`);
+    }
+    return res;
+  }
+  
+  if (res && !res.ok && res.status !== 404) {
     throw new Error(`EDGAR fetch failed ${res.status}`);
   }
-  return res;
+  return res as Response;
 }, {
-  timeout: 15000,
+  timeout: 30000,
   errorThresholdPercentage: 50,
   resetTimeout: 30000,
   volumeThreshold: 10
@@ -614,105 +634,161 @@ async function parse13F(cik: string, accNum: string): Promise<any[]> {
 
 // ─── 10-K Section Extraction ───────────────────────────────────────────────────
 
-function matchesStart(lines: string[], idx: number, item: string): boolean {
-  const line = lines[idx];
-  if (item === '1') {
-    if (/^Item\s+1\b/i.test(line)) {
-      if (/Business/i.test(line)) return true;
-      if (idx + 1 < lines.length && /Business/i.test(lines[idx + 1])) return true;
+const MAX_SECTION_LENGTH = 50000;
+
+function extractViaAnchors($: cheerio.CheerioAPI, itemName: string): string[] {
+  const itemRegex = new RegExp(`^Item\\s*(?:&#160;|&nbsp;|\\s)*${itemName}\\b`, 'i');
+  let tocLink: any;
+  
+  $('a').each((_, el) => {
+    const text = $(el).text().replace(/[\n\r\t]/g, ' ').trim();
+    if (itemRegex.test(text) && $(el).attr('href') && $(el).attr('href')?.startsWith('#')) {
+      tocLink = el;
+      return false;
     }
-  } else if (item === '1A') {
-    if (/^Item\s+1A\b/i.test(line)) {
-      if (/Risk\s+Factors/i.test(line)) return true;
-      if (idx + 1 < lines.length && /Risk\s+Factors/i.test(lines[idx + 1])) return true;
+  });
+
+  if (!tocLink) return [];
+
+  const targetId = $(tocLink).attr('href')?.substring(1);
+  if (!targetId) return [];
+
+  let targetAnchor = $(`a[name="${targetId}"], a[id="${targetId}"], [id="${targetId}"]`).first();
+  if (!targetAnchor.length) return [];
+
+  let nextItemName = '1B';
+  if (itemName === '1') nextItemName = '1A';
+  else if (itemName === '1A') nextItemName = '1B';
+  else if (itemName === '7') nextItemName = '7A';
+
+  const nextItemRegex = new RegExp(`^Item\\s*(?:&#160;|&nbsp;|\\s)*(?:${nextItemName}|8|2)\\b`, 'i');
+  let nextTocLink: any;
+  $('a').each((_, el) => {
+    const text = $(el).text().replace(/[\n\r\t]/g, ' ').trim();
+    if (nextItemRegex.test(text) && $(el).attr('href') && $(el).attr('href')?.startsWith('#')) {
+      nextTocLink = el;
+      return false;
     }
-  } else if (item === '7') {
-    if (/^Item\s+7\b/i.test(line)) {
-      if (/Management/i.test(line) && /Discussion/i.test(line)) return true;
-      if (idx + 1 < lines.length && /Management/i.test(lines[idx + 1]) && /Discussion/i.test(lines[idx + 1])) return true;
-      if (idx + 2 < lines.length && /Management/i.test(lines[idx + 2]) && /Discussion/i.test(lines[idx + 2])) return true;
+  });
+
+  let endAnchor: cheerio.Cheerio<any> | null = null;
+  if (nextTocLink) {
+    const endTargetId = $(nextTocLink).attr('href')?.substring(1);
+    if (endTargetId) {
+      endAnchor = $(`a[name="${endTargetId}"], a[id="${endTargetId}"], [id="${endTargetId}"]`).first();
     }
   }
-  return false;
+
+  const result: string[] = [];
+  let current = targetAnchor.parent().length ? targetAnchor.parent() : targetAnchor;
+  
+  while (current.length && ['a', 'span', 'b', 'strong', 'i', 'font'].includes(current[0].name)) {
+    current = current.parent();
+  }
+
+  let limit = 10000;
+  while (current.length && limit-- > 0) {
+    current = current.next();
+    if (!current.length) break;
+
+    if (endAnchor && endAnchor.length) {
+      if (current[0] === endAnchor[0] || current.find(`[id="${endAnchor.attr('id')}"], [name="${endAnchor.attr('name')}"]`).length > 0) {
+        break;
+      }
+    } else {
+      const text = current.text().trim();
+      if (nextItemRegex.test(text) && text.length < 200) {
+         break;
+      }
+    }
+
+    const text = extractCleanText($, current);
+    if (text) {
+      result.push(...text);
+    }
+  }
+
+  return result;
 }
 
-function matchesEnd(lines: string[], idx: number, item: string): boolean {
-  const line = lines[idx];
-  if (item === '1') {
-    return /^Item\s+1A\b/i.test(line) || /^Item\s+1B\b/i.test(line) || /^Item\s+2\b/i.test(line);
-  } else if (item === '1A') {
-    return /^Item\s+1B\b/i.test(line) || /^Item\s+2\b/i.test(line);
-  } else if (item === '7') {
-    return /^Item\s+7A\b/i.test(line) || /^Item\s+8\b/i.test(line);
+function extractViaHeuristics($: cheerio.CheerioAPI, itemName: string): string[] {
+  const itemRegex = new RegExp(`^Item\\s*(?:&#160;|&nbsp;|\\s)*${itemName}\\b`, 'i');
+  let nextItemName = '1B';
+  if (itemName === '1') nextItemName = '1A';
+  else if (itemName === '1A') nextItemName = '1B';
+  else if (itemName === '7') nextItemName = '7A';
+  const nextItemRegex = new RegExp(`^Item\\s*(?:&#160;|&nbsp;|\\s)*(?:${nextItemName}|8|2)\\b`, 'i');
+
+  const candidates: { el: cheerio.Cheerio<any>, text: string }[] = [];
+  
+  $('p, div, h1, h2, h3, h4, b, strong').each((_, el) => {
+    const text = $(el).text().replace(/[\n\r\t]/g, ' ').trim();
+    if (text.length > 0 && text.length < 200 && itemRegex.test(text)) {
+      candidates.push({ el: $(el), text });
+    }
+  });
+
+  if (candidates.length === 0) return [];
+
+  let startEl = candidates[candidates.length - 1].el;
+  
+  const result: string[] = [];
+  let current = startEl.parent().length && !['body', 'html'].includes(startEl.parent()[0].name) ? startEl.parent() : startEl;
+  
+  let limit = 10000;
+  while (current.length && limit-- > 0) {
+    current = current.next();
+    if (!current.length) break;
+
+    const text = current.text().replace(/[\n\r\t]/g, ' ').trim();
+    if (nextItemRegex.test(text) && text.length < 200) {
+      break;
+    }
+
+    const cleanText = extractCleanText($, current);
+    if (cleanText) {
+      result.push(...cleanText);
+    }
   }
-  return false;
+
+  return result;
+}
+
+function extractCleanText($: cheerio.CheerioAPI, el: cheerio.Cheerio<any>): string[] {
+  const text = el.text().replace(/[\n\r\t]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return [];
+  return [text];
+}
+
+function formatOutput(lines: string[]): string[] {
+  const formatted: string[] = [];
+  let totalChars = 0;
+  
+  for (const line of lines) {
+    if (!line) continue;
+    if (totalChars + line.length > MAX_SECTION_LENGTH) {
+      formatted.push('[...Truncated due to length...]');
+      break;
+    }
+    formatted.push(line);
+    totalChars += line.length;
+  }
+  return formatted;
 }
 
 function extractSectionText(html: string, itemName: string): string[] {
-  // Pre-process td and th cells to replace internal divs/ps/spans with spaces
-  let text = html.replace(/(<(?:td|th)[^>]*>)([\s\S]*?)(<\/(?:td|th)>)/gi, (match, open, content, close) => {
-    const cleanContent = content.replace(/<\/?(?:div|p|br|span)[^>]*>/gi, ' ');
-    return open + cleanContent + close;
-  });
+  const $ = cheerio.load(html, { xmlMode: false });
   
-  // Replace cell closing tags with a separator pipe to keep tabular numbers on the same line
-  text = text.replace(/<\/(?:td|th)>/gi, ' | ');
-  
-  // Replace block tags with newlines
-  text = text.replace(/<\/?(?:div|p|tr|h1|h2|h3|h4|h5|h6|br)[^>]*>/gi, '\n');
-  text = text.replace(/<[^>]+>/g, ' '); // Strip all other tags
-  text = text.replace(/&nbsp;/g, ' ')
-             .replace(/&#160;/g, ' ')
-             .replace(/&amp;/g, '&')
-             .replace(/&lt;/g, '<')
-             .replace(/&gt;/g, '>')
-             .replace(/&quot;/g, '"')
-             .replace(/&#8220;/g, '"')
-             .replace(/&#8221;/g, '"')
-             .replace(/&#8217;/g, "'");
-             
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-  
-  const candidates: { startIdx: number; endIdx: number; distance: number }[] = [];
-  const startIndices: number[] = [];
-  
-  for (let i = 0; i < lines.length; i++) {
-    if (matchesStart(lines, i, itemName)) {
-      startIndices.push(i);
-      for (let j = i + 1; j < lines.length; j++) {
-        if (matchesEnd(lines, j, itemName)) {
-          candidates.push({ startIdx: i, endIdx: j, distance: j - i });
-          break; // only match the first end for this start
-        }
-      }
-    }
+  const anchorBasedResult = extractViaAnchors($, itemName);
+  if (anchorBasedResult.length > 0) {
+    return formatOutput(anchorBasedResult);
   }
-  
-  // Filter candidates with minimum distance of 30 lines to bypass Table of Contents
-  const validCandidates = candidates.filter(c => c.distance >= 30);
-  
-  if (validCandidates.length > 0) {
-    // Sort by distance descending, picking the largest block (most likely the actual section)
-    validCandidates.sort((a, b) => b.distance - a.distance);
-    const best = validCandidates[0];
-    return lines.slice(best.startIdx + 1, best.endIdx);
+
+  const heuristicResult = extractViaHeuristics($, itemName);
+  if (heuristicResult.length > 0) {
+    return formatOutput(heuristicResult);
   }
-  
-  // Fallback 1: first candidate if any exists (even if distance is small)
-  if (candidates.length > 0) {
-    candidates.sort((a, b) => b.distance - a.distance);
-    return lines.slice(candidates[0].startIdx + 1, candidates[0].endIdx);
-  }
-  
-  // Fallback 2: if we found start indices but no end index, slice from the latest start index to the end (or up to 1000 lines)
-  if (startIndices.length > 0) {
-    // Sort start indices descending (latest in document is usually the actual section to bypass TOC)
-    startIndices.sort((a, b) => b - a);
-    const startIdx = startIndices[0];
-    const endIdx = Math.min(startIdx + 1000, lines.length);
-    return lines.slice(startIdx + 1, endIdx);
-  }
-  
+
   return [];
 }
 
@@ -1012,9 +1088,19 @@ export const edgarService = {
         const accNums = recent.accessionNumber;
         const docs = recent.primaryDocument;
         
-        const idx = forms.indexOf('10-K');
+        let idx = -1;
+        for (let i = 0; i < forms.length; i++) {
+          if (forms[i] === '10-K') {
+            const doc = docs[i] ? docs[i].toLowerCase() : '';
+            if (doc.endsWith('.htm') || doc.endsWith('.html')) {
+              idx = i;
+              break;
+            }
+          }
+        }
+        
         if (idx === -1) {
-          throw new Error(`No 10-K filings found for ${sym}`);
+          throw new Error(`No HTML 10-K filings found for ${sym}`);
         }
         
         const accNumNoDashes = accNums[idx].replace(/-/g, '');
@@ -1025,7 +1111,10 @@ export const edgarService = {
         if (!docRes.ok) throw new Error(`Failed to fetch 10-K document for ${sym}`);
         const html = await docRes.text();
         
-        const paragraphs = extractSectionText(html, finalItem);
+        let paragraphs = extractSectionText(html, finalItem);
+        if (paragraphs.length === 0) {
+          paragraphs = ["[Section Not Applicable or Not Found in the latest 10-K filing]"];
+        }
         return {
           symbol: sym,
           section: finalItem,
