@@ -11,10 +11,12 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
   const cacheKey = `route:dcf:${symbol}`;
 
   try {
-    // Check cache
-    const cached = await cacheService.get<any>(cacheKey);
-    if (cached) {
-      return res.json(cached);
+    // Check cache unless refresh is requested
+    if (req.query.refresh !== 'true') {
+      const cached = await cacheService.get<any>(cacheKey);
+      if (cached) {
+        return res.json(cached);
+      }
     }
 
     // Dates for the last 5 years
@@ -70,9 +72,9 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
 
     // WACC Cost of Debt components fallback mapping
     let interestExpense = null;
-    const latestInterestObj = sortedNewestFirst.find(s => getField(s, 'interestExpense') !== null);
+    const latestInterestObj = sortedNewestFirst.find(s => getField(s, 'interestExpense') !== null || getField(s, 'interestExpenseNonOperating') !== null);
     if (latestInterestObj) {
-      const rawInterest = getField(latestInterestObj, 'interestExpense');
+      const rawInterest = getField(latestInterestObj, 'interestExpense') ?? getField(latestInterestObj, 'interestExpenseNonOperating');
       interestExpense = rawInterest !== null ? Math.abs(rawInterest) : null;
     }
 
@@ -95,32 +97,16 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
                              sortedNewestFirst.find(s => getField(s, 'cashAndCashEquivalents') !== null)?.cashAndCashEquivalents ?? 
                              null;
 
-    let sharesOutstanding = basicFinancials?.metric?.sharesOutstanding ?? 
-                              sortedNewestFirst.find(s => getField(s, 'ordinarySharesNumber') !== null)?.ordinarySharesNumber ?? 
-                              null;
+    let sharesOutstanding = basicFinancials?.metric?.sharesOutstanding ?? null;
 
     const beta = basicFinancials?.metric?.beta ?? null;
 
     let marketCap = basicFinancials?.metric?.marketCapitalization;
     if (marketCap !== null && marketCap !== undefined) {
+      // marketCapitalization is stored in millions in basicFinancials
       marketCap = marketCap * 1000000;
-      // Sanity check: if it is abnormally low (< $1M), the original number was likely already absolute, not in millions
-      if (marketCap < 1000000 && basicFinancials.metric.marketCapitalization > 0) {
-        marketCap = basicFinancials.metric.marketCapitalization;
-      }
     } else if (sharesOutstanding && quote.price) {
       marketCap = sharesOutstanding * quote.price;
-    }
-
-    // Sanity check for shares outstanding unit mismatch
-    if (sharesOutstanding && quote.price && marketCap) {
-      const calculatedCap = sharesOutstanding * quote.price;
-      const ratio = marketCap / calculatedCap;
-      if (ratio >= 500000 && ratio <= 2000000) {
-        sharesOutstanding = sharesOutstanding * 1000000;
-      } else if (ratio >= 500 && ratio <= 2000) {
-        sharesOutstanding = sharesOutstanding * 1000;
-      }
     }
 
     // Resolve Risk-Free Rate based on region (US vs India)

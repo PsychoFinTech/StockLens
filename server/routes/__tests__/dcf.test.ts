@@ -60,21 +60,28 @@ describe('DCF Route API', () => {
       }
     });
 
-    // Mock time series statements
+    // Mock time series statements with real-world AMAT payload snapshot
     vi.mocked(yahooService.getFundamentalsTimeSeries).mockResolvedValue([
       {
-        date: '2023-12-31T00:00:00.000Z',
-        freeCashFlow: 8000000,
-        totalRevenue: 40000000,
-        interestExpense: 1000000,
-        taxRateForCalcs: 0.20
+        "date": "2023-10-29T00:00:00.000Z",
+        "freeCashFlow": 7592000000,
+        "totalRevenue": 26517000000,
+        "interestExpenseNonOperating": 257000000,
+        "interestExpense": 257000000,
+        "taxRateForCalcs": 0.155,
+        "totalDebt": 5589000000,
+        "cashAndCashEquivalents": 6057000000,
+        "ordinarySharesNumber": 836000000
       },
       {
-        date: '2024-12-31T00:00:00.000Z',
-        freeCashFlow: 10000000,
-        totalRevenue: 50000000,
-        interestExpense: 1200000,
-        taxRateForCalcs: 0.21
+        "date": "2024-10-27T00:00:00.000Z",
+        "freeCashFlow": 5698000000,
+        "totalRevenue": 28368000000,
+        "interestExpenseNonOperating": 269000000,
+        "taxRateForCalcs": 0.245,
+        "totalDebt": 7050000000,
+        "cashAndCashEquivalents": 7241000000,
+        "ordinarySharesNumber": 793000000
       }
     ]);
 
@@ -103,8 +110,8 @@ describe('DCF Route API', () => {
     expect(data.beta).toBe(1.1);
     expect(data.riskFreeRate).toBe(0.0425);
     expect(data.marketCap).toBe(1500 * 1000000);
-    expect(data.interestExpense).toBe(1200000); // from latest year 2024
-    expect(data.taxRate).toBe(0.21); // from latest year 2024
+    expect(data.interestExpense).toBe(269000000); // from latest year 2024
+    expect(data.taxRate).toBe(0.245); // from latest year 2024
     expect(data.analystGrowthEstimate5yr).toBe(0.12);
     expect(data.currency).toBe('USD');
     expect(data.lastFiscalYear).toBe(2024);
@@ -113,11 +120,11 @@ describe('DCF Route API', () => {
     expect(data.historicalFCF.length).toBe(2);
     expect(data.historicalFCF[0].year).toBe(2023);
     expect(data.historicalFCF[1].year).toBe(2024);
-    expect(data.historicalFCF[1].value).toBe(10000000);
+    expect(data.historicalFCF[1].value).toBe(5698000000);
 
     expect(data.historicalRevenue[0].year).toBe(2023);
     expect(data.historicalRevenue[1].year).toBe(2024);
-    expect(data.historicalRevenue[1].value).toBe(50000000);
+    expect(data.historicalRevenue[1].value).toBe(28368000000);
   });
 
   it('applies Indian default risk-free rate for Indian NSE stocks', async () => {
