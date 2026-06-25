@@ -12,7 +12,8 @@ vi.mock('../../services/yahoo.js', () => ({
     getQuote: vi.fn(),
     getBasicFinancials: vi.fn(),
     getFundamentalsTimeSeries: vi.fn(),
-    getGrowthEstimates: vi.fn()
+    getGrowthEstimates: vi.fn(),
+    getPeers: vi.fn()
   }
 }));
 
@@ -34,6 +35,7 @@ describe('DCF Route API', () => {
     vi.mocked(yahooService.getBasicFinancials).mockResolvedValue({ metric: {} });
     vi.mocked(yahooService.getFundamentalsTimeSeries).mockResolvedValue([]);
     vi.mocked(yahooService.getGrowthEstimates).mockResolvedValue({ growthEstimate5yr: null });
+    vi.mocked(yahooService.getPeers).mockResolvedValue([]);
     vi.mocked(fredService.getSeries).mockResolvedValue({ observations: [] });
   });
 
@@ -61,29 +63,40 @@ describe('DCF Route API', () => {
     });
 
     // Mock time series statements with real-world AMAT payload snapshot
-    vi.mocked(yahooService.getFundamentalsTimeSeries).mockResolvedValue([
-      {
-        "date": "2023-10-29T00:00:00.000Z",
-        "freeCashFlow": 7592000000,
-        "totalRevenue": 26517000000,
-        "interestExpenseNonOperating": 257000000,
-        "interestExpense": 257000000,
-        "taxRateForCalcs": 0.155,
-        "totalDebt": 5589000000,
-        "cashAndCashEquivalents": 6057000000,
-        "ordinarySharesNumber": 836000000
-      },
-      {
-        "date": "2024-10-27T00:00:00.000Z",
-        "freeCashFlow": 5698000000,
-        "totalRevenue": 28368000000,
-        "interestExpenseNonOperating": 269000000,
-        "taxRateForCalcs": 0.245,
-        "totalDebt": 7050000000,
-        "cashAndCashEquivalents": 7241000000,
-        "ordinarySharesNumber": 793000000
+    vi.mocked(yahooService.getFundamentalsTimeSeries).mockImplementation(async (sym, p1, p2, type) => {
+      if (type === 'quarterly') {
+        return [
+          { "date": "2024-10-27T00:00:00.000Z", "freeCashFlow": 1000000000, "totalRevenue": 5000000000 },
+          { "date": "2024-07-27T00:00:00.000Z", "freeCashFlow": 1000000000, "totalRevenue": 5000000000 },
+          { "date": "2024-04-27T00:00:00.000Z", "freeCashFlow": 1000000000, "totalRevenue": 5000000000 },
+          { "date": "2024-01-27T00:00:00.000Z", "freeCashFlow": 1000000000, "totalRevenue": 5000000000 }
+        ];
       }
-    ]);
+      return [
+        {
+          "date": "2023-10-29T00:00:00.000Z",
+          "freeCashFlow": 7592000000,
+          "totalRevenue": 26517000000,
+          "interestExpenseNonOperating": 257000000,
+          "interestExpense": 257000000,
+          "taxRateForCalcs": 0.155,
+          "totalDebt": 5589000000,
+          "cashAndCashEquivalents": 6057000000,
+          "ordinarySharesNumber": 836000000
+        },
+        {
+          "date": "2024-10-27T00:00:00.000Z",
+          "freeCashFlow": 5698000000,
+          "totalRevenue": 28368000000,
+          "operatingIncome": 8000000000,
+          "interestExpenseNonOperating": 269000000,
+          "taxRateForCalcs": 0.245,
+          "totalDebt": 7050000000,
+          "cashAndCashEquivalents": 7241000000,
+          "ordinarySharesNumber": 793000000
+        }
+      ];
+    });
 
     // Mock analyst estimates
     vi.mocked(yahooService.getGrowthEstimates).mockResolvedValue({
@@ -116,15 +129,28 @@ describe('DCF Route API', () => {
     expect(data.currency).toBe('USD');
     expect(data.lastFiscalYear).toBe(2024);
 
-    // Verify oldest -> newest sorting
-    expect(data.historicalFCF.length).toBe(2);
+    // Verify oldest -> newest sorting with TTM appended
+    expect(data.historicalFCF.length).toBe(3);
     expect(data.historicalFCF[0].year).toBe(2023);
     expect(data.historicalFCF[1].year).toBe(2024);
     expect(data.historicalFCF[1].value).toBe(5698000000);
+    expect(data.historicalFCF[2].value).toBe(4000000000); // 4 * 1B from quarters
+    expect(data.historicalFCF[2].source).toBe('Yahoo Quarterly TTM');
 
     expect(data.historicalRevenue[0].year).toBe(2023);
     expect(data.historicalRevenue[1].year).toBe(2024);
     expect(data.historicalRevenue[1].value).toBe(28368000000);
+    expect(data.historicalRevenue[2].value).toBe(20000000000); // 4 * 5B
+    
+    // Assert provenance payload
+    expect(data.provenance).toBeDefined();
+    expect(data.provenance.sharesOutstanding.source).toBe('Yahoo Basic Financials');
+    expect(data.provenance.totalDebt.source).toBe('Yahoo Basic Financials');
+
+    // Assert synthetic credit rating
+    // EBIT = 8B, Interest = 269M => ICR ~ 29.7 => AAA => spread 0.0069 => Cost of Debt = 0.0425 + 0.0069 = 0.0494
+    expect(data.syntheticRating).toBe('AAA');
+    expect(data.syntheticCostOfDebt).toBeCloseTo(0.0494);
   });
 
   it('applies Indian default risk-free rate for Indian NSE stocks', async () => {
@@ -152,8 +178,37 @@ describe('DCF Route API', () => {
 
     const data = response.body;
     expect(data.currency).toBe('INR');
-    expect(data.riskFreeRate).toBe(0.071); // Hardcoded RBI fallback
-    expect(fredService.getSeries).not.toHaveBeenCalled(); // Skipping FRED query for Indian stocks
+    expect(data.riskFreeRate).toBe(0.071); // Hardcoded RBI fallback used when mock returns empty
+    expect(fredService.getSeries).toHaveBeenCalledWith('INDIRLTLT01STM'); 
+  });
+
+  it('falls back to time series data when basicFinancials metrics are missing', async () => {
+    vi.mocked(yahooService.getProfile).mockResolvedValue({ name: 'Fallback Corp', country: 'US' });
+    vi.mocked(yahooService.getQuote).mockResolvedValue({ price: 50.0 });
+    
+    // Simulate missing basicFinancials metrics
+    vi.mocked(yahooService.getBasicFinancials).mockResolvedValue({
+      metric: {}
+    });
+
+    // Provide the data via the fundamentals time series instead
+    vi.mocked(yahooService.getFundamentalsTimeSeries).mockResolvedValue([
+      {
+        "date": "2024-12-31T00:00:00.000Z",
+        "totalDebt": 99000000,
+        "cashAndCashEquivalents": 55000000,
+        "ordinarySharesNumber": 10000000
+      }
+    ]);
+
+    const response = await request(app).get('/api/dcf/FALLBACK');
+    expect(response.status).toBe(200);
+
+    const data = response.body;
+    // Should extract values from time series
+    expect(data.totalDebt).toBe(99000000);
+    expect(data.cashAndEquivalents).toBe(55000000);
+    expect(data.sharesOutstanding).toBe(10000000);
   });
 
   it('returns 404 if the quote is missing', async () => {

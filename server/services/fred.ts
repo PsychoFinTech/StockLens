@@ -3,7 +3,7 @@ import db from './db.js';
 export const ALLOWED_SERIES = new Set([
   "FEDFUNDS", "DGS10", "DGS2", "T10Y2Y", "BAMLH0A0HYM2",
   "CPIAUCSL", "PCEPI", "UNRATE", "PAYEMS", "GDPC1", "ICSA",
-  "M2SL", "RSAFS", "HOUST", "UMCSENT"
+  "M2SL", "RSAFS", "HOUST", "UMCSENT", "INDIRLTLT01STM"
 ]);
 
 // 24-hour cache TTL

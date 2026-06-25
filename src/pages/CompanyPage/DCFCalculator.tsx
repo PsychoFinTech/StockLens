@@ -1,8 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { HelpCircle, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Calculator, Sliders, Download, TrendingUp, TrendingDown } from 'lucide-react';
+import { HelpCircle, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Calculator, Sliders, Download, TrendingUp, TrendingDown, Info, Activity } from 'lucide-react';
 import { useDCFData } from './hooks/useDCFData.js';
 import { computeDCF, computeSensitivityTable } from '../../utils/dcfCalculator.js';
+import { runMonteCarloSimulation } from '../../utils/monteCarlo.js';
 import { formatPrice, formatMarketCap, formatPercentChange, formatShares } from '../../utils/formatters.js';
+
+const ProvenanceTooltip = ({ provenanceData }: { provenanceData?: { source: string, fallbackApplied: boolean, timestamp?: string } }) => {
+  if (!provenanceData) return null;
+  return (
+    <div className="relative group flex items-center ml-1 z-10">
+      <Info className={`w-3.5 h-3.5 cursor-help ${provenanceData.fallbackApplied ? 'text-amber-500' : 'text-[#1A6EFF]/80'}`} />
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-52 p-2 bg-slate-800 text-white text-[10.5px] rounded shadow-lg pointer-events-none">
+        <p><strong className="text-slate-300 font-semibold uppercase tracking-wider text-[9px]">Source:</strong> {provenanceData.source}</p>
+        {provenanceData.fallbackApplied && <p className="text-amber-300 mt-0.5">Fallback Mechanism Applied</p>}
+        {provenanceData.timestamp && <p className="text-slate-400 mt-0.5 font-mono truncate">As of: {provenanceData.timestamp.split('T')[0]}</p>}
+      </div>
+    </div>
+  );
+};
 
 interface DCFCalculatorProps {
   symbol: string;
@@ -49,6 +64,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
 
   // Scenario toggle state ('bear' | 'base' | 'bull')
   const [scenario, setScenario] = useState<'bear' | 'base' | 'bull'>('base');
+  const [hasAcknowledgedFinancial, setHasAcknowledgedFinancial] = useState(false);
 
   // Growth & Projections assumptions
   const [revenueGrowth, setRevenueGrowth] = useState<number>(0.08);
@@ -106,7 +122,9 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
     }
 
     let baseDebtCost = (data.riskFreeRate || 0.0425) + 0.015;
-    if (data.totalDebt && data.totalDebt > 0 && data.interestExpense && data.interestExpense > 0) {
+    if (data.syntheticCostOfDebt !== undefined && data.syntheticCostOfDebt !== null) {
+      baseDebtCost = data.syntheticCostOfDebt;
+    } else if (data.totalDebt && data.totalDebt > 0 && data.interestExpense && data.interestExpense > 0) {
       baseDebtCost = Math.abs(data.interestExpense) / data.totalDebt;
     }
 
@@ -185,11 +203,19 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
   let dcfResult = null;
   let dcfError = null;
 
+  const isFinancialSector = profile?.sector?.toLowerCase().includes('financial') || 
+                            profile?.industry?.toLowerCase().includes('bank') || 
+                            profile?.industry?.toLowerCase().includes('insurance');
+
   if (data) {
     if (sharesOutstanding <= 0) {
       dcfError = 'Shares outstanding must be greater than zero.';
     } else if (latestRevenue < 0) {
       dcfError = 'Latest revenue cannot be negative.';
+    } else if (terminalGrowth >= 0.045) {
+      dcfError = `Terminal growth rate (${(terminalGrowth * 100).toFixed(1)}%) is excessively high. It cannot exceed long-term GDP growth (~4.5%).`;
+    } else if (isFinancialSector && !hasAcknowledgedFinancial) {
+      dcfError = 'DCF valuation is blocked for Financial Sector stocks. Please acknowledge the warning below to proceed.';
     } else {
       try {
         dcfResult = computeDCF(
@@ -213,10 +239,32 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
           data.currentPrice
         );
       } catch (err: any) {
-        dcfError = err.message;
+        dcfError = err.message || 'Error computing DCF model';
       }
     }
   }
+
+  const monteCarloResult = React.useMemo(() => {
+    if (!dcfResult || !latestRevenue || sharesOutstanding <= 0 || !data) return null;
+    return runMonteCarloSimulation({
+      latestRevenue,
+      revenueGrowth,
+      revenueGrowthStdDev: Math.abs(revenueGrowth * 0.20) || 0.02, // 20% of base
+      targetFcfMargin,
+      targetFcfMarginStdDev: Math.abs(targetFcfMargin * 0.10) || 0.01, // 10% of base
+      wacc: dcfResult.wacc,
+      waccStdDev: dcfResult.wacc * 0.10 || 0.005, // 10% of WACC
+      terminalGrowth,
+      terminalGrowthStdDev: Math.abs(terminalGrowth * 0.20) || 0.0025, // 20% of base
+      sharesOutstanding,
+      totalDebt,
+      cashAndEquivalents,
+      projectionYears,
+      fcfMarginYear1: data.historicalFCF && data.historicalFCF.length > 0 && data.historicalRevenue && data.historicalRevenue.length > 0
+        ? data.historicalFCF[data.historicalFCF.length - 1].value / data.historicalRevenue[data.historicalRevenue.length - 1].value
+        : targetFcfMargin
+    }, 10000);
+  }, [dcfResult, latestRevenue, revenueGrowth, targetFcfMargin, dcfResult?.wacc, terminalGrowth, sharesOutstanding, totalDebt, cashAndEquivalents, projectionYears, data]);
 
   // WACC sensitivity ranges (Grid A)
   const waccSteps = dcfResult ? [
@@ -356,10 +404,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
   };
 
   // Determine warnings
-  const isNegativeFCF = data?.historicalFCF && data.historicalFCF.length > 0 && data.historicalFCF.every(f => f.value <= 0);
-  const isFinancialSector = profile?.sector?.toLowerCase().includes('financial') || 
-                            profile?.industry?.toLowerCase().includes('bank') || 
-                            profile?.industry?.toLowerCase().includes('insurance');
+  const isNegativeFCF = data?.historicalFCF && data.historicalFCF.length > 0 && data.historicalFCF.every((f: any) => f.value <= 0);
 
   // WACC limits alerts
   const isWaccLow = dcfResult && dcfResult.wacc < 0.05;
@@ -407,6 +452,19 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {data?.dataConfidence && (
+            <div className="hidden sm:flex items-center" title="Cross-validation confidence vs SEC EDGAR filings">
+              <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${
+                data.dataConfidence === 'high' ? 'bg-emerald-100 text-emerald-700' :
+                data.dataConfidence === 'medium' ? 'bg-amber-100 text-amber-700' :
+                'bg-slate-100 text-slate-600'
+              }`}>
+                {data.dataConfidence === 'high' ? 'SEC Validated' :
+                 data.dataConfidence === 'medium' ? 'SEC Diverged' :
+                 'Unvalidated'}
+              </span>
+            </div>
+          )}
           {dcfResult && !dcfError && (
             <div className="hidden sm:flex items-center gap-2 text-xs">
               <span className="text-slate-500">Fair Value:</span>
@@ -463,13 +521,24 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
               </div>
             )}
 
-            {isFinancialSector && (
-              <div className="p-3 bg-[#F0F5FF]/85 border border-[#E5E8EF] rounded-lg flex gap-2.5 text-xs text-slate-800">
-                <HelpCircle className="h-4 w-4 text-[#1A6EFF] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold">Financial sector stock: </span>
-                  DCF calculations are less meaningful for financial institutions (banks, insurers). Standard cash flow does not account for interest income/capital rules. Consider dividend discount models.
+            {isFinancialSector && !hasAcknowledgedFinancial && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex flex-col gap-2.5 text-xs text-red-900">
+                <div className="flex gap-2.5">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Financial sector stock blocked: </span>
+                    DCF calculations are fundamentally flawed for financial institutions (banks, insurers) because debt is raw material, not capital. Proceeding will likely yield nonsensical valuations.
+                  </div>
                 </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHasAcknowledgedFinancial(true);
+                  }}
+                  className="self-end px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded font-semibold transition cursor-pointer"
+                >
+                  I understand, proceed anyway
+                </button>
               </div>
             )}
 
@@ -559,6 +628,32 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                   </div>
                 </div>
               </div>
+
+              {/* Peer Implied Value Overlay */}
+              {data.peerMedianPE && data.companyEPS && (
+                <div className="w-full border-t border-slate-200/60 pt-4 mt-1">
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    <span>Peer-Relative Sanity Check</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-slate-700">
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-slate-500">Peer Median P/E:</span>
+                      <span className="font-mono font-bold">{data.peerMedianPE.toFixed(1)}x</span>
+                    </div>
+                    <div className="h-6 w-px bg-slate-200/60"></div>
+                    <div className="flex flex-col">
+                      <span className="text-[11px] text-slate-500">Peer Implied Value:</span>
+                      <span className="font-mono font-bold">{formatPrice(data.peerMedianPE * data.companyEPS, exchange, symbol)}</span>
+                    </div>
+                    {Math.abs((dcfResult.fairValuePerShare - (data.peerMedianPE * data.companyEPS)) / (data.peerMedianPE * data.companyEPS)) > 0.4 && (
+                      <div className="ml-auto flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50 px-2.5 py-1 rounded border border-amber-200">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        <span className="font-semibold">DCF diverges {'>'}40% from peers</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* 52-Week Range Price Overlay */}
               {data.low_52w !== null && data.high_52w !== null && (
@@ -823,9 +918,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 <div className="space-y-1">
                   <span className="text-xs font-semibold text-slate-600 flex items-center gap-0.5">
                     Risk-Free Rate
-                    <span className="text-slate-400 cursor-help" title="10-Year Government Bond yield. Auto-populated from FRED DGS10 or RBI.">
-                      <HelpCircle className="h-3.5 w-3.5" />
-                    </span>
+                    <ProvenanceTooltip provenanceData={data?.provenance?.riskFreeRate} />
                   </span>
                   <input
                     type="number"
@@ -843,9 +936,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 <div className="space-y-1">
                   <span className="text-xs font-semibold text-slate-600 flex items-center gap-0.5">
                     Beta (Volatility)
-                    <span className="text-slate-400 cursor-help" title="Stock price volatility vs. broader index. Auto-populated from Yahoo.">
-                      <HelpCircle className="h-3.5 w-3.5" />
-                    </span>
+                    <ProvenanceTooltip provenanceData={data?.provenance?.beta} />
                   </span>
                   <input
                     type="number"
@@ -885,9 +976,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 <div className="space-y-1">
                   <span className="text-xs font-semibold text-slate-600 flex items-center gap-0.5">
                     Cost of Debt
-                    <span className="text-slate-400 cursor-help" title="Average interest rate on debt. Derived from interestExpense/totalDebt.">
-                      <HelpCircle className="h-3.5 w-3.5" />
-                    </span>
+                    <ProvenanceTooltip provenanceData={data?.provenance?.interestExpense} />
                   </span>
                   <input
                     type="number"
@@ -905,9 +994,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 <div className="space-y-1">
                   <span className="text-xs font-semibold text-slate-600 flex items-center gap-0.5">
                     Effective Tax Rate
-                    <span className="text-slate-400 cursor-help" title="Tax rate on corporate earnings. US standard Statutory is 21%.">
-                      <HelpCircle className="h-3.5 w-3.5" />
-                    </span>
+                    <ProvenanceTooltip provenanceData={data?.provenance?.taxRate} />
                   </span>
                   <input
                     type="number"
@@ -939,7 +1026,10 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Latest Revenue</label>
+                <label className="text-xs font-semibold text-slate-600 flex items-center">
+                  Latest Revenue
+                  <ProvenanceTooltip provenanceData={{ source: data?.historicalRevenue?.[data.historicalRevenue.length - 1]?.source || 'Yahoo Annual', fallbackApplied: false }} />
+                </label>
                 <input
                   type="number"
                   min="1"
@@ -952,7 +1042,10 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 </span>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Total Debt</label>
+                <label className="text-xs font-semibold text-slate-600 flex items-center">
+                  Total Debt
+                  <ProvenanceTooltip provenanceData={data?.provenance?.totalDebt} />
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -965,7 +1058,10 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 </span>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Cash & Equivalents</label>
+                <label className="text-xs font-semibold text-slate-600 flex items-center">
+                  Cash & Equivalents
+                  <ProvenanceTooltip provenanceData={data?.provenance?.cashAndEquivalents} />
+                </label>
                 <input
                   type="number"
                   min="0"
@@ -978,7 +1074,10 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 </span>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600">Shares Outstanding</label>
+                <label className="text-xs font-semibold text-slate-600 flex items-center">
+                  Shares Outstanding
+                  <ProvenanceTooltip provenanceData={data?.provenance?.sharesOutstanding} />
+                </label>
                 <input
                   type="number"
                   min="1"
@@ -1229,6 +1328,56 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Monte Carlo Simulation UI */}
+          {monteCarloResult && !dcfError && (
+            <div className="bg-white border border-[#E5E8EF] rounded-xl p-5 space-y-4">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                <Activity className="h-5 w-5 text-indigo-500" />
+                <div>
+                  <h3 className="font-sans font-bold text-[14px] text-slate-800 tracking-wide">
+                    Monte Carlo Simulation <span className="text-slate-400 font-normal text-xs ml-1">(10,000 Iterations)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Probability distribution of intrinsic value based on randomized inputs (Normal Distribution).
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-6 items-center">
+                <div className="w-full md:w-2/3 h-32 flex items-end gap-[1px]">
+                  {monteCarloResult.histogram.map((bin, idx) => {
+                    const maxCount = Math.max(...monteCarloResult.histogram.map(b => b.count));
+                    const heightPercent = maxCount > 0 ? (bin.count / maxCount) * 100 : 0;
+                    return (
+                      <div 
+                        key={idx} 
+                        className="flex-1 bg-indigo-500/80 hover:bg-indigo-600 transition-all rounded-t-sm"
+                        style={{ height: `${Math.max(2, heightPercent)}%` }}
+                        title={`${formatPrice(bin.min, exchange, symbol)} - ${formatPrice(bin.max, exchange, symbol)} (${bin.count} iterations)`}
+                      />
+                    );
+                  })}
+                </div>
+
+                <div className="w-full md:w-1/3 space-y-2.5 bg-slate-50 rounded-lg p-3 border border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Fair Value Percentiles</h4>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">10th Percentile (Bear)</span>
+                    <span className="font-mono font-bold text-red-600">{formatPrice(monteCarloResult.percentiles.p10, exchange, symbol)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs border-y border-slate-200 py-1.5 my-1.5">
+                    <span className="text-slate-800 font-bold">50th Percentile (Median)</span>
+                    <span className="font-mono font-bold text-indigo-600 text-sm">{formatPrice(monteCarloResult.percentiles.p50, exchange, symbol)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-500 font-medium">90th Percentile (Bull)</span>
+                    <span className="font-mono font-bold text-[#059669]">{formatPrice(monteCarloResult.percentiles.p90, exchange, symbol)}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

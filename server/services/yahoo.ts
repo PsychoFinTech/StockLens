@@ -734,9 +734,9 @@ export const yahooService = {
     }
   },
 
-  getFundamentalsTimeSeries: async (symbol: string, period1: string, period2: string) => {
+  getFundamentalsTimeSeries: async (symbol: string, period1: string, period2: string, type: 'annual' | 'quarterly' = 'annual') => {
     const rawSymbol = symbol.toUpperCase();
-    const cacheKey = `yahoo:timeseries:${rawSymbol}`;
+    const cacheKey = `yahoo:timeseries:${type}:${rawSymbol}`;
 
     const cached = await cacheService.get<any>(cacheKey);
     if (cached) {
@@ -745,12 +745,12 @@ export const yahooService = {
     }
 
     try {
-      console.log(`[YAHOO] Fetching fundamentalsTimeSeries for: ${rawSymbol}`);
+      console.log(`[YAHOO] Fetching fundamentalsTimeSeries (${type}) for: ${rawSymbol}`);
       const payload = await dedupedFetch(cacheKey, async () => {
         const result = await fundamentalsTimeSeriesBreaker.fire(rawSymbol, {
           period1,
           period2,
-          type: 'annual',
+          type,
           module: 'all'
         });
         await cacheService.set(cacheKey, result, CACHE_TTLS.FUNDAMENTALS);
