@@ -452,6 +452,7 @@ export const yahooService = {
             epsBasicExclExtraItemsTTM: ks.trailingEps || ks.forwardEps || null,
             dividendYieldIndicated: sd.dividendYield ? sd.dividendYield * 100 : (ks.dividendYield ? ks.dividendYield * 100 : null),
             enterpriseValue: ks.enterpriseValue || null,
+            evEbitda: ks.enterpriseToEbitda || null,
             sharesOutstanding: ks.sharesOutstanding || null,
             bookValue: ks.bookValue || null,
             totalCash: fd.totalCash || null
