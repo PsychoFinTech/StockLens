@@ -85,19 +85,23 @@ router.get('/dcf/:symbol', apiLimiter, async (req, res, next) => {
     }
 
     // Leverage cash and debt from basic stats, fallback to latest balance sheet statement
+    const debtObj = sortedNewestFirst.find(s => getField(s, 'totalDebt') !== null);
     let totalDebt = basicFinancials?.metric?.totalDebt ?? 
-                    sortedNewestFirst.find(s => getField(s, 'totalDebt') !== null)?.totalDebt ?? 
-                    null;
+                    (debtObj ? getField(debtObj, 'totalDebt') : null);
     if (totalDebt !== null) {
       totalDebt = Math.abs(totalDebt); // Keep debt positive
     }
 
+    const cashObj1 = sortedNewestFirst.find(s => getField(s, 'cashCashEquivalentsAndShortTermInvestments') !== null);
+    const cashObj2 = sortedNewestFirst.find(s => getField(s, 'cashAndCashEquivalents') !== null);
     let cashAndEquivalents = basicFinancials?.metric?.totalCash ?? 
-                             sortedNewestFirst.find(s => getField(s, 'cashCashEquivalentsAndShortTermInvestments') !== null)?.cashCashEquivalentsAndShortTermInvestments ?? 
-                             sortedNewestFirst.find(s => getField(s, 'cashAndCashEquivalents') !== null)?.cashAndCashEquivalents ?? 
+                             (cashObj1 ? getField(cashObj1, 'cashCashEquivalentsAndShortTermInvestments') : null) ?? 
+                             (cashObj2 ? getField(cashObj2, 'cashAndCashEquivalents') : null) ?? 
                              null;
 
-    let sharesOutstanding = basicFinancials?.metric?.sharesOutstanding ?? null;
+    const sharesObj = sortedNewestFirst.find(s => getField(s, 'ordinarySharesNumber') !== null);
+    let sharesOutstanding = basicFinancials?.metric?.sharesOutstanding ?? 
+                            (sharesObj ? getField(sharesObj, 'ordinarySharesNumber') : null);
 
     const beta = basicFinancials?.metric?.beta ?? null;
 
