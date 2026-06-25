@@ -15,3 +15,7 @@ coverage/
 # Internal tool config
 .superpowers/
 .gemini/
+
+# Ad-hoc test scripts and reports
+scratch/
+test_report.*
