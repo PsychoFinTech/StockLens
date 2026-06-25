@@ -88,7 +88,7 @@ router.post('/add', apiLimiter, (req, res, next) => {
   try {
     const parseResult = WatchlistAddSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({ error: true, message: parseResult.error.errors[0].message });
+      return res.status(400).json({ error: true, message: parseResult.error.issues[0].message });
     }
     const symbol = parseResult.data.symbol;
 

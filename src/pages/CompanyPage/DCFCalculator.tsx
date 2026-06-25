@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { HelpCircle, RefreshCw, AlertTriangle, ChevronDown, ChevronUp, Calculator, Sliders, Download, TrendingUp, TrendingDown, Info, Activity } from 'lucide-react';
 import { useDCFData } from './hooks/useDCFData.js';
-import { computeDCF, computeSensitivityTable } from '../../utils/dcfCalculator.js';
+import { computeDCF, computeSensitivityTable, DCFInputs } from '../../utils/dcfCalculator.js';
 import { runMonteCarloSimulation } from '../../utils/monteCarlo.js';
 import { formatPrice, formatMarketCap, formatPercentChange, formatShares } from '../../utils/formatters.js';
 import { ProvenanceTooltip } from './components/DCF/ProvenanceTooltip.js';

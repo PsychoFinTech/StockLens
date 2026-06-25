@@ -249,8 +249,6 @@ function loadMappings() {
 }
 loadMappings();
 
-import CircuitBreaker from 'opossum';
-
 const edgarBreaker = new CircuitBreaker(async (url: string, init?: RequestInit) => {
   const res = await fetch(url, init);
   if (!res.ok && res.status !== 404) {

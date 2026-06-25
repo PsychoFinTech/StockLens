@@ -6,8 +6,8 @@ export interface DCFData {
   companyName: string;
   currentPrice: number;
   sharesOutstanding: number | null;
-  historicalFCF: { year: number; value: number }[];
-  historicalRevenue: { year: number; value: number }[];
+  historicalFCF: { year: number; value: number; source?: string }[];
+  historicalRevenue: { year: number; value: number; source?: string }[];
   totalDebt: number | null;
   cashAndEquivalents: number | null;
   beta: number | null;
