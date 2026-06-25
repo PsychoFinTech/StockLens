@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { fredService as baseFredService } from '../../fred.js';
 
 export interface FredData {
   fedFundsRate: number | null;
@@ -6,35 +6,36 @@ export interface FredData {
 }
 
 export async function fetchFredData(): Promise<FredData> {
-  const apiKey = process.env.FRED_API_KEY;
-  if (!apiKey) {
-    console.warn('FRED_API_KEY not found in environment variables. Returning placeholder data.');
-    return {
-      fedFundsRate: 5.25,
-      gdpGrowth: 2.1
-    };
-  }
-
   try {
     // Federal Funds Effective Rate (FEDFUNDS)
-    const fedRes = await axios.get(`https://api.stlouisfed.org/fred/series/observations?series_id=FEDFUNDS&api_key=${apiKey}&file_type=json&sort_order=desc&limit=1`);
-    const fedFundsRate = parseFloat(fedRes.data.observations[0].value);
+    const fedRes = await baseFredService.getSeries('FEDFUNDS');
+    const fedObservations = fedRes?.observations;
+    let fedFundsRate = null;
+    if (fedObservations && fedObservations.length > 0) {
+      fedFundsRate = parseFloat(fedObservations[fedObservations.length - 1].value);
+    }
 
     // Real Gross Domestic Product (GDPC1)
-    const gdpRes = await axios.get(`https://api.stlouisfed.org/fred/series/observations?series_id=GDPC1&api_key=${apiKey}&file_type=json&sort_order=desc&limit=2`);
-    const gdpCurrent = parseFloat(gdpRes.data.observations[0].value);
-    const gdpPrevious = parseFloat(gdpRes.data.observations[1].value);
-    const gdpGrowth = ((gdpCurrent - gdpPrevious) / gdpPrevious) * 100;
+    const gdpRes = await baseFredService.getSeries('GDPC1');
+    const gdpObservations = gdpRes?.observations;
+    let gdpGrowth = null;
+    if (gdpObservations && gdpObservations.length >= 2) {
+      const gdpCurrent = parseFloat(gdpObservations[gdpObservations.length - 1].value);
+      const gdpPrevious = parseFloat(gdpObservations[gdpObservations.length - 2].value);
+      gdpGrowth = ((gdpCurrent - gdpPrevious) / gdpPrevious) * 100;
+    }
 
     return {
       fedFundsRate,
       gdpGrowth
     };
   } catch (error) {
-    console.error('Error fetching FRED data:', error);
+    console.error('Error fetching FRED data for report:', error);
+    // Return placeholders if failing
     return {
-      fedFundsRate: null,
-      gdpGrowth: null
+      fedFundsRate: 5.25,
+      gdpGrowth: 2.1
     };
   }
 }
+

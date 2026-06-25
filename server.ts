@@ -8,6 +8,8 @@ import { createServer as createViteServer } from 'vite';
 import compression from 'compression';
 import pino from 'pino';
 import pinoHttp from 'pino-http';
+import helmet from 'helmet';
+
 
 // Load environment variables
 import dns from 'dns';
@@ -43,6 +45,9 @@ async function startServer() {
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
   app.set('trust proxy', 1);
+  app.use(helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
+  }));
 
   let allowedOrigins: boolean | string[] = true;
   if (process.env.NODE_ENV === 'production') {
@@ -129,7 +134,7 @@ async function startServer() {
 
   app.use(errorHandler);
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     logger.info(`[SERVER] Worker ${process.pid} listening at http://localhost:${PORT}`);
 
     if (!cluster.isWorker || cluster.worker?.id === 1) {
@@ -152,6 +157,21 @@ async function startServer() {
       }, 90000);
     }
   });
+
+  const shutdown = () => {
+    logger.info('[SERVER] SIGTERM/SIGINT received. Shutting down gracefully...');
+    server.close(() => {
+      logger.info('[SERVER] Closed remaining connections.');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      logger.error('[SERVER] Could not close connections in time, forcefully shutting down');
+      process.exit(1);
+    }, 10000);
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 // Clustering setup

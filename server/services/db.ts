@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
 import { SEED_STOCKS } from './seeds.js';
 
 // Initialize Database
@@ -93,19 +94,34 @@ db.exec(`
     updated_at INTEGER NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS migrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename TEXT NOT NULL UNIQUE,
+    applied_at INTEGER NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_stocks_sector ON stocks(sector);
   CREATE INDEX IF NOT EXISTS idx_stocks_exchange ON stocks(exchange);
   CREATE INDEX IF NOT EXISTS idx_ratios_updated ON ratios_cache(updated_at);
   CREATE INDEX IF NOT EXISTS idx_quotes_symbol ON quotes(symbol);
 `);
 
-// Alter quotes table if needed for schema updates
-try {
-  db.exec('ALTER TABLE quotes ADD COLUMN high_52w REAL');
-} catch (_) {}
-try {
-  db.exec('ALTER TABLE quotes ADD COLUMN low_52w REAL');
-} catch (_) {}
+// Run Migrations
+const migrationsDir = path.resolve(process.cwd(), 'server', 'services', 'migrations');
+if (fs.existsSync(migrationsDir)) {
+  const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
+  for (const file of files) {
+    const isApplied = db.prepare('SELECT 1 FROM migrations WHERE filename = ?').get(file);
+    if (!isApplied) {
+      console.log(`[DB] Applying migration ${file}`);
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+      db.transaction(() => {
+        db.exec(sql);
+        db.prepare('INSERT INTO migrations (filename, applied_at) VALUES (?, ?)').run(file, Date.now());
+      })();
+    }
+  }
+}
 
 console.log('[DB] Database initialized successfully in WAL mode.');
 

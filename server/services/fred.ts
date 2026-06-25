@@ -1,4 +1,5 @@
 import db from './db.js';
+import CircuitBreaker from 'opossum';
 
 export const ALLOWED_SERIES = new Set([
   "FEDFUNDS", "DGS10", "DGS2", "T10Y2Y", "BAMLH0A0HYM2",
@@ -40,11 +41,8 @@ export const fredService = {
 
     const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${upperId}&api_key=${apiKey}&file_type=json&sort_order=asc&observation_start=${observationStart}`;
     
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`FRED API responded with status ${response.status}`);
-    }
-    const json = await response.json();
+    const json = await fredBreaker.fire(url);
+
     
     // Persist to SQLite
     try {
@@ -58,3 +56,25 @@ export const fredService = {
     return json;
   }
 };
+
+const breakerOptions = {
+  timeout: 8000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 30000,
+  volumeThreshold: 5
+};
+
+const fetchFredAPI = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`FRED API responded with status ${response.status}`);
+  }
+  return response.json();
+};
+
+const fredBreaker = new CircuitBreaker(fetchFredAPI, breakerOptions);
+
+fredBreaker.fallback((url, err) => {
+  console.error(`[FRED BREAKER] Failed to fetch ${url}:`, err ? err.message : 'Unknown error');
+  throw new Error('FRED API is currently unavailable.');
+});

@@ -28,6 +28,9 @@ Most retail investing dashboards either hide their data sources or quietly inven
 * it **caches** results to reduce API pressure,
 * and it shows **no-data / unavailable states** instead of fake placeholders.
 
+### Design Philosophy
+StockLens is strictly designed as a **single-process, single-user tool**. Authentication, user management, and multi-tenancy are explicitly out of scope. It is meant to be run locally or deployed for personal use.
+
 That makes it better suited for research, debugging, and portfolio work.
 
 ---
