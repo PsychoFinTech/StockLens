@@ -49,7 +49,7 @@ describe('DCF Route API', () => {
     vi.mocked(yahooService.getGrowthEstimates).mockResolvedValue({ growthEstimate5yr: null });
     vi.mocked(yahooService.getPeers).mockResolvedValue([]);
     vi.mocked(fredService.getSeries).mockResolvedValue({ observations: [] });
-    vi.mocked(edgarService.getFinancials).mockResolvedValue(null);
+    vi.mocked(edgarService.getFinancials).mockRejectedValue(new Error('EDGAR data unavailable'));
     vi.mocked(fetchPeersForReport).mockResolvedValue([]);
   });
 
