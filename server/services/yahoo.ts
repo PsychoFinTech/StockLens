@@ -2,6 +2,26 @@ import YahooFinance from 'yahoo-finance2';
 import { cacheService, CACHE_TTLS } from './cache.js';
 import { z } from 'zod';
 import CircuitBreaker from 'opossum';
+import { alphaVantageService } from './alphaVantage.js';
+
+/**
+ * Best-effort Alpha Vantage fallback wrapper. Yahoo Finance is always tried
+ * first; this runs only from a Yahoo catch-block. It never throws — a failed
+ * fallback simply returns null so the caller can continue to its SQLite
+ * backup layer, preserving the existing waterfall behaviour.
+ */
+async function tryAlphaVantage<T>(label: string, fn: () => Promise<T>): Promise<T | null> {
+  if (!alphaVantageService.isConfigured()) return null;
+  try {
+    console.warn(`[FALLBACK] Yahoo failed, attempting Alpha Vantage for ${label}...`);
+    const result = await fn();
+    console.log(`[FALLBACK] Alpha Vantage succeeded for ${label}`);
+    return result;
+  } catch (avErr: any) {
+    console.error(`[FALLBACK] Alpha Vantage also failed for ${label}:`, avErr.message);
+    return null;
+  }
+}
 
 // ESM/CJS interop compatibility resolver for bundlers (e.g. esbuild/webpack)
 let YahooFinanceClass: any = YahooFinance;
@@ -208,7 +228,15 @@ export const yahooService = {
       return financialsObj;
     } catch (error: any) {
       console.error(`[YAHOO ERROR] Failed to fetch financials for ${rawSymbol}`, error.message);
-      
+
+      // Fallback Layer: Alpha Vantage
+      const avData = await tryAlphaVantage(`financials ${rawSymbol}`, () => alphaVantageService.getFinancials(rawSymbol));
+      if (avData) {
+        await cacheService.set(cacheKey, avData, CACHE_TTLS.FUNDAMENTALS);
+        cacheService.saveFundamentalsBackup(rawSymbol, avData, 'ALPHAVANTAGE');
+        return avData;
+      }
+
       // Fallback to SQLite check
       const backup = cacheService.getFundamentalsBackup(rawSymbol);
       if (backup) {
@@ -306,6 +334,15 @@ export const yahooService = {
       return mapped;
     } catch (error: any) {
       console.error(`[YAHOO QUOTE ERROR] Failed to fetch quote for ${rawSymbol}`, error.message);
+
+      // Fallback Layer: Alpha Vantage
+      const avQuote = await tryAlphaVantage(`quote ${rawSymbol}`, () => alphaVantageService.getQuote(rawSymbol));
+      if (avQuote && avQuote.price !== null) {
+        await cacheService.set(cacheKey, avQuote, CACHE_TTLS.QUOTE);
+        cacheService.saveQuoteBackup(rawSymbol, avQuote);
+        return avQuote;
+      }
+
       const backup = cacheService.getQuoteBackup(rawSymbol);
       if (backup) {
         console.log(`[YAHOO QUOTE FALLBACK] Returned SQLite quote backup for ${rawSymbol}`);
@@ -368,6 +405,14 @@ export const yahooService = {
       return profileObj;
     } catch (error: any) {
       console.error(`[YAHOO PROFILE ERROR] Failed to fetch profile for ${rawSymbol}`, error.message);
+
+      // Fallback Layer: Alpha Vantage
+      const avProfile = await tryAlphaVantage(`profile ${rawSymbol}`, () => alphaVantageService.getProfile(rawSymbol));
+      if (avProfile) {
+        await cacheService.set(cacheKey, avProfile, CACHE_TTLS.FUNDAMENTALS);
+        return avProfile;
+      }
+
       // Fallback to SQLite DB backup if available
       const backup = cacheService.getFundamentalsBackup(rawSymbol);
       if (backup && backup.data) {
@@ -468,7 +513,15 @@ export const yahooService = {
       return basicObj;
     } catch (error: any) {
       console.error(`[YAHOO BASIC ERROR] Failed to fetch basic financials for ${rawSymbol}`, error.message);
-      
+
+      // Fallback Layer: Alpha Vantage
+      const avBasic = await tryAlphaVantage(`basic financials ${rawSymbol}`, () => alphaVantageService.getBasicFinancials(rawSymbol));
+      if (avBasic) {
+        await cacheService.set(cacheKey, avBasic, CACHE_TTLS.FUNDAMENTALS);
+        cacheService.saveRatiosBackup(rawSymbol, avBasic);
+        return avBasic;
+      }
+
       // Fallback to SQLite check (even if expired) before giving up
       if (backup) {
         console.log(`[YAHOO BASIC FALLBACK] Returned stale SQLite ratios backup for ${rawSymbol}`);
@@ -600,6 +653,12 @@ export const yahooService = {
       return mappedResult;
     } catch (error: any) {
       console.error(`[YAHOO SEARCH ERROR] Failed search for query ${query}`, error.message);
+
+      // Fallback Layer: Alpha Vantage
+      const avSearch = await tryAlphaVantage(`search ${query}`, () => alphaVantageService.searchSymbol(query));
+      if (avSearch) {
+        return avSearch;
+      }
       return { result: [] };
     }
   },
@@ -650,6 +709,12 @@ export const yahooService = {
       };
     } catch (error: any) {
       console.error(`[YAHOO CANDLES ERROR] Failed to fetch candles for ${rawSymbol}`, error.message);
+
+      // Fallback Layer: Alpha Vantage
+      const avCandles = await tryAlphaVantage(`candles ${rawSymbol}`, () => alphaVantageService.getCandles(rawSymbol, resolution));
+      if (avCandles && avCandles.s === 'ok') {
+        return avCandles;
+      }
       return { s: 'no_data' };
     }
   },

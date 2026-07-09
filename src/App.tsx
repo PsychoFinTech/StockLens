@@ -26,13 +26,13 @@ const queryClient = new QueryClient({
 });
 
 const RouteLoader = () => (
-  <div className="p-8 mt-20 flex justify-center w-full">
-    <div className="animate-pulse flex items-center gap-2 text-indigo-500 font-semibold font-mono">
-      <div className="w-4 h-4 bg-indigo-500 rounded-full animate-bounce"></div>
-      <div className="w-4 h-4 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-      <div className="w-4 h-4 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-      Loading view...
+  <div className="p-8 mt-24 flex flex-col items-center justify-center w-full gap-4">
+    <div className="flex items-center gap-1.5">
+      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce"></div>
+      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.12s' }}></div>
+      <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-bounce" style={{ animationDelay: '0.24s' }}></div>
     </div>
+    <span className="font-mono text-xs uppercase tracking-[0.2em] text-gray-400">Loading view</span>
   </div>
 );
 
@@ -56,7 +56,7 @@ export default function App() {
           </ErrorBoundary>
 
           {/* Main workspace routing content */}
-          <main className="flex-1">
+          <main className="flex-1 animate-fade-in">
             <ErrorBoundary name="Page Content">
               <Suspense fallback={<RouteLoader />}>
                 <Routes>
@@ -74,12 +74,23 @@ export default function App() {
 
           {/* Humble architectural Footer */}
           <footer className="border-t border-gray-150 bg-white/70 py-6 text-center text-xs text-gray-400 font-mono mt-12">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-2">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-2.5">
               <p className="font-semibold text-gray-400">
                 StockLens Equities Analysis Engine © {new Date().getFullYear()}
               </p>
+              <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-wider text-gray-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-150 bg-white/60 px-2.5 py-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Yahoo Finance · Primary
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-150 bg-white/60 px-2.5 py-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" /> Alpha Vantage · Fallback
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-gray-150 bg-white/60 px-2.5 py-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Durable Cache
+                </span>
+              </div>
               <p className="max-w-xl mx-auto text-[11px] leading-relaxed text-gray-400">
-                Data provided with waterfall fallbacks via Finnhub Core API, Yahoo Scraper summaries, and Alpha Vantage backups. Seeded with 200+ major multi-region indices and equities.
+                Live market data served through an automatic waterfall — Yahoo Finance first, Alpha Vantage as fallback, then a durable local cache. Seeded with 200+ major multi-region indices and equities.
               </p>
             </div>
           </footer>

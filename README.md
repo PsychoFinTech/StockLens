@@ -194,7 +194,8 @@ of a multi-tenant SaaS.
 
 | Source | Used for | Auth |
 |---|---|---|
-| Yahoo Finance | Quotes, historical candles, profiles, financial statements, peers, news | None |
+| Yahoo Finance | Quotes, historical candles, profiles, financial statements, peers, news (**primary**) | None |
+| Alpha Vantage | Automatic **fallback** for quotes, candles, profiles, financials & search when Yahoo is unavailable | API key |
 | SEC EDGAR | 10-K/10-Q sections, Form 4 insider trades, 13F holdings, DEF 14A proxy statements, DCF cross-validation | None, compliant `User-Agent` required |
 | FRED | Macro indicators (rates, inflation, employment, GDP), DCF risk-free rate | API key |
 | Financial Modeling Prep | Congressional trading disclosures | API key |
@@ -348,9 +349,13 @@ StockLens uses a simple data waterfall on every read:
 
 1. **in-memory cache** (or Redis, if `REDIS_URL` is set) for speed
 2. **SQLite backup** for persistence across restarts
-3. **live fetch** for fresh data, behind a circuit breaker
+3. **live fetch** for fresh data, behind a circuit breaker:
+   1. **Yahoo Finance** — primary provider
+   2. **Alpha Vantage** — automatic fallback when Yahoo fails or is rate-limited
+      (set `ALPHAVANTAGE_API_KEY`; the free tier is rate-limited, so it is only
+      hit when the Yahoo layer is down and every response is cached)
 
-If a live source is down or rate-limited, StockLens serves the last known
+If every live source is down or rate-limited, StockLens serves the last known
 good value from cache/SQLite rather than failing the request outright, and
 surfaces data freshness/confidence where it matters (e.g. the DCF
 calculator's source provenance tooltips).
