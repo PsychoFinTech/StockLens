@@ -14,16 +14,16 @@ export const getCountryFlagUrl = (exchange: string): string => {
   if (ex.includes('XETRA') || ex.includes('GERMANY')) {
     return 'https://flagcdn.com/16x12/de.png';
   }
-  if (ex.includes('Euronext Paris') || ex.includes('FRANCE') || ex.includes('PA')) {
+  if (ex.includes('EURONEXT PARIS') || ex.includes('FRANCE') || ex === 'PA' || ex === 'PARIS') {
     return 'https://flagcdn.com/16x12/fr.png';
   }
-  if (ex.includes('MADRID') || ex.includes('SPAIN') || ex.includes('MC')) {
+  if (ex.includes('MADRID') || ex.includes('SPAIN') || ex === 'MC') {
     return 'https://flagcdn.com/16x12/es.png';
   }
-  if (ex.includes('ITALIANA') || ex.includes('ITALY') || ex.includes('MI')) {
+  if (ex.includes('ITALIANA') || ex.includes('ITALY') || ex === 'MI') {
     return 'https://flagcdn.com/16x12/it.png';
   }
-  if (ex.includes('AMSTERDAM') || ex.includes('NETHERLANDS') || ex.includes('AS')) {
+  if (ex.includes('AMSTERDAM') || ex.includes('NETHERLANDS') || ex === 'AS') {
     return 'https://flagcdn.com/16x12/nl.png';
   }
   if (ex.includes('SIX') || ex.includes('SWITZERLAND') || ex.includes('SW')) {

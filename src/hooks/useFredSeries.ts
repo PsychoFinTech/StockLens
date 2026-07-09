@@ -71,7 +71,7 @@ export const useFredSeries = (seriesIds: MacroSeriesId[]) => {
 
   useEffect(() => {
     loadAll();
-  }, []); // Only on mount
+  }, [seriesIds.join(',')]); // Refetch when seriesIds changes
 
   return { data, loading, errors, refetch };
 };

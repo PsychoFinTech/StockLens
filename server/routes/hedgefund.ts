@@ -135,7 +135,7 @@ router.post('/run', async (req, res, next) => {
              intrinsicValue = latestEPS * (8.5 + 2 * assumedGrowth);
           }
 
-          const debtToEquity = m.totalDebtToEquity !== undefined ? m.totalDebtToEquity / 100 : 
+          const debtToEquity = m.debtEquityAnnual !== undefined ? m.debtEquityAnnual / 100 : 
                                (latest.totalDebt && latest.stockholdersEquity ? latest.totalDebt / latest.stockholdersEquity : null);
 
           evaluationDataList.push({

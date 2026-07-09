@@ -41,7 +41,16 @@ export const fredService = {
 
     const url = `https://api.stlouisfed.org/fred/series/observations?series_id=${upperId}&api_key=${apiKey}&file_type=json&sort_order=asc&observation_start=${observationStart}`;
     
-    const json = await fredBreaker.fire(url);
+    let json;
+    try {
+      json = await fredBreaker.fire(url);
+    } catch (err) {
+      if (row) {
+        console.warn(`[FRED] API failed, serving stale data for ${upperId}`);
+        return JSON.parse(row.data);
+      }
+      throw err;
+    }
 
     
     // Persist to SQLite

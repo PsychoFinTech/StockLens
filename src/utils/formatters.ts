@@ -49,6 +49,9 @@ export const formatMarketCap = (mcap: number | null | undefined, exchange: strin
   const symbolStr = getCurrencySymbol(exchange, symbol);
   const val = Number(mcap);
 
+  if (val < 1_000_000) {
+    return `${symbolStr}${val.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  }
   if (val < 1_000_000_000) {
     const valueM = val / 1_000_000;
     return `${symbolStr}${valueM.toFixed(0)}m`;

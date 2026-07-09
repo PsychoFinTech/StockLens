@@ -49,7 +49,7 @@ Instructions:
 Do not use markdown headers or bullet points. Output only the 3 paragraphs.
 `;
 
-  const modelsToTry = ['gemini-3.1-flash-lite', 'gemma-4-31b'];
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
   
   for (let i = 0; i < geminiKeyManager.getKeyCount(); i++) {
     const currentKey = i === 0 ? apiKey : geminiKeyManager.getNextKey();

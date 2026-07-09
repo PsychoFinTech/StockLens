@@ -21,7 +21,7 @@ export function runHedgeFundForReport(ticker: string, yfData: YFData): HedgeFund
     const stockData: StockEvaluationData = {
       symbol: ticker,
       price: price,
-      marketCap: quote.targetMeanPrice ? quote.targetMeanPrice * 1000000 : null, // Not directly used in many agents, but required
+      marketCap: yfData.profile?.price?.marketCap || yfData.quoteSummary?.price?.marketCap || stats.marketCap || null, // Required for proper computations
       peRatio: quote.trailingPE || stats.trailingPE || null,
       pbRatio: stats.priceToBook || null,
       debtToEquity: debtToEquity,
@@ -33,7 +33,7 @@ export function runHedgeFundForReport(ticker: string, yfData: YFData): HedgeFund
       netIncome: quote.netIncomeToCommon || null,
       revenueGrowthYoY: quote.revenueGrowth !== undefined ? quote.revenueGrowth * 100 : null,
       epsGrowthYoY: quote.earningsGrowth !== undefined ? quote.earningsGrowth * 100 : null,
-      fcfYield: quote.freeCashflow && quote.targetMeanPrice ? (quote.freeCashflow / (quote.targetMeanPrice * 1000000)) * 100 : null,
+      fcfYield: quote.freeCashflow && (yfData.profile?.price?.marketCap || yfData.quoteSummary?.price?.marketCap || stats.marketCap) ? (quote.freeCashflow / (yfData.profile?.price?.marketCap || yfData.quoteSummary?.price?.marketCap || stats.marketCap)) * 100 : null,
       oneYearReturn: returns.oneYear !== null && returns.oneYear !== undefined ? returns.oneYear * 100 : null,
       sixMonthReturn: returns.threeMonth !== null && returns.threeMonth !== undefined ? returns.threeMonth * 100 : null, // proxy
       threeMonthReturn: returns.threeMonth !== null && returns.threeMonth !== undefined ? returns.threeMonth * 100 : null,
