@@ -151,6 +151,15 @@ describe('DCF Route API', () => {
     expect(data.historicalFCF[2].value).toBe(4000000000); // 4 * 1B from quarters
     expect(data.historicalFCF[2].source).toBe('Yahoo Quarterly TTM');
 
+    // Unlevered FCFF series: reported FCF + after-tax interest expense.
+    // 2023: 7,592,000,000 + 257,000,000 * (1 - 0.155) = 7,809,165,000
+    // 2024: 5,698,000,000 + 269,000,000 * (1 - 0.245) = 5,901,095,000 (uses interestExpenseNonOperating)
+    // TTM : 4,000,000,000 (quarterly rows carry no interest => no add-back)
+    expect(data.historicalFCFF.length).toBe(3);
+    expect(data.historicalFCFF[0].value).toBeCloseTo(7809165000, 0);
+    expect(data.historicalFCFF[1].value).toBeCloseTo(5901095000, 0);
+    expect(data.historicalFCFF[2].value).toBe(4000000000);
+
     expect(data.historicalRevenue[0].year).toBe(2023);
     expect(data.historicalRevenue[1].year).toBe(2024);
     expect(data.historicalRevenue[1].value).toBe(28368000000);

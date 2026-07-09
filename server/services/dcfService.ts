@@ -80,9 +80,38 @@ export const dcfService = {
       })
       .filter(item => item.value !== null);
 
+    // Convert reported (levered) FCF to UNLEVERED free cash flow (FCFF) by
+    // adding back after-tax interest expense. Yahoo's `freeCashFlow` is
+    // Operating Cash Flow − CapEx, and OCF is post-interest, so the reported
+    // series is levered (FCFE-like). The DCF discounts at WACC and bridges
+    // enterprise value to equity via net debt, which is only consistent with an
+    // UNLEVERED numerator — hence this conversion. The reported levered series
+    // is still returned separately (historicalFCF) for display.
+    const afterTaxInterest = (item: any): number => {
+      const rawInterest = getField(item, 'interestExpense') ?? getField(item, 'interestExpenseNonOperating');
+      if (rawInterest === null) return 0;
+      const t = getField(item, 'taxRateForCalcs');
+      const effTax = (typeof t === 'number' && t >= 0 && t < 1) ? t : 0.21;
+      return Math.abs(rawInterest) * (1 - effTax);
+    };
+
+    const historicalFCFF = sortedStatements
+      .map((item: any) => {
+        const year = new Date(item.date).getFullYear();
+        const fcf = getField(item, 'freeCashFlow');
+        if (fcf === null) return null;
+        return { year, value: fcf + afterTaxInterest(item), source: 'Yahoo Annual (Unlevered FCFF)' };
+      })
+      .filter((item): item is { year: number; value: number; source: string } => item !== null);
+
     let ttmFCF = null;
     let ttmRevenue = null;
     const latestYear = historicalFCF.length > 0 ? historicalFCF[historicalFCF.length - 1].year : null;
+    // Capture the latest ANNUAL FCF/Revenue *before* any TTM row is appended, so
+    // the SEC cross-validation below compares annual-vs-annual (see fix for the
+    // period mismatch in dataConfidence).
+    const latestAnnualFCF = historicalFCF.length > 0 ? historicalFCF[historicalFCF.length - 1].value : null;
+    const latestAnnualRev = historicalRevenue.length > 0 ? historicalRevenue[historicalRevenue.length - 1].value : null;
 
     if (Array.isArray(timeSeriesQuarterly) && timeSeriesQuarterly.length > 0) {
       const sortedQNewestFirst = [...timeSeriesQuarterly].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -98,6 +127,9 @@ export const dcfService = {
         
         if (ttmFCF !== null) {
           historicalFCF.push({ year: ttmYear, value: ttmFCF, source: 'Yahoo Quarterly TTM' });
+          // Unlevered TTM: add back the trailing-4-quarter after-tax interest.
+          const ttmAfterTaxInterest = last4.reduce((sum, q) => sum + afterTaxInterest(q), 0);
+          historicalFCFF.push({ year: ttmYear, value: ttmFCF + ttmAfterTaxInterest, source: 'Yahoo Quarterly TTM (Unlevered FCFF)' });
         }
         if (ttmRevenue !== null) {
           historicalRevenue.push({ year: ttmYear, value: ttmRevenue, source: 'Yahoo Quarterly TTM' });
@@ -106,8 +138,10 @@ export const dcfService = {
     }
 
     let dataConfidence = 'low';
-    const latestYahooFCF = historicalFCF.length > 0 ? historicalFCF[historicalFCF.length - 1].value : null;
-    const latestYahooRev = historicalRevenue.length > 0 ? historicalRevenue[historicalRevenue.length - 1].value : null;
+    // Use the latest ANNUAL figures (captured before the TTM append) so the SEC
+    // filing (which is annual) is compared against the same period.
+    const latestYahooFCF = latestAnnualFCF;
+    const latestYahooRev = latestAnnualRev;
 
     if (!edgarData) {
       dataConfidence = 'low';
@@ -282,6 +316,7 @@ export const dcfService = {
       currentPrice: quote.price,
       sharesOutstanding,
       historicalFCF,
+      historicalFCFF,
       historicalRevenue,
       totalDebt,
       cashAndEquivalents,

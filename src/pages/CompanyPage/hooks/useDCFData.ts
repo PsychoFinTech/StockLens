@@ -7,6 +7,7 @@ export interface DCFData {
   currentPrice: number;
   sharesOutstanding: number | null;
   historicalFCF: { year: number; value: number; source?: string }[];
+  historicalFCFF?: { year: number; value: number; source?: string }[];
   historicalRevenue: { year: number; value: number; source?: string }[];
   totalDebt: number | null;
   cashAndEquivalents: number | null;

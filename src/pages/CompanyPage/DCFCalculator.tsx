@@ -63,6 +63,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
   const [targetFcfMargin, setTargetFcfMargin] = useState<number>(0.15);
   const [projectionYears, setProjectionYears] = useState<number>(5);
   const [terminalGrowth, setTerminalGrowth] = useState<number>(0.025);
+  const [midYearConvention, setMidYearConvention] = useState<boolean>(false);
 
   // WACC assumptions
   const [riskFreeRate, setRiskFreeRate] = useState<number>(0.0425);
@@ -99,7 +100,10 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
     }
 
     let baseFcfMargin = 0.15;
-    const fcf = data.historicalFCF || [];
+    // Prefer the UNLEVERED (FCFF) series so the derived margin is consistent with
+    // WACC discounting and the enterprise-value → equity net-debt bridge. Falls
+    // back to the reported levered FCF only if FCFF is unavailable.
+    const fcf = (data.historicalFCFF && data.historicalFCFF.length > 0) ? data.historicalFCFF : (data.historicalFCF || []);
     const revsList = data.historicalRevenue || [];
     const margins = [];
     for (const fcfItem of fcf) {
@@ -216,6 +220,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
             targetFcfMargin,
             projectionYears,
             terminalGrowthRate: terminalGrowth,
+            midYearConvention,
             riskFreeRate,
             equityRiskPremium,
             beta,
@@ -244,6 +249,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
         targetFcfMargin,
         projectionYears,
         terminalGrowthRate: terminalGrowth,
+        midYearConvention,
         riskFreeRate,
         equityRiskPremium,
         beta,
@@ -258,11 +264,12 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
       currentPrice: data.currentPrice,
       baseWacc: dcfResult.wacc,
       revenueGrowthStdDev: Math.abs(revenueGrowth * 0.20) || 0.02, // 20% of base
-      targetFcfMarginStdDev: Math.abs(targetFcfMargin * 0.10) || 0.01, // 10% of base
+      targetFcfMarginStdDev: Math.abs(targetFcfMargin * 0.10) || 0.01, // 10% of target margin
+      fcfMarginStdDev: Math.abs(fcfMargin * 0.10) || 0.01, // 10% of initial margin
       waccStdDev: dcfResult.wacc * 0.10 || 0.005, // 10% of WACC
       terminalGrowthStdDev: Math.abs(terminalGrowth * 0.20) || 0.0025, // 20% of base
     }, 10000);
-  }, [dcfResult, latestRevenue, revenueGrowth, fcfMargin, targetFcfMargin, terminalGrowth, riskFreeRate, equityRiskPremium, beta, costOfDebt, taxRate, marketCap, sharesOutstanding, totalDebt, cashAndEquivalents, projectionYears, data]);
+  }, [dcfResult, latestRevenue, revenueGrowth, fcfMargin, targetFcfMargin, terminalGrowth, riskFreeRate, equityRiskPremium, beta, costOfDebt, taxRate, marketCap, sharesOutstanding, totalDebt, cashAndEquivalents, projectionYears, midYearConvention, data]);
 
   // WACC sensitivity ranges (Grid A)
   const waccSteps = dcfResult ? [
@@ -288,6 +295,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
       targetFcfMargin,
       projectionYears,
       terminalGrowthRate: terminalGrowth,
+      midYearConvention,
       riskFreeRate,
       equityRiskPremium,
       beta,
@@ -330,6 +338,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
       targetFcfMargin,
       projectionYears,
       terminalGrowthRate: terminalGrowth,
+      midYearConvention,
       riskFreeRate,
       equityRiskPremium,
       beta,
@@ -369,6 +378,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
     csvContent += `Beta,${beta.toFixed(2)}\r\n`;
     csvContent += `Cost of Debt (after tax),${(costOfDebt * (1 - taxRate) * 100).toFixed(2)}%\r\n`;
     csvContent += `Effective Tax Rate,${(taxRate * 100).toFixed(2)}%\r\n`;
+    csvContent += `Mid-Year Discounting,${midYearConvention ? 'Yes' : 'No'}\r\n`;
     csvContent += `Shares Outstanding,${sharesOutstanding}\r\n`;
     csvContent += `Total Debt,${totalDebt}\r\n`;
     csvContent += `Cash & Equivalents,${cashAndEquivalents}\r\n\r\n`;
@@ -772,7 +782,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                 <div className="flex justify-between items-center text-xs">
                   <span className="font-semibold text-slate-600 flex items-center gap-1">
                     FCF Margin (Initial Year 1)
-                    <span className="text-slate-400 cursor-help" title="FCF margin for Year 1. Linearly transitions to Target Margin in the final year.">
+                    <span className="text-slate-400 cursor-help" title="Unlevered free cash flow (FCFF) margin for Year 1 — auto-seeded from historical FCFF (reported FCF + after-tax interest) so it is consistent with WACC discounting. Linearly transitions to the Target Margin in the final year.">
                       <HelpCircle className="h-3.5 w-3.5" />
                     </span>
                   </span>
@@ -811,7 +821,7 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
                   FCF Margin (Target Year {projectionYears})
-                  <span className="text-slate-400 cursor-help" title="FCF margin reached in the final projection year. Useful for scaling businesses with operating leverage.">
+                  <span className="text-slate-400 cursor-help" title="Unlevered free cash flow (FCFF) margin reached in the final projection year. Useful for scaling businesses with operating leverage.">
                     <HelpCircle className="h-3.5 w-3.5" />
                   </span>
                 </label>
@@ -1013,6 +1023,22 @@ export const DCFCalculator: React.FC<DCFCalculatorProps> = ({ symbol, exchange, 
                     {dcfResult ? `${(dcfResult.wacc * 100).toFixed(2)}%` : 'N/A'}
                   </span>
                 </div>
+
+                {/* Mid-Year Convention toggle */}
+                <label className="p-3 bg-white border border-[#E5E8EF] rounded-lg flex items-center justify-between gap-2 cursor-pointer">
+                  <span className="text-xs font-semibold text-slate-600 flex items-center gap-0.5">
+                    Mid-Year Discounting
+                    <span className="text-slate-400 cursor-help" title="Discount cash flows at mid-year (period − 0.5) instead of year-end, assuming cash arrives evenly through the year. Slightly increases fair value and is standard in professional models.">
+                      <HelpCircle className="h-3.5 w-3.5" />
+                    </span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={midYearConvention}
+                    onChange={(e) => setMidYearConvention(e.target.checked)}
+                    className="h-4 w-4 accent-[#059669] cursor-pointer"
+                  />
+                </label>
               </div>
             </div>
           </div>

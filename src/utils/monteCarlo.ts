@@ -14,7 +14,8 @@ export interface MonteCarloInputs {
   currentPrice: number;
   baseWacc: number;
   revenueGrowthStdDev: number; // Std dev
-  targetFcfMarginStdDev: number; // Std dev
+  targetFcfMarginStdDev: number; // Std dev for the terminal/target FCF margin
+  fcfMarginStdDev?: number; // Std dev for the initial FCF margin (defaults to targetFcfMarginStdDev)
   waccStdDev: number; // Std dev
   terminalGrowthStdDev: number; // Std dev
 }
@@ -74,12 +75,14 @@ export function runMonteCarloSimulation(inputs: MonteCarloInputs, iterations: nu
   const baseFcfMarginTarget = inputs.baseInputs.targetFcfMargin !== undefined ? inputs.baseInputs.targetFcfMargin : inputs.baseInputs.fcfMargin;
   const baseFcfMarginInitial = inputs.baseInputs.fcfMargin;
   const baseTerminalGrowth = inputs.baseInputs.terminalGrowthRate;
+  // Initial FCF margin gets its own dispersion; fall back to the target's if unset.
+  const initialFcfMarginStdDev = inputs.fcfMarginStdDev !== undefined ? inputs.fcfMarginStdDev : inputs.targetFcfMarginStdDev;
 
   for (let i = 0; i < iterations; i++) {
     // Generate randomized inputs based on normal distribution
     const randRevGrowth = baseRevGrowth + randomNormal() * inputs.revenueGrowthStdDev;
     const randFcfMarginTarget = baseFcfMarginTarget + randomNormal() * inputs.targetFcfMarginStdDev;
-    const randFcfMarginInitial = baseFcfMarginInitial + randomNormal() * inputs.targetFcfMarginStdDev;
+    const randFcfMarginInitial = baseFcfMarginInitial + randomNormal() * initialFcfMarginStdDev;
     const randWacc = inputs.baseWacc + randomNormal() * inputs.waccStdDev;
     const randTerminalGrowth = baseTerminalGrowth + randomNormal() * inputs.terminalGrowthStdDev;
 

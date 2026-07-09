@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeWACC, computeDCF, computeSensitivityTable, DCFInputs } from '../dcfCalculator.js';
+import { computeWACC, computeDCF, computeDCFWithFixedWACC, computeSensitivityTable, DCFInputs } from '../dcfCalculator.js';
 
 const mockInputs: DCFInputs = {
   revenueGrowthRate: 0.10, // 10%
@@ -154,6 +154,49 @@ describe('DCF Calculator Utilities', () => {
       expect(result.projectedYears[0].fcfMargin).toBeCloseTo(0.20, 4);
       expect(result.projectedYears[2].fcfMargin).toBeCloseTo(0.25, 4);
       expect(result.projectedYears[4].fcfMargin).toBeCloseTo(0.30, 4);
+    });
+
+    it('fades growth smoothly (no cliff) for a 6-year projection', () => {
+      // stage-1 length = min(5, ceil(6/2)) = 3, so growth fades over years 4-6
+      const result = computeDCF({ ...mockInputs, projectionYears: 6 }, 100);
+      expect(result.projectedYears.length).toBe(6);
+
+      // Years 1-3 constant at the base 10%
+      expect(result.projectedYears[0].growthRate).toBeCloseTo(0.10, 4);
+      expect(result.projectedYears[2].growthRate).toBeCloseTo(0.10, 4);
+
+      // Year 4 (index 3): factor = (4-3)/3 => 0.10 - (1/3)(0.10-0.02) = 0.07333
+      expect(result.projectedYears[3].growthRate).toBeCloseTo(0.10 - (1 / 3) * 0.08, 4);
+      // Final year fades exactly to terminal growth (2%)
+      expect(result.projectedYears[5].growthRate).toBeCloseTo(0.02, 4);
+
+      // Monotonic fade, not a one-year cliff
+      expect(result.projectedYears[3].growthRate).toBeLessThan(result.projectedYears[2].growthRate);
+      expect(result.projectedYears[3].growthRate).toBeGreaterThan(result.projectedYears[5].growthRate);
+    });
+
+    it('applies mid-year discounting when midYearConvention is enabled', () => {
+      const base = computeDCF(mockInputs, 100);
+      const mid = computeDCF({ ...mockInputs, midYearConvention: true }, 100);
+
+      // Year 1 FCF discounted at period 0.5 instead of 1
+      const y1fcf = mid.projectedYears[0].fcf;
+      expect(mid.projectedYears[0].discountedFcf).toBeCloseTo(y1fcf / Math.pow(1.08, 0.5), 2);
+
+      // Terminal value PV discounted at N - 0.5
+      expect(mid.pvTerminalValue).toBeCloseTo(mid.terminalValue / Math.pow(1.08, 5 - 0.5), 2);
+
+      // Cash arriving sooner => higher fair value than year-end discounting
+      expect(mid.fairValuePerShare).toBeGreaterThan(base.fairValuePerShare);
+    });
+
+    it('computeDCFWithFixedWACC matches computeDCF when handed the same WACC (shared core)', () => {
+      const wacc = computeWACC(mockInputs);
+      const viaDerived = computeDCF(mockInputs, 100);
+      const viaFixed = computeDCFWithFixedWACC(mockInputs, 100, wacc);
+      expect(viaFixed.fairValuePerShare).toBeCloseTo(viaDerived.fairValuePerShare, 6);
+      expect(viaFixed.pvTerminalValue).toBeCloseTo(viaDerived.pvTerminalValue, 2);
+      expect(viaFixed.pvFcfSum).toBeCloseTo(viaDerived.pvFcfSum, 2);
     });
   });
 
