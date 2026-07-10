@@ -50,8 +50,10 @@ export const cacheService = {
   },
 
   set: async <T>(key: string, value: T, ttlSeconds: number): Promise<boolean> => {
-    // L1: always write to in-process cache with capped TTL
-    const l1Ttl = Math.min(ttlSeconds, 60);
+    // L1: always write to in-process cache
+    // If Redis is enabled, L1 acts as a short-lived cache (max 60s) to avoid redundant network calls.
+    // If Redis is disabled, L1 is the primary cache and holds the full requested TTL.
+    const l1Ttl = redisClient ? Math.min(ttlSeconds, 60) : ttlSeconds;
     localCache.set(key, value, l1Ttl);
 
     if (redisClient) {
