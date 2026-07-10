@@ -5,6 +5,7 @@ import apiClient from '../utils/apiClient.js';
 import { Star, TrendingUp, TrendingDown, Eye } from 'lucide-react';
 import { getCountryFlagUrl, getExchangeBadge } from '../utils/symbolHelper.js';
 import { formatPrice, formatPercentChange } from '../utils/formatters.js';
+import { usePrefetchCompany } from '../hooks/usePrefetchCompany.js';
 
 interface StockCardProps {
   symbol: string;
@@ -26,6 +27,7 @@ export const StockCard: React.FC<StockCardProps> = ({
   isStarred = false
 }) => {
   const queryClient = useQueryClient();
+  const prefetch = usePrefetchCompany();
 
   // Watchlist Star mutations
   const toggleStar = useMutation({
@@ -46,7 +48,11 @@ export const StockCard: React.FC<StockCardProps> = ({
   const isUp = (change ?? 0) >= 0;
 
   return (
-    <div className="group relative border border-white/50 bg-white/95 backdrop-blur-xl rounded-3xl p-5 shadow-xl shadow-blue-500/5 transition-all duration-300 hover:border-white hover:shadow-2xl hover:shadow-indigo-500/20 hover:-translate-y-2 flex flex-col justify-between h-44">
+    <div
+      className="group relative border border-white/50 bg-white/95 backdrop-blur-xl rounded-3xl p-5 shadow-xl shadow-blue-500/5 transition-all duration-300 hover:border-white hover:shadow-2xl hover:shadow-indigo-500/20 hover:-translate-y-2 flex flex-col justify-between h-44"
+      onMouseEnter={() => prefetch(symbol)}
+      onFocus={() => prefetch(symbol)}
+    >
       {/* Upper info section */}
       <div>
         <div className="flex items-start justify-between gap-2">

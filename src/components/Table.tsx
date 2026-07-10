@@ -18,6 +18,7 @@ interface TableProps<T> {
   sortOrder?: 'asc' | 'desc';
   onSort?: (key: string) => void;
   onRowClick?: (row: T) => void;
+  onRowHover?: (row: T) => void;
   id?: string;
 }
 
@@ -29,6 +30,7 @@ export function Table<T extends { id?: string | number; symbol?: string }>({
   sortOrder,
   onSort,
   onRowClick,
+  onRowHover,
   id = 'interactive-data-table'
 }: TableProps<T>) {
 
@@ -96,6 +98,7 @@ export function Table<T extends { id?: string | number; symbol?: string }>({
               <tr
                 key={row.id || row.symbol || rIdx}
                 onClick={() => onRowClick && onRowClick(row)}
+                onMouseEnter={() => onRowHover && onRowHover(row)}
                 className={`transition-all duration-300 transform ${
                   onRowClick ? 'cursor-pointer hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-transparent hover:scale-[1.01] hover:shadow-lg relative z-10' : 'hover:bg-indigo-50/30'
                 }`}

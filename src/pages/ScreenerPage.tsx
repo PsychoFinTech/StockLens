@@ -5,6 +5,7 @@ import apiClient from '../utils/apiClient.js';
 import { Table, Column } from '../components/Table.jsx';
 import { getCountryFlagUrl, getExchangeBadge } from '../utils/symbolHelper.js';
 import { formatPrice, formatPercentChange, formatMarketCap } from '../utils/formatters.js';
+import { usePrefetchCompany } from '../hooks/usePrefetchCompany.js';
 import {
   ChevronRight,
   Search,
@@ -635,6 +636,7 @@ function getApiParamsFromFilters(filters: FilterState): URLSearchParams {
 
 export const ScreenerPage: React.FC = () => {
   const navigate = useNavigate();
+  const prefetch = usePrefetchCompany();
 
   // Advanced filters state
   const [filters, setFilters] = useState<FilterState>({});
@@ -1166,6 +1168,7 @@ export const ScreenerPage: React.FC = () => {
                       <tr 
                         key={stock.symbol}
                         onClick={() => navigate(`/company/${encodeURIComponent(stock.symbol.toUpperCase())}`)}
+                        onMouseEnter={() => prefetch(stock.symbol)}
                         className="hover:bg-gradient-to-r hover:from-indigo-50/50 hover:to-transparent hover:scale-[1.01] hover:shadow-lg cursor-pointer transition-all duration-300 group relative z-10"
                       >
                         <td className="w-24 px-4 py-4 text-left">
@@ -1381,6 +1384,7 @@ export const ScreenerPage: React.FC = () => {
           sortOrder={sortOrder}
           onSort={handleSort}
           onRowClick={(row) => navigate(`/company/${encodeURIComponent(row.symbol.toUpperCase())}`)}
+          onRowHover={(row) => prefetch(row.symbol)}
         />
 
         {/* 4. Elegant Pagination Controls & Rows Stats */}

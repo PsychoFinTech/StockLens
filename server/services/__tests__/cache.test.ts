@@ -59,4 +59,27 @@ describe('cacheService', () => {
       expect(retrieved2.change_pct).toBe(3.0);
     });
   });
+
+  describe('L1 in-process cache', () => {
+    it('returns cached value from L1 after set without needing Redis', async () => {
+      const key = 'test:l1:hit';
+      const value = { foo: 'bar', num: 42 };
+
+      // Set a value — this should populate L1
+      await cacheService.set(key, value, 300);
+
+      // Get should return from L1 (no Redis configured in test env)
+      const result = await cacheService.get<typeof value>(key);
+      expect(result).toEqual(value);
+
+      // Second get should still return from L1
+      const result2 = await cacheService.get<typeof value>(key);
+      expect(result2).toEqual(value);
+    });
+
+    it('returns undefined for unknown keys', async () => {
+      const result = await cacheService.get('nonexistent:key:xyz');
+      expect(result).toBeUndefined();
+    });
+  });
 });

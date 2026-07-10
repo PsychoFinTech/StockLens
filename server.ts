@@ -85,9 +85,9 @@ async function startServer() {
     if (req.path.startsWith('/api/quote') || req.path.startsWith('/api/market')) {
       res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
-    // Edgar: immutable
+    // Edgar: 7 days
     else if (req.path.startsWith('/api/edgar')) {
-      res.set('Cache-Control', 'public, max-age=604800, immutable');
+      res.set('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
     }
     // Screener: private, very short
     else if (req.path.startsWith('/api/screener')) {
