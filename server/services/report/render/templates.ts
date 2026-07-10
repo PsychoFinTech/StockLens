@@ -96,7 +96,7 @@ function formatTableDataWithCAGR(fundamentals: any[], metricKeys: {key: string, 
   const sorted = [...fundamentals].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const last3 = sorted.slice(-3);
   
-  const headers = ['Metric', ...last3.map(f => new Date(f.date).getFullYear().toString()), '3Y CAGR'];
+  const headers = ['Metric', ...last3.map(f => new Date(f.date).getFullYear().toString()), '2Y CAGR'];
 
   const rows = metricKeys.map(mk => {
     const row = [mk.label];
@@ -271,7 +271,7 @@ export function generateReportContent(
   let businessDescription = secData.businessDescription;
   let riskFactors = secData.riskFactors;
   
-  const isForeign = ticker.includes('.') || exchange !== 'US Market' || quoteType.quoteType === 'ETF';
+  const isForeign = ticker.includes('.') || quoteType.quoteType === 'ETF';
   if (isForeign && (!businessDescription || businessDescription.includes('Not available'))) {
     const msg = `Foreign private issuer or non-corporate entity — no SEC 10-K filed. ${companyName} is listed on ${exchange} and files home-country reports, 20-F/6-K forms, or prospectus documents not currently parsed by the 10-K pipeline.`;
     businessDescription = msg;

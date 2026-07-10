@@ -52,6 +52,12 @@ function computeHistogram(sortedData: number[], bins: number = 40): HistogramBin
   const max = filtered[filtered.length - 1];
   const step = (max - min) / bins;
   
+  if (step === 0) {
+    return Array.from({ length: bins }, (_, i) => ({
+      min, max, count: i === 0 ? filtered.length : 0
+    }));
+  }
+  
   const histogram = Array.from({ length: bins }, (_, i) => ({
     min: min + i * step,
     max: min + (i + 1) * step,

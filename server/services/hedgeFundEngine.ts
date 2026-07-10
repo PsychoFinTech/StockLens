@@ -66,36 +66,44 @@ function benGrahamAgent(data: StockEvaluationData): AgentResult {
   let score = 0;
   let maxScore = 0;
 
-  maxScore += 2;
-  if (data.peRatio && data.peRatio > 0 && data.peRatio < 15) {
-    score += 2;
-    reasoning.push(`✅ P/E ratio is conservative at ${data.peRatio.toFixed(2)} (< 15)`);
-  } else if (data.peRatio) {
-    reasoning.push(`❌ P/E ratio is high at ${data.peRatio.toFixed(2)} (> 15)`);
+  if (data.peRatio !== null && data.peRatio !== undefined) {
+    maxScore += 2;
+    if (data.peRatio > 0 && data.peRatio < 15) {
+      score += 2;
+      reasoning.push(`✅ P/E ratio is conservative at ${data.peRatio.toFixed(2)} (< 15)`);
+    } else {
+      reasoning.push(`❌ P/E ratio is high at ${data.peRatio.toFixed(2)} (> 15)`);
+    }
   }
 
-  maxScore += 2;
-  if (data.pbRatio && data.pbRatio > 0 && data.pbRatio < 1.5) {
-    score += 2;
-    reasoning.push(`✅ P/B ratio is excellent at ${data.pbRatio.toFixed(2)} (< 1.5)`);
-  } else if (data.pbRatio) {
-    reasoning.push(`❌ P/B ratio is high at ${data.pbRatio.toFixed(2)} (> 1.5)`);
+  if (data.pbRatio !== null && data.pbRatio !== undefined) {
+    maxScore += 2;
+    if (data.pbRatio > 0 && data.pbRatio < 1.5) {
+      score += 2;
+      reasoning.push(`✅ P/B ratio is excellent at ${data.pbRatio.toFixed(2)} (< 1.5)`);
+    } else {
+      reasoning.push(`❌ P/B ratio is high at ${data.pbRatio.toFixed(2)} (> 1.5)`);
+    }
   }
 
-  maxScore += 1;
-  if (data.currentRatio && data.currentRatio > 1.5) {
-    score += 1;
-    reasoning.push(`✅ Current ratio is safe at ${data.currentRatio.toFixed(2)} (> 1.5)`);
-  } else if (data.currentRatio) {
-    reasoning.push(`❌ Current ratio is risky at ${data.currentRatio.toFixed(2)} (< 1.5)`);
+  if (data.currentRatio !== null && data.currentRatio !== undefined) {
+    maxScore += 1;
+    if (data.currentRatio > 1.5) {
+      score += 1;
+      reasoning.push(`✅ Current ratio is safe at ${data.currentRatio.toFixed(2)} (> 1.5)`);
+    } else {
+      reasoning.push(`❌ Current ratio is risky at ${data.currentRatio.toFixed(2)} (< 1.5)`);
+    }
   }
 
-  maxScore += 1;
-  if (data.debtToEquity && data.debtToEquity < 0.5) {
-    score += 1;
-    reasoning.push(`✅ Debt-to-Equity is low at ${data.debtToEquity.toFixed(2)} (< 0.5)`);
-  } else if (data.debtToEquity) {
-    reasoning.push(`❌ Debt-to-Equity is high at ${data.debtToEquity.toFixed(2)} (> 0.5)`);
+  if (data.debtToEquity !== null && data.debtToEquity !== undefined) {
+    maxScore += 1;
+    if (data.debtToEquity < 0.5) {
+      score += 1;
+      reasoning.push(`✅ Debt-to-Equity is low at ${data.debtToEquity.toFixed(2)} (< 0.5)`);
+    } else {
+      reasoning.push(`❌ Debt-to-Equity is high at ${data.debtToEquity.toFixed(2)} (> 0.5)`);
+    }
   }
 
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -113,31 +121,37 @@ function billAckmanAgent(data: StockEvaluationData): AgentResult {
   let score = 0;
   let maxScore = 0;
 
-  maxScore += 3;
-  if (data.operatingMargin && data.operatingMargin > 20) {
-    score += 3;
-    reasoning.push(`✅ Very strong operating margin at ${data.operatingMargin.toFixed(2)}% (business quality)`);
-  } else if (data.operatingMargin && data.operatingMargin > 10) {
-    score += 1;
-    reasoning.push(`⚠️ Decent operating margin at ${data.operatingMargin.toFixed(2)}%`);
-  } else if (data.operatingMargin) {
-    reasoning.push(`❌ Poor operating margin at ${data.operatingMargin.toFixed(2)}%`);
+  if (data.operatingMargin !== null && data.operatingMargin !== undefined) {
+    maxScore += 3;
+    if (data.operatingMargin > 20) {
+      score += 3;
+      reasoning.push(`✅ Very strong operating margin at ${data.operatingMargin.toFixed(2)}% (business quality)`);
+    } else if (data.operatingMargin > 10) {
+      score += 1;
+      reasoning.push(`⚠️ Decent operating margin at ${data.operatingMargin.toFixed(2)}%`);
+    } else {
+      reasoning.push(`❌ Poor operating margin at ${data.operatingMargin.toFixed(2)}%`);
+    }
   }
 
-  maxScore += 2;
-  if (data.fcfYield && data.fcfYield > 5) {
-    score += 2;
-    reasoning.push(`✅ High Free Cash Flow Yield of ${data.fcfYield.toFixed(2)}%`);
-  } else if (data.fcfYield) {
-    reasoning.push(`❌ Low Free Cash Flow Yield of ${data.fcfYield.toFixed(2)}%`);
+  if (data.fcfYield !== null && data.fcfYield !== undefined) {
+    maxScore += 2;
+    if (data.fcfYield > 5) {
+      score += 2;
+      reasoning.push(`✅ High Free Cash Flow Yield of ${data.fcfYield.toFixed(2)}%`);
+    } else {
+      reasoning.push(`❌ Low Free Cash Flow Yield of ${data.fcfYield.toFixed(2)}%`);
+    }
   }
 
-  maxScore += 2;
-  if (data.roic && data.roic > 15) {
-    score += 2;
-    reasoning.push(`✅ Excellent ROIC of ${data.roic.toFixed(2)}%`);
-  } else if (data.roic) {
-    reasoning.push(`❌ Weak ROIC of ${data.roic.toFixed(2)}%`);
+  if (data.roic !== null && data.roic !== undefined) {
+    maxScore += 2;
+    if (data.roic > 15) {
+      score += 2;
+      reasoning.push(`✅ Excellent ROIC of ${data.roic.toFixed(2)}%`);
+    } else {
+      reasoning.push(`❌ Weak ROIC of ${data.roic.toFixed(2)}%`);
+    }
   }
 
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -155,23 +169,27 @@ function cathieWoodAgent(data: StockEvaluationData): AgentResult {
   let score = 0;
   let maxScore = 0;
 
-  maxScore += 4;
-  if (data.revenueGrowthYoY && data.revenueGrowthYoY > 25) {
-    score += 4;
-    reasoning.push(`✅ Hyper-growth: Revenue up ${data.revenueGrowthYoY.toFixed(2)}% YoY`);
-  } else if (data.revenueGrowthYoY && data.revenueGrowthYoY > 15) {
-    score += 2;
-    reasoning.push(`⚠️ Solid growth: Revenue up ${data.revenueGrowthYoY.toFixed(2)}% YoY`);
-  } else if (data.revenueGrowthYoY !== null) {
-    reasoning.push(`❌ Slow growth: Revenue up ${data.revenueGrowthYoY.toFixed(2)}% YoY (< 15%)`);
+  if (data.revenueGrowthYoY !== null && data.revenueGrowthYoY !== undefined) {
+    maxScore += 4;
+    if (data.revenueGrowthYoY > 25) {
+      score += 4;
+      reasoning.push(`✅ Hyper-growth: Revenue up ${data.revenueGrowthYoY.toFixed(2)}% YoY`);
+    } else if (data.revenueGrowthYoY > 15) {
+      score += 2;
+      reasoning.push(`⚠️ Solid growth: Revenue up ${data.revenueGrowthYoY.toFixed(2)}% YoY`);
+    } else {
+      reasoning.push(`❌ Slow growth: Revenue up ${data.revenueGrowthYoY.toFixed(2)}% YoY (< 15%)`);
+    }
   }
 
-  maxScore += 2;
-  if (data.oneYearReturn && data.oneYearReturn > 30) {
-    score += 2;
-    reasoning.push(`✅ Strong 1Y price momentum (+${data.oneYearReturn.toFixed(2)}%)`);
-  } else if (data.oneYearReturn && data.oneYearReturn < 0) {
-    reasoning.push(`❌ Negative 1Y price momentum (${data.oneYearReturn.toFixed(2)}%)`);
+  if (data.oneYearReturn !== null && data.oneYearReturn !== undefined) {
+    maxScore += 2;
+    if (data.oneYearReturn > 30) {
+      score += 2;
+      reasoning.push(`✅ Strong 1Y price momentum (+${data.oneYearReturn.toFixed(2)}%)`);
+    } else if (data.oneYearReturn < 0) {
+      reasoning.push(`❌ Negative 1Y price momentum (${data.oneYearReturn.toFixed(2)}%)`);
+    }
   }
 
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -189,28 +207,34 @@ function charlieMungerAgent(data: StockEvaluationData): AgentResult {
   let score = 0;
   let maxScore = 0;
 
-  maxScore += 3;
-  if (data.roic && data.roic > 15) {
-    score += 3;
-    reasoning.push(`✅ High ROIC of ${data.roic.toFixed(2)}% shows capital efficiency`);
-  } else if (data.roic) {
-    reasoning.push(`❌ Weak ROIC of ${data.roic.toFixed(2)}%`);
+  if (data.roic !== null && data.roic !== undefined) {
+    maxScore += 3;
+    if (data.roic > 15) {
+      score += 3;
+      reasoning.push(`✅ High ROIC of ${data.roic.toFixed(2)}% shows capital efficiency`);
+    } else {
+      reasoning.push(`❌ Weak ROIC of ${data.roic.toFixed(2)}%`);
+    }
   }
 
-  maxScore += 2;
-  if (data.grossMargin && data.grossMargin > 40) {
-    score += 2;
-    reasoning.push(`✅ Strong Gross Margin of ${data.grossMargin.toFixed(2)}% indicating pricing power`);
-  } else if (data.grossMargin) {
-    reasoning.push(`❌ Weak Gross Margin of ${data.grossMargin.toFixed(2)}%`);
+  if (data.grossMargin !== null && data.grossMargin !== undefined) {
+    maxScore += 2;
+    if (data.grossMargin > 40) {
+      score += 2;
+      reasoning.push(`✅ Strong Gross Margin of ${data.grossMargin.toFixed(2)}% indicating pricing power`);
+    } else {
+      reasoning.push(`❌ Weak Gross Margin of ${data.grossMargin.toFixed(2)}%`);
+    }
   }
 
-  maxScore += 1;
-  if (data.debtToEquity && data.debtToEquity < 0.7) {
-    score += 1;
-    reasoning.push(`✅ Sensible debt level (D/E: ${data.debtToEquity.toFixed(2)})`);
-  } else if (data.debtToEquity) {
-    reasoning.push(`❌ Dangerously high debt (D/E: ${data.debtToEquity.toFixed(2)})`);
+  if (data.debtToEquity !== null && data.debtToEquity !== undefined) {
+    maxScore += 1;
+    if (data.debtToEquity < 0.7) {
+      score += 1;
+      reasoning.push(`✅ Sensible debt level (D/E: ${data.debtToEquity.toFixed(2)})`);
+    } else {
+      reasoning.push(`❌ Dangerously high debt (D/E: ${data.debtToEquity.toFixed(2)})`);
+    }
   }
 
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -228,20 +252,24 @@ function philFisherAgent(data: StockEvaluationData): AgentResult {
   let score = 0;
   let maxScore = 0;
 
-  maxScore += 3;
-  if (data.operatingMargin && data.operatingMargin > 15) {
-    score += 3;
-    reasoning.push(`✅ Excellent operational efficiency (Operating Margin: ${data.operatingMargin.toFixed(2)}%)`);
-  } else if (data.operatingMargin) {
-    reasoning.push(`❌ Weak operational efficiency (Operating Margin: ${data.operatingMargin.toFixed(2)}%)`);
+  if (data.operatingMargin !== null && data.operatingMargin !== undefined) {
+    maxScore += 3;
+    if (data.operatingMargin > 15) {
+      score += 3;
+      reasoning.push(`✅ Excellent operational efficiency (Operating Margin: ${data.operatingMargin.toFixed(2)}%)`);
+    } else {
+      reasoning.push(`❌ Weak operational efficiency (Operating Margin: ${data.operatingMargin.toFixed(2)}%)`);
+    }
   }
 
-  maxScore += 2;
-  if (data.epsGrowthYoY && data.epsGrowthYoY > 15) {
-    score += 2;
-    reasoning.push(`✅ Strong EPS Growth YoY (+${data.epsGrowthYoY.toFixed(2)}%)`);
-  } else if (data.epsGrowthYoY !== null) {
-    reasoning.push(`❌ Poor EPS Growth YoY (${data.epsGrowthYoY.toFixed(2)}%)`);
+  if (data.epsGrowthYoY !== null && data.epsGrowthYoY !== undefined) {
+    maxScore += 2;
+    if (data.epsGrowthYoY > 15) {
+      score += 2;
+      reasoning.push(`✅ Strong EPS Growth YoY (+${data.epsGrowthYoY.toFixed(2)}%)`);
+    } else {
+      reasoning.push(`❌ Poor EPS Growth YoY (${data.epsGrowthYoY.toFixed(2)}%)`);
+    }
   }
 
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -259,23 +287,27 @@ function stanDruckenmillerAgent(data: StockEvaluationData): AgentResult {
   let score = 0;
   let maxScore = 0;
 
-  maxScore += 3;
-  if (data.epsGrowthYoY && data.epsGrowthYoY > 20) {
-    score += 3;
-    reasoning.push(`✅ Earnings momentum is accelerating (+${data.epsGrowthYoY.toFixed(2)}% YoY)`);
-  } else if (data.epsGrowthYoY && data.epsGrowthYoY > 0) {
-    score += 1;
-    reasoning.push(`⚠️ Weak earnings momentum (+${data.epsGrowthYoY.toFixed(2)}% YoY)`);
-  } else if (data.epsGrowthYoY !== null) {
-    reasoning.push(`❌ Negative earnings momentum (${data.epsGrowthYoY.toFixed(2)}% YoY)`);
+  if (data.epsGrowthYoY !== null && data.epsGrowthYoY !== undefined) {
+    maxScore += 3;
+    if (data.epsGrowthYoY > 20) {
+      score += 3;
+      reasoning.push(`✅ Earnings momentum is accelerating (+${data.epsGrowthYoY.toFixed(2)}% YoY)`);
+    } else if (data.epsGrowthYoY > 0) {
+      score += 1;
+      reasoning.push(`⚠️ Weak earnings momentum (+${data.epsGrowthYoY.toFixed(2)}% YoY)`);
+    } else {
+      reasoning.push(`❌ Negative earnings momentum (${data.epsGrowthYoY.toFixed(2)}% YoY)`);
+    }
   }
 
-  maxScore += 2;
-  if (data.threeMonthReturn && data.threeMonthReturn > 10) {
-    score += 2;
-    reasoning.push(`✅ Strong near-term price momentum (+${data.threeMonthReturn.toFixed(2)}% in 3M)`);
-  } else if (data.threeMonthReturn && data.threeMonthReturn < 0) {
-    reasoning.push(`❌ Negative near-term price momentum (${data.threeMonthReturn.toFixed(2)}% in 3M)`);
+  if (data.threeMonthReturn !== null && data.threeMonthReturn !== undefined) {
+    maxScore += 2;
+    if (data.threeMonthReturn > 10) {
+      score += 2;
+      reasoning.push(`✅ Strong near-term price momentum (+${data.threeMonthReturn.toFixed(2)}% in 3M)`);
+    } else if (data.threeMonthReturn < 0) {
+      reasoning.push(`❌ Negative near-term price momentum (${data.threeMonthReturn.toFixed(2)}% in 3M)`);
+    }
   }
 
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -293,39 +325,47 @@ function warrenBuffettAgent(data: StockEvaluationData): AgentResult {
   let score = 0;
   let maxScore = 0;
 
-  maxScore += 3;
-  if (data.roe && data.roe > 15) {
-    score += 3;
-    reasoning.push(`✅ High ROE of ${data.roe.toFixed(2)}% indicating strong capital allocation`);
-  } else if (data.roe) {
-    reasoning.push(`❌ Low ROE of ${data.roe.toFixed(2)}%`);
+  if (data.roe !== null && data.roe !== undefined) {
+    maxScore += 3;
+    if (data.roe > 15) {
+      score += 3;
+      reasoning.push(`✅ High ROE of ${data.roe.toFixed(2)}% indicating strong capital allocation`);
+    } else {
+      reasoning.push(`❌ Low ROE of ${data.roe.toFixed(2)}%`);
+    }
   }
 
-  maxScore += 2;
-  if (data.netIncome && data.netIncome > 0) {
-    score += 2;
-    reasoning.push(`✅ Company is profitable`);
-  } else if (data.netIncome !== null) {
-    reasoning.push(`❌ Company is losing money`);
+  if (data.netIncome !== null && data.netIncome !== undefined) {
+    maxScore += 2;
+    if (data.netIncome > 0) {
+      score += 2;
+      reasoning.push(`✅ Company is profitable`);
+    } else {
+      reasoning.push(`❌ Company is losing money`);
+    }
   }
 
-  maxScore += 2;
-  if (data.debtToEquity && data.debtToEquity < 0.5) {
-    score += 2;
-    reasoning.push(`✅ Conservative debt structure (D/E: ${data.debtToEquity.toFixed(2)})`);
-  } else if (data.debtToEquity) {
-    reasoning.push(`❌ High debt structure (D/E: ${data.debtToEquity.toFixed(2)})`);
+  if (data.debtToEquity !== null && data.debtToEquity !== undefined) {
+    maxScore += 2;
+    if (data.debtToEquity < 0.5) {
+      score += 2;
+      reasoning.push(`✅ Conservative debt structure (D/E: ${data.debtToEquity.toFixed(2)})`);
+    } else {
+      reasoning.push(`❌ High debt structure (D/E: ${data.debtToEquity.toFixed(2)})`);
+    }
   }
 
-  maxScore += 3;
-  if (data.intrinsicValue && data.price < data.intrinsicValue * 0.8) {
-    score += 3;
-    reasoning.push(`✅ Trading at a discount to intrinsic value (Margin of Safety > 20%)`);
-  } else if (data.intrinsicValue && data.price > data.intrinsicValue) {
-    reasoning.push(`❌ Trading at a premium to intrinsic value`);
-  } else if (data.intrinsicValue) {
-    score += 1;
-    reasoning.push(`⚠️ Trading near fair value`);
+  if (data.intrinsicValue !== null && data.intrinsicValue !== undefined) {
+    maxScore += 3;
+    if (data.price < data.intrinsicValue * 0.8) {
+      score += 3;
+      reasoning.push(`✅ Trading at a discount to intrinsic value (Margin of Safety > 20%)`);
+    } else if (data.price > data.intrinsicValue) {
+      reasoning.push(`❌ Trading at a premium to intrinsic value`);
+    } else {
+      score += 1;
+      reasoning.push(`⚠️ Trading near fair value`);
+    }
   }
 
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
@@ -379,7 +419,7 @@ function portfolioManager(
 
     if (action === "BUY") {
       // Basic Risk Sizing: Allocate up to 15% per stock if strongly bullish
-      const allocationPercent = avgConfidence > 80 ? 0.20 : 0.10; 
+      const allocationPercent = avgConfidence > 80 ? 0.15 : 0.10; 
       let targetAllocation = cash * allocationPercent;
       if (targetAllocation > remainingCash) {
         targetAllocation = remainingCash;

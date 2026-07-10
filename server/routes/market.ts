@@ -126,7 +126,7 @@ router.get('/sectors', apiLimiter, async (req, res, next) => {
         return {
           name: sec.name,
           proxy: sec.proxy,
-          performance: quote ? Number(quote.change_pct.toFixed(2)) : 0
+          performance: quote && quote.change_pct !== undefined ? Number(quote.change_pct.toFixed(2)) : 0
         };
       })
     );

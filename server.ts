@@ -68,6 +68,7 @@ async function startServer() {
   // Health endpoint
   app.get('/health', (req, res) => {
     const dbOk = (() => { try { db.prepare('SELECT 1').get(); return true; } catch { return false; } })();
+    res.setHeader('Cache-Control', 'no-store');
     res.status(dbOk ? 200 : 503).json({
       status: dbOk ? 'ok' : 'degraded',
       uptime: process.uptime(),
@@ -84,9 +85,9 @@ async function startServer() {
     if (req.path.startsWith('/api/quote') || req.path.startsWith('/api/market')) {
       res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
-    // Edgar: immutable
+    // Edgar: 7 days
     else if (req.path.startsWith('/api/edgar')) {
-      res.set('Cache-Control', 'public, max-age=604800, immutable');
+      res.set('Cache-Control', 'public, max-age=604800, stale-while-revalidate=86400');
     }
     // Screener: private, very short
     else if (req.path.startsWith('/api/screener')) {
@@ -126,8 +127,19 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Hashed assets: cache forever. index.html handled separately below.
+    app.use(express.static(distPath, {
+      maxAge: '1y',
+      immutable: true,
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    }));
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

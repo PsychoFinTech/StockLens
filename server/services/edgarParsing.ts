@@ -4,11 +4,11 @@ export const cleanText = (txt: string): string => {
 
 export const parseMoney = (val: string): number | null => {
   if (!val) return null;
+  const isNegative = val.trim().startsWith('-') || val.includes('(');
   const cleaned = val.replace(/[$,\(\)\s—\-]/g, '').trim();
   if (!cleaned || isNaN(Number(cleaned))) return null;
   const num = parseFloat(cleaned);
-  if (val.includes('(') || val.includes(')')) return -num;
-  return num;
+  return isNegative ? -num : num;
 };
 
 export const isFootnote = (txt: string): boolean => {

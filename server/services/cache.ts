@@ -26,19 +26,36 @@ export const CACHE_TTLS = {
 
 export const cacheService = {
   get: async <T>(key: string): Promise<T | undefined> => {
+    // L1: always check in-process cache first
+    const l1Val = localCache.get<T>(key);
+    if (l1Val !== undefined) return l1Val;
+
     if (redisClient) {
       try {
         const val = await redisClient.get(key);
-        if (val) return JSON.parse(val) as T;
+        if (val) {
+          const parsed = JSON.parse(val) as T;
+          // Backfill L1 with a short TTL (max 60s)
+          const remainingTtl = await redisClient.ttl(key);
+          const l1Ttl = Math.min(remainingTtl > 0 ? remainingTtl : 60, 60);
+          localCache.set(key, parsed, l1Ttl);
+          return parsed;
+        }
       } catch (err) {
         console.error('[REDIS GET ERROR]', err);
       }
       return undefined;
     }
-    return localCache.get<T>(key);
+    return undefined;
   },
 
   set: async <T>(key: string, value: T, ttlSeconds: number): Promise<boolean> => {
+    // L1: always write to in-process cache
+    // If Redis is enabled, L1 acts as a short-lived cache (max 60s) to avoid redundant network calls.
+    // If Redis is disabled, L1 is the primary cache and holds the full requested TTL.
+    const l1Ttl = redisClient ? Math.min(ttlSeconds, 60) : ttlSeconds;
+    localCache.set(key, value, l1Ttl);
+
     if (redisClient) {
       try {
         await redisClient.setex(key, ttlSeconds, JSON.stringify(value));
@@ -48,7 +65,7 @@ export const cacheService = {
         return false;
       }
     }
-    return localCache.set(key, value, ttlSeconds);
+    return true;
   },
 
   // Log cached hits in the SQLite db

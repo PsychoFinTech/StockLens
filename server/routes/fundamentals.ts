@@ -117,7 +117,7 @@ router.get('/financials/:symbol', apiLimiter, async (req, res, next) => {
           year: dateVal !== '—' ? new Date(dateVal).getFullYear() : '—',
           date: dateVal,
           operating: r.totalCashFromOperatingActivities?.raw || r.operatingCashflow || 0,
-          investing: r.capitalExpenditures?.raw || r.investingCashflow || 0,
+          investing: r.totalCashflowsFromInvestingActivities?.raw || r.investingCashflow || 0,
           financing: r.totalCashFromFinancingActivities?.raw || r.financingCashflow || 0
         };
       })?.slice(0, 5).reverse() || [],
