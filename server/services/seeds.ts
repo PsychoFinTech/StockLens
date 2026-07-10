@@ -25,8 +25,8 @@ try {
   } else if (fs.existsSync(seedsPath)) {
     loadedSeeds = JSON.parse(fs.readFileSync(seedsPath, 'utf-8'));
   } else {
-    // Fallback relative to __dirname
-    const relativePath = path.join(__dirname, 'seeds.json');
+    // Fallback relative to import.meta.dirname
+    const relativePath = path.join(import.meta.dirname, 'seeds.json');
     if (fs.existsSync(relativePath)) {
       loadedSeeds = JSON.parse(fs.readFileSync(relativePath, 'utf-8'));
     } else {
