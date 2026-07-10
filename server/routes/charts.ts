@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../services/db.js';
 import { apiLimiter } from '../middleware/rateLimiter.js';
+import { yahooService } from '../services/yahoo.js';
 
 const router = Router();
 
@@ -84,7 +85,26 @@ router.get('/:symbol', apiLimiter, async (req, res, next) => {
       console.warn(`[CHART ROUTE WARNING] DB query fail for ${symbol}:`, err.message);
     }
 
-    // IF local DB is empty, return no_data
+    // IF local DB is empty, try Yahoo Finance live fetch
+    if (chartData.length === 0) {
+      const liveChartData = await yahooService.getCandles(symbol, resolution, from, to);
+      if (liveChartData && liveChartData.s === 'ok' && liveChartData.t) {
+        chartData = liveChartData.t.map((ts: number, i: number) => ({
+          date: new Date(ts * 1000).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: period === '5Y' || period === 'MAX' ? '2-digit' : undefined
+          }),
+          timestamp: ts,
+          close: Number(liveChartData.c[i]?.toFixed(2) || 0),
+          open: Number(liveChartData.o[i]?.toFixed(2) || 0),
+          high: Number(liveChartData.h[i]?.toFixed(2) || 0),
+          low: Number(liveChartData.l[i]?.toFixed(2) || 0),
+          volume: Number(liveChartData.v[i] || 0)
+        }));
+      }
+    }
+
     if (chartData.length === 0) {
       return res.json({ s: 'no_data' });
     }

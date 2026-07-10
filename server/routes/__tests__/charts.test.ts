@@ -3,6 +3,14 @@ import request from 'supertest';
 import express from 'express';
 import chartsRouter from '../charts.js';
 import db from '../../services/db.js';
+import { yahooService } from '../../services/yahoo.js';
+
+// Mock DB and YahooService completely to prevent side effects
+vi.mock('../../services/yahoo.js', () => ({
+  yahooService: {
+    getCandles: vi.fn().mockResolvedValue({ s: 'no_data' })
+  }
+}));
 
 const app = express();
 app.use(express.json());

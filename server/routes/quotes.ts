@@ -10,6 +10,8 @@ function formatClientQuote(symbol: string, data: any) {
   return {
     symbol: symbol.toUpperCase(),
     price: data?.price !== undefined && data?.price !== null ? Number(data.price) : null,
+    change: data?.change !== undefined && data?.change !== null ? Number(data.change) : null,
+    changePercent: data?.change_pct !== undefined && data?.change_pct !== null ? Number(data.change_pct) : null,
     high: data?.high !== undefined && data?.high !== null ? Number(data.high) : null,
     low: data?.low !== undefined && data?.low !== null ? Number(data.low) : null,
     open: data?.open !== undefined && data?.open !== null ? Number(data.open) : null,
