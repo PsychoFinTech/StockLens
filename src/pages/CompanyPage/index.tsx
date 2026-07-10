@@ -145,7 +145,8 @@ export const CompanyPage: React.FC = () => {
     secComparePeer,
     holdingsQuery,
     showRiskDiff,
-    activeSecSubTab
+    activeSecSubTab,
+    activePrimaryTab
   });
 
   const handlePeerClick = (peerSym: string) => {

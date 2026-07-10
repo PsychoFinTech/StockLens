@@ -59,6 +59,7 @@ interface UseCompanyDataProps {
   holdingsQuery: string;
   showRiskDiff: boolean;
   activeSecSubTab: string;
+  activePrimaryTab: 'overview' | 'analysis' | 'info' | 'sec';
 }
 
 export const useCompanyData = ({
@@ -67,6 +68,7 @@ export const useCompanyData = ({
   holdingsQuery,
   showRiskDiff,
   activeSecSubTab,
+  activePrimaryTab,
 }: UseCompanyDataProps) => {
   const queryClient = useQueryClient();
 
@@ -150,14 +152,6 @@ export const useCompanyData = ({
     }
   });
 
-  // News bulletins query hook
-  const { data: companyNews, isPending: isCompanyNewsPending } = useQuery({
-    queryKey: ['companyNews', upperSymbol],
-    queryFn: async () => {
-      const resp = await apiClient.get(`/news/${encodeURIComponent(upperSymbol)}`);
-      return resp.data || [];
-    }
-  });
 
   const isUSSymbol = (symbol: string): boolean => {
     const upper = symbol.toUpperCase();
@@ -235,7 +229,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/holdings/${holdingsQuery}`);
       return resp.data;
     },
-    enabled: isUSStock && !!holdingsQuery,
+    enabled: isUSStock && !!holdingsQuery && activePrimaryTab === 'sec' && activeSecSubTab === 'holdings',
     staleTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) return false;
@@ -249,8 +243,9 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/1`);
       return resp.data;
     },
-    enabled: isUSStock,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: isUSStock && activePrimaryTab === 'sec',
+    staleTime: 24 * 60 * 60 * 1000, // 24h — 10-K text is not intraday data
+    gcTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) return false;
       return failureCount < 2;
@@ -263,8 +258,9 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/1A`);
       return resp.data;
     },
-    enabled: isUSStock,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: isUSStock && activePrimaryTab === 'sec',
+    staleTime: 24 * 60 * 60 * 1000, // 24h — 10-K text is not intraday data
+    gcTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) return false;
       return failureCount < 2;
@@ -277,8 +273,9 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/section/${upperSymbol}/7`);
       return resp.data;
     },
-    enabled: isUSStock,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    enabled: isUSStock && activePrimaryTab === 'sec',
+    staleTime: 24 * 60 * 60 * 1000, // 24h — 10-K text is not intraday data
+    gcTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) return false;
       return failureCount < 2;
@@ -292,7 +289,8 @@ export const useCompanyData = ({
       return resp.data;
     },
     enabled: showRiskDiff && isUSStock,
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 24 * 60 * 60 * 1000, // 24h — 10-K text is not intraday data
+    gcTime: 24 * 60 * 60 * 1000,
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) return false;
       return failureCount < 2;
@@ -305,7 +303,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/proxy/${upperSymbol}`);
       return resp.data;
     },
-    enabled: isUSStock && activeSecSubTab === 'proxy',
+    enabled: isUSStock && activePrimaryTab === 'sec' && activeSecSubTab === 'proxy',
     staleTime: 24 * 60 * 60 * 1000, // cache 24h
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) return false;
@@ -319,7 +317,7 @@ export const useCompanyData = ({
       const resp = await edgarApiClient.get(`/edgar/pay-vs-performance/${upperSymbol}`);
       return resp.data;
     },
-    enabled: isUSStock && activeSecSubTab === 'proxy',
+    enabled: isUSStock && activePrimaryTab === 'sec' && activeSecSubTab === 'proxy',
     staleTime: 24 * 60 * 60 * 1000, // cache 24h
     retry: (failureCount, error: any) => {
       if (error?.response?.status === 404) return false;
@@ -350,8 +348,8 @@ export const useCompanyData = ({
     peers,
     isPeersPending,
     quote,
-    companyNews,
-    isCompanyNewsPending,
+    companyNews: news,
+    isCompanyNewsPending: isNewsPending,
     isUSStock,
     financials,
     isFinancialsPending,

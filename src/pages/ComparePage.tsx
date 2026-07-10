@@ -103,6 +103,7 @@ export const ComparePage: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [highlightHighLow, setHighlightHighLow] = useState(true);
+  const [commonSize, setCommonSize] = useState(false); // Common size financials toggle
   const [currencyMode, setCurrencyMode] = useState<'USD' | 'LCL'>('USD'); // USD or Local
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -373,6 +374,18 @@ export const ComparePage: React.FC = () => {
             />
             <div className="relative w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-600"></div>
             <span className="ms-2 text-xs font-semibold text-gray-700 select-none">Highlight Highs/Lows</span>
+          </label>
+
+          {/* Common Size toggle */}
+          <label className="inline-flex items-center cursor-pointer bg-white/90 backdrop-blur-xl px-3.5 py-2 rounded-xl border border-white/50 shadow-lg shadow-blue-500/5 hover:bg-white transition-colors">
+            <input 
+              type="checkbox" 
+              checked={commonSize} 
+              onChange={() => setCommonSize(!commonSize)} 
+              className="sr-only peer" 
+            />
+            <div className="relative w-8 h-4 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-indigo-600"></div>
+            <span className="ms-2 text-xs font-semibold text-gray-700 select-none">Common Size %</span>
           </label>
 
           {/* Currency dropdown */}
@@ -684,20 +697,32 @@ export const ComparePage: React.FC = () => {
                   <>
                     {renderRow(
                       'Revenue',
-                      (d) => formatMarketCap(d.incomeStatement.revenue, d.profile.exchange, d.symbol),
-                      (d) => d.incomeStatement.revenue,
+                      (d) => commonSize && d.incomeStatement.revenue ? '100.00%' : formatMarketCap(d.incomeStatement.revenue, d.profile.exchange, d.symbol),
+                      (d) => commonSize && d.incomeStatement.revenue ? 100 : d.incomeStatement.revenue,
                       'high'
                     )}
                     {renderRow(
                       'Operating Expenses',
-                      (d) => formatMarketCap(d.incomeStatement.operatingExpenses, d.profile.exchange, d.symbol),
-                      (d) => d.incomeStatement.operatingExpenses,
+                      (d) => {
+                        if (commonSize) {
+                          if (!d.incomeStatement.revenue || !d.incomeStatement.operatingExpenses) return '—';
+                          return `${((d.incomeStatement.operatingExpenses / d.incomeStatement.revenue) * 100).toFixed(2)}%`;
+                        }
+                        return formatMarketCap(d.incomeStatement.operatingExpenses, d.profile.exchange, d.symbol);
+                      },
+                      (d) => commonSize ? (d.incomeStatement.operatingExpenses && d.incomeStatement.revenue ? (d.incomeStatement.operatingExpenses / d.incomeStatement.revenue) * 100 : null) : d.incomeStatement.operatingExpenses,
                       'low'
                     )}
                     {renderRow(
                       'Operating Income',
-                      (d) => formatMarketCap(d.incomeStatement.operatingIncome, d.profile.exchange, d.symbol),
-                      (d) => d.incomeStatement.operatingIncome,
+                      (d) => {
+                        if (commonSize) {
+                          if (!d.incomeStatement.revenue || d.incomeStatement.operatingIncome === null) return '—';
+                          return `${((d.incomeStatement.operatingIncome / d.incomeStatement.revenue) * 100).toFixed(2)}%`;
+                        }
+                        return formatMarketCap(d.incomeStatement.operatingIncome, d.profile.exchange, d.symbol);
+                      },
+                      (d) => commonSize ? (d.incomeStatement.operatingIncome !== null && d.incomeStatement.revenue ? (d.incomeStatement.operatingIncome / d.incomeStatement.revenue) * 100 : null) : d.incomeStatement.operatingIncome,
                       'high'
                     )}
                     {renderRow(
@@ -708,8 +733,14 @@ export const ComparePage: React.FC = () => {
                     )}
                     {renderRow(
                       'Gross Profit',
-                      (d) => formatMarketCap(d.incomeStatement.grossProfit, d.profile.exchange, d.symbol),
-                      (d) => d.incomeStatement.grossProfit,
+                      (d) => {
+                        if (commonSize) {
+                          if (!d.incomeStatement.revenue || d.incomeStatement.grossProfit === null) return '—';
+                          return `${((d.incomeStatement.grossProfit / d.incomeStatement.revenue) * 100).toFixed(2)}%`;
+                        }
+                        return formatMarketCap(d.incomeStatement.grossProfit, d.profile.exchange, d.symbol);
+                      },
+                      (d) => commonSize ? (d.incomeStatement.grossProfit !== null && d.incomeStatement.revenue ? (d.incomeStatement.grossProfit / d.incomeStatement.revenue) * 100 : null) : d.incomeStatement.grossProfit,
                       'high'
                     )}
                   </>
